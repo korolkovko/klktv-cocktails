@@ -370,7 +370,7 @@ body {
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-height: 88vh;
+  max-height: 75vh;
   border-radius: var(--radius-xl);
   overflow: hidden;
   animation: sheetIn .3s cubic-bezier(.32,.72,0,1);
