@@ -19,7 +19,7 @@ export default function App() {
   }, [search]);
 
   return (
-    <>
+    <div className="container">
       <SearchBar value={search} onChange={setSearch} />
 
       <section>
@@ -47,6 +47,6 @@ export default function App() {
       </footer>
 
       <BottomSheet cocktail={selected} onClose={() => setSelected(null)} />
-    </>
+    </div>
   );
 }
