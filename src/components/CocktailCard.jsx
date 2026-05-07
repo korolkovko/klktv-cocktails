@@ -7,8 +7,19 @@ const badgeStyles = {
   hot: 'badge badge--hot',
 };
 
+const SPIRIT_LABELS = {
+  gin: 'Джин',
+  vodka: 'Водка',
+  rum: 'Ром',
+  bourbon: 'Бурбон',
+  brandy: 'Бренди',
+  mezcal: 'Мескаль',
+};
+
 export default function CocktailCard({ cocktail, onClick }) {
   const bgColor = useImageColor(cocktail.img);
+  const spiritKey = cocktail.tags.find((t) => SPIRIT_LABELS[t]);
+  const spiritLabel = spiritKey ? SPIRIT_LABELS[spiritKey] : null;
 
   return (
     <article className="card" onClick={() => onClick(cocktail)}>
@@ -37,6 +48,9 @@ export default function CocktailCard({ cocktail, onClick }) {
             </div>
           )}
           <div className="card-flavors">
+            {spiritLabel && (
+              <span className="flavor-tag flavor-tag--spirit">{spiritLabel}</span>
+            )}
             {cocktail.flavors.slice(0, 3).map((f) => (
               <span key={f} className="flavor-tag">{f}</span>
             ))}

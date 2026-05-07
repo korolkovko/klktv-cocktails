@@ -286,6 +286,11 @@ body {
   color: var(--text-secondary);
 }
 
+.flavor-tag--spirit {
+  background: var(--accent-glow);
+  color: var(--accent);
+}
+
 /* ── META ── */
 .card-meta {
   display: flex;
