@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { classics, classicFamilies, COCKTAIL_TIMELINE } from '../data/classics';
+import { classics, classicFamilies } from '../data/classics';
 import FilterTags from '../components/FilterTags';
 import SearchBar from '../components/SearchBar';
 import ClassicCard from '../components/ClassicCard';
@@ -64,8 +64,6 @@ export default function ClassicsPage({ onOpenAuthorCocktail }) {
 
   const activeFamilyObj = classicFamilies.find((f) => f.key === activeFamily);
   const pct = Math.round(learned.size / classics.length * 100);
-  const showTimeline = activeFamily === 'all' && !search;
-
   return (
     <>
       <FilterTags
@@ -106,24 +104,6 @@ export default function ClassicsPage({ onOpenAuthorCocktail }) {
           {activeFamilyObj.tip && (
             <div className="classics-family-tip">💡 {activeFamilyObj.tip}</div>
           )}
-        </div>
-      )}
-
-      {/* Timeline (shown when Все selected, no search) */}
-      {showTimeline && (
-        <div className="classics-timeline">
-          <div className="classics-timeline-title">История коктейля</div>
-          {COCKTAIL_TIMELINE.map((t) => (
-            <div key={t.period} className="classics-timeline-row">
-              <div className="classics-timeline-period">{t.period}</div>
-              <div className="classics-timeline-body">
-                <div className="classics-timeline-desc">{t.desc}</div>
-                {t.examples && (
-                  <div className="classics-timeline-examples">{t.examples}</div>
-                )}
-              </div>
-            </div>
-          ))}
         </div>
       )}
 
