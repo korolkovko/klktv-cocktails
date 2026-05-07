@@ -1,6 +1,6 @@
 import { useRef, useEffect } from 'react';
 
-export default function FilterTags({ filters, active, onSelect, label }) {
+export default function FilterTags({ filters, active, onSelect, label, className }) {
   const activeRef = useRef(null);
 
   useEffect(() => {
@@ -10,7 +10,7 @@ export default function FilterTags({ filters, active, onSelect, label }) {
   }, [active]);
 
   return (
-    <nav className="nav-tags">
+    <nav className={`nav-tags${className ? ` ${className}` : ''}`}>
       {label && <span className="nav-tags-label">{label}</span>}
       {filters.map((f) => (
         <button

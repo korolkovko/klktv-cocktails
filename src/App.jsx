@@ -36,20 +36,28 @@ export default function App() {
       {page === 'menu' && (
         <>
           <SearchBar value={search} onChange={setSearch} />
-          <FilterTags filters={spiritFilters} active={activeSpirit} onSelect={setActiveSpirit} />
-          <FilterTags filters={glassFilters} active={activeGlass} onSelect={setActiveGlass} />
+          <FilterTags
+            filters={spiritFilters}
+            active={activeSpirit}
+            onSelect={setActiveSpirit}
+            className="nav-tags--menu-1"
+          />
+          <FilterTags
+            filters={glassFilters}
+            active={activeGlass}
+            onSelect={setActiveGlass}
+            className="nav-tags--menu-2"
+          />
 
           <section>
             <div className="section-header">
               <h2>Basic people can&apos;t tell what it is&reg;</h2>
             </div>
-
             <div className="cocktail-list">
               {filtered.map((c) => (
                 <CocktailCard key={c.id} cocktail={c} onClick={setSelected} />
               ))}
             </div>
-
             {filtered.length === 0 && (
               <div className="empty-state">
                 <div className="empty-state-icon">:/</div>
@@ -62,12 +70,14 @@ export default function App() {
             <div className="logo-text">Kollektiv</div>
             <p>Коктейльная карта</p>
           </footer>
-
-          <BottomSheet cocktail={selected} onClose={() => setSelected(null)} />
         </>
       )}
 
-      {page === 'classics' && <ClassicsPage onOpenAuthorCocktail={setSelected} />}
+      {page === 'classics' && (
+        <ClassicsPage onOpenAuthorCocktail={setSelected} />
+      )}
+
+      <BottomSheet cocktail={selected} onClose={() => setSelected(null)} />
     </div>
   );
 }

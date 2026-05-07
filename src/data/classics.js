@@ -938,7 +938,7 @@ export const classics = [
   {
     id: 'espresso_martini_bourbon',
     name: 'Espresso Martini (Bourbon)',
-    family: 'highball',
+    family: 'dessert',
     year: 2000,
     origin: null,
     spirits: ['whiskey'],

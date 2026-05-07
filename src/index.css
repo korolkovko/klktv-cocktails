@@ -175,8 +175,10 @@ body {
   z-index: 99;
   border-bottom: 1px solid var(--border);
 }
-.nav-tags:nth-of-type(1) { top: calc(45px + 57px); }
-.nav-tags:nth-of-type(2) { top: calc(45px + 57px + 41px); }
+.nav-tags--menu-1 { top: calc(45px + 57px); }
+.nav-tags--menu-2 { top: calc(45px + 57px + 41px); }
+.nav-tags--classics-1 { top: 45px; }
+.nav-tags--classics-2 { top: calc(45px + 41px); }
 .nav-tags::-webkit-scrollbar { display: none; }
 
 .nav-tags-label {
@@ -607,49 +609,264 @@ body {
 }
 
 /* ── CLASSICS PAGE ── */
-.classics-page {
+.classics-grid {
   padding-bottom: calc(3rem + var(--safe-bottom));
 }
 
-.classics-families {
+/* Progress bar */
+.classics-progress-wrap {
+  position: relative;
+  height: 2px;
+  background: var(--border);
+  margin: 0 1rem .75rem;
+  border-radius: 1px;
+  overflow: visible;
+}
+
+.classics-progress-bar {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 1px;
+  transition: width .4s ease;
+}
+
+.classics-progress-label {
+  position: absolute;
+  top: .35rem;
+  left: 0;
+  font-size: .6rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  letter-spacing: .02em;
+}
+
+/* Family info block */
+.classics-family-info {
+  margin: 0 1rem .75rem;
+  padding: .75rem 1rem;
+  background: var(--bg-card);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  border-left: 3px solid #555;
+}
+
+.classics-family-logic {
+  font-size: .8rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.classics-family-evolution {
+  margin-top: .4rem;
+  font-size: .7rem;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+/* ── CLASSIC CARD ── */
+.classic-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--fc, var(--border));
+  border-radius: var(--radius-md);
+  padding: .9rem .9rem .75rem;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 148px;
+  transition: transform .15s, border-color .2s;
+  animation: cardIn .4s ease both;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.classic-card:active { transform: scale(.98); }
+
+.classic-card-year {
+  position: absolute;
+  top: .3rem;
+  right: .6rem;
+  font-family: 'Unbounded', sans-serif;
+  font-size: 2rem;
+  font-weight: 900;
+  color: var(--fc, #333);
+  opacity: .1;
+  line-height: 1;
+  pointer-events: none;
+  letter-spacing: -.04em;
+}
+
+.classic-card-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: .25rem;
+  position: relative;
+  z-index: 1;
+}
+
+.classic-card-name {
+  font-family: 'Unbounded', sans-serif;
+  font-weight: 700;
+  font-size: .78rem;
+  letter-spacing: -.01em;
+  line-height: 1.2;
+  color: var(--text);
+  padding-right: 1.5rem;
+}
+
+.classic-card-origin {
+  font-size: .62rem;
+  color: var(--text-dim);
+}
+
+.classic-card-pills {
+  display: flex;
+  gap: .3rem;
+  flex-wrap: wrap;
+  margin-top: .25rem;
+}
+
+.classic-pill {
+  font-size: .55rem;
+  font-weight: 700;
+  padding: .15rem .4rem;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.classic-pill--spirit {
+  background: rgba(255,255,255,.05);
+  color: var(--fc, var(--text-dim));
+}
+
+.classic-pill--glass {
+  background: rgba(255,255,255,.04);
+  color: var(--text-dim);
+}
+
+.classic-card-desc {
+  font-size: .63rem;
+  color: var(--text-dim);
+  margin-top: auto;
+  padding-top: .35rem;
+  line-height: 1.4;
+}
+
+.classic-learned-btn {
+  position: absolute;
+  bottom: .55rem;
+  right: .55rem;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-light);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: .72rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .2s, border-color .2s, color .2s;
+  z-index: 2;
+  flex-shrink: 0;
+}
+
+.classic-learned-btn.learned {
+  background: var(--fc, var(--accent));
+  border-color: var(--fc, var(--accent));
+  color: #fff;
+}
+
+/* ── CLASSIC SHEET ── */
+.classic-sheet-family {
+  font-size: .6rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  margin-bottom: .5rem;
+}
+
+.classic-sheet-meta {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  margin-top: .3rem;
+}
+
+.classic-sheet-year {
+  font-family: 'Unbounded', sans-serif;
+  font-size: .75rem;
+  font-weight: 700;
+  color: var(--fc, var(--text-dim));
+  opacity: .6;
+}
+
+.classic-sheet-origin {
+  font-size: .78rem;
+  color: var(--text-dim);
+}
+
+.classic-sheet-info {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .5rem;
+  margin-bottom: .25rem;
+}
+
+.classic-related-list {
   display: flex;
   flex-direction: column;
   gap: .4rem;
-  padding: 1.25rem 1rem .75rem;
+  margin-top: .25rem;
 }
 
-.family-chip {
-  display: flex;
-  align-items: baseline;
-  gap: .65rem;
-  padding: .7rem 1rem;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
+.classic-related-btn {
+  background: rgba(255,255,255,.05);
+  border: 1px solid var(--border-light);
   border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: border-color .2s;
-}
-
-.family-chip:hover { border-color: var(--border-light); }
-
-.family-chip-label {
-  font-family: 'Unbounded', sans-serif;
-  font-weight: 700;
-  font-size: .75rem;
-  letter-spacing: -.01em;
   color: var(--text);
-  white-space: nowrap;
+  font-family: 'Unbounded', sans-serif;
+  font-size: .7rem;
+  font-weight: 700;
+  padding: .55rem .85rem;
+  cursor: pointer;
+  text-align: left;
+  transition: background .2s, border-color .2s;
 }
 
-.family-chip-sub {
-  font-size: .72rem;
+.classic-related-btn:hover {
+  background: rgba(255,255,255,.09);
+  border-color: var(--border-light);
+}
+
+.classic-sheet-learned {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .4rem;
+  margin-top: 1.5rem;
+  width: 100%;
+  padding: .75rem;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border-light);
+  background: transparent;
   color: var(--text-dim);
-  line-height: 1.3;
+  font-family: inherit;
+  font-size: .8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .2s;
 }
 
-.classics-empty {
-  text-align: center;
-  padding: 3rem 2rem;
+.classic-sheet-learned.active {
+  background: rgba(from var(--fc) r g b / .12);
+  border-color: var(--fc, var(--accent));
+  color: var(--fc, var(--accent));
 }
 
 /* ── SCROLLBAR ── */
