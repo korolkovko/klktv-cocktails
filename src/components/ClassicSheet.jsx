@@ -81,7 +81,7 @@ export default function ClassicSheet({ classic, learned, onToggleLearned, onClos
                 <div className="sheet-text">{classic.glass}</div>
               </div>
               <div className="sheet-section">
-                <div className="sheet-label">Гарнир</div>
+                <div className="sheet-label">Гарниш</div>
                 <div className="sheet-text">{classic.garnish}</div>
               </div>
             </div>

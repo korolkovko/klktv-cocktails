@@ -1,8 +1,10 @@
 import { useState, useMemo } from 'react';
-import { classics, classicFamilies } from '../data/classics';
+import { classics, classicFamilies, COCKTAIL_TIMELINE } from '../data/classics';
 import FilterTags from '../components/FilterTags';
+import SearchBar from '../components/SearchBar';
 import ClassicCard from '../components/ClassicCard';
 import ClassicSheet from '../components/ClassicSheet';
+import ProgressPanel from '../components/ProgressPanel';
 
 const FAMILY_FILTERS = [
   { key: 'all', label: 'Все' },
@@ -24,7 +26,9 @@ const SPIRIT_FILTERS = [
 export default function ClassicsPage({ onOpenAuthorCocktail }) {
   const [activeFamily, setActiveFamily] = useState('all');
   const [activeSpirit, setActiveSpirit] = useState('all');
+  const [search, setSearch] = useState('');
   const [selected, setSelected] = useState(null);
+  const [showProgress, setShowProgress] = useState(false);
   const [learned, setLearned] = useState(() => {
     try {
       const saved = localStorage.getItem('classics_learned');
@@ -43,21 +47,31 @@ export default function ClassicsPage({ onOpenAuthorCocktail }) {
     });
   };
 
-  const filtered = useMemo(() => classics.filter((c) => {
-    if (activeFamily !== 'all' && c.family !== activeFamily) return false;
-    if (activeSpirit !== 'all' && !c.spirits.includes(activeSpirit)) return false;
-    return true;
-  }), [activeFamily, activeSpirit]);
+  const filtered = useMemo(() => {
+    let list = classics;
+    if (activeFamily !== 'all') list = list.filter((c) => c.family === activeFamily);
+    if (activeSpirit !== 'all') list = list.filter((c) => c.spirits.includes(activeSpirit));
+    const q = search.toLowerCase().trim();
+    if (q) {
+      list = list.filter((c) =>
+        c.name.toLowerCase().includes(q) ||
+        c.descriptors.some((d) => d.toLowerCase().includes(q)) ||
+        (c.origin || '').toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [activeFamily, activeSpirit, search]);
 
   const activeFamilyObj = classicFamilies.find((f) => f.key === activeFamily);
-  const progress = Math.round(learned.size / classics.length * 100);
+  const pct = Math.round(learned.size / classics.length * 100);
+  const showTimeline = activeFamily === 'all' && !search;
 
   return (
     <>
       <FilterTags
         filters={FAMILY_FILTERS}
         active={activeFamily}
-        onSelect={setActiveFamily}
+        onSelect={(k) => { setActiveFamily(k); setSearch(''); }}
         className="nav-tags--classics-1"
       />
       <FilterTags
@@ -67,22 +81,53 @@ export default function ClassicsPage({ onOpenAuthorCocktail }) {
         className="nav-tags--classics-2"
       />
 
-      <div className="classics-progress-wrap">
-        <div className="classics-progress-bar" style={{ width: `${progress}%` }} />
-        <span className="classics-progress-label">
-          {learned.size} из {classics.length} выучено
-        </span>
+      <div className="classics-search-wrap">
+        <SearchBar value={search} onChange={setSearch} />
       </div>
 
-      {activeFamily !== 'all' && activeFamilyObj && (
+      {/* Progress block */}
+      <button className="classics-progress-btn" onClick={() => setShowProgress(true)}>
+        <div className="classics-progress-top">
+          <span className="classics-progress-text">Прогресс изучения</span>
+          <span className="classics-progress-count">{learned.size} / {classics.length} · {pct}%</span>
+        </div>
+        <div className="classics-progress-track">
+          <div className="classics-progress-fill" style={{ width: `${pct}%` }} />
+        </div>
+      </button>
+
+      {/* Family theory block */}
+      {activeFamilyObj && activeFamily !== 'all' && (
         <div className="classics-family-info" style={{ borderLeftColor: activeFamilyObj.color }}>
           <div className="classics-family-logic">{activeFamilyObj.logic}</div>
           {activeFamilyObj.evolution && (
             <div className="classics-family-evolution">{activeFamilyObj.evolution}</div>
           )}
+          {activeFamilyObj.tip && (
+            <div className="classics-family-tip">💡 {activeFamilyObj.tip}</div>
+          )}
         </div>
       )}
 
+      {/* Timeline (shown when Все selected, no search) */}
+      {showTimeline && (
+        <div className="classics-timeline">
+          <div className="classics-timeline-title">История коктейля</div>
+          {COCKTAIL_TIMELINE.map((t) => (
+            <div key={t.period} className="classics-timeline-row">
+              <div className="classics-timeline-period">{t.period}</div>
+              <div className="classics-timeline-body">
+                <div className="classics-timeline-desc">{t.desc}</div>
+                {t.examples && (
+                  <div className="classics-timeline-examples">{t.examples}</div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Card grid */}
       <div className="cocktail-list classics-grid">
         {filtered.map((c) => (
           <ClassicCard
@@ -110,6 +155,17 @@ export default function ClassicsPage({ onOpenAuthorCocktail }) {
           onOpenAuthorCocktail={(cocktail) => {
             setSelected(null);
             onOpenAuthorCocktail(cocktail);
+          }}
+        />
+      )}
+
+      {showProgress && (
+        <ProgressPanel
+          learned={learned}
+          onClose={() => setShowProgress(false)}
+          onOpenClassic={(c) => {
+            setShowProgress(false);
+            setSelected(c);
           }}
         />
       )}
