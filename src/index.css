@@ -62,10 +62,45 @@ body {
   margin: 0 auto;
 }
 
+/* ── PAGE NAV ── */
+.page-nav {
+  position: sticky;
+  top: 0;
+  z-index: 101;
+  background: rgba(10,10,10,.96);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  padding: 0 1.25rem;
+}
+
+.page-nav-tab {
+  flex: 1;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-dim);
+  font-family: 'Unbounded', sans-serif;
+  font-size: .65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  padding: .85rem 0;
+  cursor: pointer;
+  transition: color .2s, border-color .2s;
+  margin-bottom: -1px;
+}
+
+.page-nav-tab.active {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
 /* ── SEARCH ── */
 .search-wrap {
   position: sticky;
-  top: 0;
+  top: 45px;
   z-index: 100;
   background: rgba(10,10,10,.92);
   backdrop-filter: blur(20px) saturate(180%);
@@ -140,8 +175,8 @@ body {
   z-index: 99;
   border-bottom: 1px solid var(--border);
 }
-.nav-tags:nth-of-type(1) { top: 57px; }
-.nav-tags:nth-of-type(2) { top: calc(57px + 41px); }
+.nav-tags:nth-of-type(1) { top: calc(45px + 57px); }
+.nav-tags:nth-of-type(2) { top: calc(45px + 57px + 41px); }
 .nav-tags::-webkit-scrollbar { display: none; }
 
 .nav-tags-label {
@@ -569,6 +604,52 @@ body {
 
 @media (min-width: 1024px) {
   .cocktail-list { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* ── CLASSICS PAGE ── */
+.classics-page {
+  padding-bottom: calc(3rem + var(--safe-bottom));
+}
+
+.classics-families {
+  display: flex;
+  flex-direction: column;
+  gap: .4rem;
+  padding: 1.25rem 1rem .75rem;
+}
+
+.family-chip {
+  display: flex;
+  align-items: baseline;
+  gap: .65rem;
+  padding: .7rem 1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color .2s;
+}
+
+.family-chip:hover { border-color: var(--border-light); }
+
+.family-chip-label {
+  font-family: 'Unbounded', sans-serif;
+  font-weight: 700;
+  font-size: .75rem;
+  letter-spacing: -.01em;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.family-chip-sub {
+  font-size: .72rem;
+  color: var(--text-dim);
+  line-height: 1.3;
+}
+
+.classics-empty {
+  text-align: center;
+  padding: 3rem 2rem;
 }
 
 /* ── SCROLLBAR ── */

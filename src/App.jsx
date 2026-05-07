@@ -1,11 +1,14 @@
 import { useState, useMemo } from 'react';
 import { cocktails, spiritFilters, glassFilters } from './data/cocktails';
+import NavTabs from './components/NavTabs';
 import SearchBar from './components/SearchBar';
 import FilterTags from './components/FilterTags';
 import CocktailCard from './components/CocktailCard';
 import BottomSheet from './components/BottomSheet';
+import ClassicsPage from './pages/ClassicsPage';
 
 export default function App() {
+  const [page, setPage] = useState('menu');
   const [search, setSearch] = useState('');
   const [activeSpirit, setActiveSpirit] = useState('all');
   const [activeGlass, setActiveGlass] = useState('all');
@@ -13,15 +16,8 @@ export default function App() {
 
   const filtered = useMemo(() => {
     let list = cocktails;
-
-    if (activeSpirit !== 'all') {
-      list = list.filter((c) => c.tags.includes(activeSpirit));
-    }
-
-    if (activeGlass !== 'all') {
-      list = list.filter((c) => c.glassTag === activeGlass);
-    }
-
+    if (activeSpirit !== 'all') list = list.filter((c) => c.tags.includes(activeSpirit));
+    if (activeGlass !== 'all') list = list.filter((c) => c.glassTag === activeGlass);
     const q = search.toLowerCase().trim();
     if (q) {
       list = list.filter((c) =>
@@ -30,41 +26,48 @@ export default function App() {
         c.flavors.some((f) => f.toLowerCase().includes(q))
       );
     }
-
     return list;
   }, [search, activeSpirit, activeGlass]);
 
   return (
     <div className="container">
-      <SearchBar value={search} onChange={setSearch} />
-      <FilterTags filters={spiritFilters} active={activeSpirit} onSelect={setActiveSpirit} />
-      <FilterTags filters={glassFilters} active={activeGlass} onSelect={setActiveGlass} />
+      <NavTabs active={page} onSelect={setPage} />
 
-      <section>
-        <div className="section-header">
-          <h2>Basic people can&apos;t tell what it is&reg;</h2>
-        </div>
+      {page === 'menu' && (
+        <>
+          <SearchBar value={search} onChange={setSearch} />
+          <FilterTags filters={spiritFilters} active={activeSpirit} onSelect={setActiveSpirit} />
+          <FilterTags filters={glassFilters} active={activeGlass} onSelect={setActiveGlass} />
 
-        <div className="cocktail-list">
-          {filtered.map((c) => (
-            <CocktailCard key={c.id} cocktail={c} onClick={setSelected} />
-          ))}
-        </div>
+          <section>
+            <div className="section-header">
+              <h2>Basic people can&apos;t tell what it is&reg;</h2>
+            </div>
 
-        {filtered.length === 0 && (
-          <div className="empty-state">
-            <div className="empty-state-icon">:/</div>
-            <div className="empty-state-text">Такого коктейля нет, но мы можем придумать</div>
-          </div>
-        )}
-      </section>
+            <div className="cocktail-list">
+              {filtered.map((c) => (
+                <CocktailCard key={c.id} cocktail={c} onClick={setSelected} />
+              ))}
+            </div>
 
-      <footer className="footer">
-        <div className="logo-text">Kollektiv</div>
-        <p>Коктейльная карта</p>
-      </footer>
+            {filtered.length === 0 && (
+              <div className="empty-state">
+                <div className="empty-state-icon">:/</div>
+                <div className="empty-state-text">Такого коктейля нет, но мы можем придумать</div>
+              </div>
+            )}
+          </section>
 
-      <BottomSheet cocktail={selected} onClose={() => setSelected(null)} />
+          <footer className="footer">
+            <div className="logo-text">Kollektiv</div>
+            <p>Коктейльная карта</p>
+          </footer>
+
+          <BottomSheet cocktail={selected} onClose={() => setSelected(null)} />
+        </>
+      )}
+
+      {page === 'classics' && <ClassicsPage onOpenAuthorCocktail={setSelected} />}
     </div>
   );
 }
