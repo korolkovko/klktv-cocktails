@@ -1,7 +1,6 @@
 import { useRef, useEffect } from 'react';
-import { filters } from '../data/cocktails';
 
-export default function FilterTags({ active, onSelect }) {
+export default function FilterTags({ filters, active, onSelect, label }) {
   const activeRef = useRef(null);
 
   useEffect(() => {
@@ -12,6 +11,7 @@ export default function FilterTags({ active, onSelect }) {
 
   return (
     <nav className="nav-tags">
+      {label && <span className="nav-tags-label">{label}</span>}
       {filters.map((f) => (
         <button
           key={f.key}

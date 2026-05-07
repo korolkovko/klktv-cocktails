@@ -1,26 +1,44 @@
 import { useState, useMemo } from 'react';
-import { cocktails } from './data/cocktails';
+import { cocktails, spiritFilters, glassFilters } from './data/cocktails';
 import SearchBar from './components/SearchBar';
+import FilterTags from './components/FilterTags';
 import CocktailCard from './components/CocktailCard';
 import BottomSheet from './components/BottomSheet';
 
 export default function App() {
   const [search, setSearch] = useState('');
+  const [activeSpirit, setActiveSpirit] = useState('all');
+  const [activeGlass, setActiveGlass] = useState('all');
   const [selected, setSelected] = useState(null);
 
   const filtered = useMemo(() => {
+    let list = cocktails;
+
+    if (activeSpirit !== 'all') {
+      list = list.filter((c) => c.tags.includes(activeSpirit));
+    }
+
+    if (activeGlass !== 'all') {
+      list = list.filter((c) => c.glassTag === activeGlass);
+    }
+
     const q = search.toLowerCase().trim();
-    if (!q) return cocktails;
-    return cocktails.filter((c) =>
-      c.name.toLowerCase().includes(q) ||
-      c.tagline.toLowerCase().includes(q) ||
-      c.flavors.some((f) => f.toLowerCase().includes(q))
-    );
-  }, [search]);
+    if (q) {
+      list = list.filter((c) =>
+        c.name.toLowerCase().includes(q) ||
+        c.tagline.toLowerCase().includes(q) ||
+        c.flavors.some((f) => f.toLowerCase().includes(q))
+      );
+    }
+
+    return list;
+  }, [search, activeSpirit, activeGlass]);
 
   return (
     <div className="container">
       <SearchBar value={search} onChange={setSearch} />
+      <FilterTags filters={spiritFilters} active={activeSpirit} onSelect={setActiveSpirit} />
+      <FilterTags filters={glassFilters} active={activeGlass} onSelect={setActiveGlass} />
 
       <section>
         <div className="section-header">

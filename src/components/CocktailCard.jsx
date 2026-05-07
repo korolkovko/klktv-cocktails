@@ -51,11 +51,14 @@ export default function CocktailCard({ cocktail, onClick }) {
             {spiritLabel && (
               <span className="flavor-tag flavor-tag--spirit">{spiritLabel}</span>
             )}
-            {cocktail.flavors.slice(0, 3).map((f) => (
+            {cocktail.abv && (
+              <span className="flavor-tag flavor-tag--abv">{cocktail.abv}</span>
+            )}
+            {cocktail.flavors.slice(0, 2).map((f) => (
               <span key={f} className="flavor-tag">{f}</span>
             ))}
-            {cocktail.flavors.length > 3 && (
-              <span className="flavor-tag flavor-tag--more">+{cocktail.flavors.length - 3}</span>
+            {cocktail.flavors.length > 2 && (
+              <span className="flavor-tag flavor-tag--more">+{cocktail.flavors.length - 2}</span>
             )}
           </div>
         </div>
