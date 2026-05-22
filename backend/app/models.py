@@ -1,8 +1,14 @@
 from datetime import datetime
-from sqlalchemy import Integer, String, Text, DateTime, func
-from sqlalchemy.orm import mapped_column, Mapped
+from sqlalchemy import (
+    Integer, String, Text, DateTime, ForeignKey, UniqueConstraint, func,
+)
+from sqlalchemy.orm import relationship, mapped_column, Mapped
 from app.database import Base
 
+
+# ────────────────────────────────────────────────────────────
+# Users
+# ────────────────────────────────────────────────────────────
 
 class User(Base):
     __tablename__ = "users"
@@ -13,3 +19,214 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(16), nullable=False, default="reader")
     name: Mapped[str | None] = mapped_column(String(128))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+# ────────────────────────────────────────────────────────────
+# Lookup tables (id + key/label)
+# ────────────────────────────────────────────────────────────
+
+class Spirit(Base):
+    __tablename__ = "spirits"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    key: Mapped[str] = mapped_column(String(32), unique=True, nullable=False, index=True)
+    label: Mapped[str] = mapped_column(String(64), nullable=False)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class Glass(Base):
+    __tablename__ = "glasses"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    key: Mapped[str] = mapped_column(String(32), unique=True, nullable=False, index=True)
+    label: Mapped[str] = mapped_column(String(64), nullable=False)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class Tag(Base):
+    """Author cocktail tags: gin, sour, sweet, bitter, blended, hot, premium, etc."""
+    __tablename__ = "tags"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    key: Mapped[str] = mapped_column(String(32), unique=True, nullable=False, index=True)
+
+
+class Flavor(Base):
+    """Author cocktail flavor descriptors (Russian)."""
+    __tablename__ = "flavors"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    label: Mapped[str] = mapped_column(String(128), unique=True, nullable=False, index=True)
+
+
+class Descriptor(Base):
+    """Classic cocktail descriptors (Russian): Кислый, Пряный, etc."""
+    __tablename__ = "descriptors"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    label: Mapped[str] = mapped_column(String(128), unique=True, nullable=False, index=True)
+
+
+class Badge(Base):
+    __tablename__ = "badges"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    key: Mapped[str] = mapped_column(String(32), unique=True, nullable=False, index=True)
+    label: Mapped[str] = mapped_column(String(64), nullable=False)
+
+
+# ────────────────────────────────────────────────────────────
+# Classic families (Sour, Daisy, Negroni, etc.)
+# ────────────────────────────────────────────────────────────
+
+class Family(Base):
+    __tablename__ = "families"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    key: Mapped[str] = mapped_column(String(32), unique=True, nullable=False, index=True)
+    label: Mapped[str] = mapped_column(String(64), nullable=False)
+    sub: Mapped[str | None] = mapped_column(String(128))
+    color: Mapped[str | None] = mapped_column(String(16))
+    logic: Mapped[str | None] = mapped_column(Text)
+    evolution: Mapped[str | None] = mapped_column(Text)
+    tip: Mapped[str | None] = mapped_column(Text)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+    classics: Mapped[list["Classic"]] = relationship(back_populates="family")
+
+
+# ────────────────────────────────────────────────────────────
+# Cocktails (author menu)
+# ────────────────────────────────────────────────────────────
+
+class Cocktail(Base):
+    __tablename__ = "cocktails"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    slug: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    img: Mapped[str | None] = mapped_column(String(256))
+    abv: Mapped[str | None] = mapped_column(String(16))
+    tagline: Mapped[str | None] = mapped_column(Text)
+    glass_id: Mapped[int | None] = mapped_column(ForeignKey("glasses.id", ondelete="SET NULL"))
+    glass_label_override: Mapped[str | None] = mapped_column(String(64))
+    badge_id: Mapped[int | None] = mapped_column(ForeignKey("badges.id", ondelete="SET NULL"))
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    glass: Mapped["Glass | None"] = relationship()
+    badge: Mapped["Badge | None"] = relationship()
+    tags: Mapped[list["CocktailTag"]] = relationship(back_populates="cocktail", cascade="all, delete-orphan", order_by="CocktailTag.sort_order")
+    flavors: Mapped[list["CocktailFlavor"]] = relationship(back_populates="cocktail", cascade="all, delete-orphan", order_by="CocktailFlavor.sort_order")
+    details: Mapped[list["CocktailDetail"]] = relationship(back_populates="cocktail", cascade="all, delete-orphan", order_by="CocktailDetail.sort_order")
+
+
+class CocktailTag(Base):
+    __tablename__ = "cocktail_tags"
+    cocktail_id: Mapped[int] = mapped_column(ForeignKey("cocktails.id", ondelete="CASCADE"), primary_key=True)
+    tag_id: Mapped[int] = mapped_column(ForeignKey("tags.id", ondelete="CASCADE"), primary_key=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+    cocktail: Mapped["Cocktail"] = relationship(back_populates="tags")
+    tag: Mapped["Tag"] = relationship()
+
+
+class CocktailFlavor(Base):
+    __tablename__ = "cocktail_flavors"
+    cocktail_id: Mapped[int] = mapped_column(ForeignKey("cocktails.id", ondelete="CASCADE"), primary_key=True)
+    flavor_id: Mapped[int] = mapped_column(ForeignKey("flavors.id", ondelete="CASCADE"), primary_key=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+    cocktail: Mapped["Cocktail"] = relationship(back_populates="flavors")
+    flavor: Mapped["Flavor"] = relationship()
+
+
+class CocktailDetail(Base):
+    """Cocktail story sections: label + text, ordered."""
+    __tablename__ = "cocktail_details"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    cocktail_id: Mapped[int] = mapped_column(ForeignKey("cocktails.id", ondelete="CASCADE"), index=True)
+    label: Mapped[str] = mapped_column(String(128), nullable=False)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+    cocktail: Mapped["Cocktail"] = relationship(back_populates="details")
+
+
+# ────────────────────────────────────────────────────────────
+# Classics (educational)
+# ────────────────────────────────────────────────────────────
+
+class Classic(Base):
+    __tablename__ = "classics"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    slug: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    family_id: Mapped[int] = mapped_column(ForeignKey("families.id", ondelete="RESTRICT"), index=True)
+    year: Mapped[int | None] = mapped_column(Integer)
+    origin: Mapped[str | None] = mapped_column(String(128))
+    composition: Mapped[str | None] = mapped_column(Text)
+    glass_id: Mapped[int | None] = mapped_column(ForeignKey("glasses.id", ondelete="SET NULL"))
+    glass_label_override: Mapped[str | None] = mapped_column(String(64))
+    garnish: Mapped[str | None] = mapped_column(Text)
+    history: Mapped[str | None] = mapped_column(Text)
+    for_whom: Mapped[str | None] = mapped_column(Text)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    family: Mapped["Family"] = relationship(back_populates="classics")
+    glass: Mapped["Glass | None"] = relationship()
+    spirits: Mapped[list["ClassicSpirit"]] = relationship(back_populates="classic", cascade="all, delete-orphan", order_by="ClassicSpirit.sort_order")
+    descriptors: Mapped[list["ClassicDescriptor"]] = relationship(back_populates="classic", cascade="all, delete-orphan", order_by="ClassicDescriptor.sort_order")
+    related_cocktails: Mapped[list["ClassicRelatedCocktail"]] = relationship(back_populates="classic", cascade="all, delete-orphan", order_by="ClassicRelatedCocktail.sort_order")
+
+
+class ClassicSpirit(Base):
+    __tablename__ = "classic_spirits"
+    classic_id: Mapped[int] = mapped_column(ForeignKey("classics.id", ondelete="CASCADE"), primary_key=True)
+    spirit_id: Mapped[int] = mapped_column(ForeignKey("spirits.id", ondelete="CASCADE"), primary_key=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+    classic: Mapped["Classic"] = relationship(back_populates="spirits")
+    spirit: Mapped["Spirit"] = relationship()
+
+
+class ClassicDescriptor(Base):
+    __tablename__ = "classic_descriptors"
+    classic_id: Mapped[int] = mapped_column(ForeignKey("classics.id", ondelete="CASCADE"), primary_key=True)
+    descriptor_id: Mapped[int] = mapped_column(ForeignKey("descriptors.id", ondelete="CASCADE"), primary_key=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+    classic: Mapped["Classic"] = relationship(back_populates="descriptors")
+    descriptor: Mapped["Descriptor"] = relationship()
+
+
+class ClassicRelatedCocktail(Base):
+    __tablename__ = "classic_related_cocktails"
+    classic_id: Mapped[int] = mapped_column(ForeignKey("classics.id", ondelete="CASCADE"), primary_key=True)
+    cocktail_id: Mapped[int] = mapped_column(ForeignKey("cocktails.id", ondelete="CASCADE"), primary_key=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+    classic: Mapped["Classic"] = relationship(back_populates="related_cocktails")
+    cocktail: Mapped["Cocktail"] = relationship()
+
+
+# ────────────────────────────────────────────────────────────
+# Per-user learned classics progress (Stage B prep, table exists now)
+# ────────────────────────────────────────────────────────────
+
+class ClassicProgress(Base):
+    __tablename__ = "classic_progress"
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    classic_id: Mapped[int] = mapped_column(ForeignKey("classics.id", ondelete="CASCADE"), primary_key=True)
+    learned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+# ────────────────────────────────────────────────────────────
+# Cocktail history timeline (educational static content)
+# ────────────────────────────────────────────────────────────
+
+class TimelineEntry(Base):
+    __tablename__ = "timeline_entries"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    period: Mapped[str] = mapped_column(String(64), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    examples: Mapped[str | None] = mapped_column(Text)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)

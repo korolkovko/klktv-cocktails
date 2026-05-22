@@ -8,7 +8,7 @@ load_dotenv()
 
 from app.config import CORS_ORIGINS  # noqa: E402
 from app.database import init_db  # noqa: E402
-from app.routers import auth  # noqa: E402
+from app.routers import auth, content  # noqa: E402
 
 
 @asynccontextmanager
@@ -28,6 +28,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
+app.include_router(content.router)
 
 
 @app.get("/health")

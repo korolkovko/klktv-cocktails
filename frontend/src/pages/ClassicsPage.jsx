@@ -1,15 +1,10 @@
 import { useState, useMemo } from 'react';
-import { classics, classicFamilies } from '../data/classics';
+import { useContent } from '../data/ContentContext';
 import FilterTags from '../components/FilterTags';
 import SearchBar from '../components/SearchBar';
 import ClassicCard from '../components/ClassicCard';
 import ClassicSheet from '../components/ClassicSheet';
 import ProgressPanel from '../components/ProgressPanel';
-
-const FAMILY_FILTERS = [
-  { key: 'all', label: 'Все' },
-  ...classicFamilies.map((f) => ({ key: f.key, label: f.label })),
-];
 
 const SPIRIT_FILTERS = [
   { key: 'all', label: 'Все' },
@@ -24,6 +19,11 @@ const SPIRIT_FILTERS = [
 ];
 
 export default function ClassicsPage({ onOpenAuthorCocktail }) {
+  const { classics, families: classicFamilies } = useContent();
+  const FAMILY_FILTERS = useMemo(() => [
+    { key: 'all', label: 'Все' },
+    ...classicFamilies.map((f) => ({ key: f.key, label: f.label })),
+  ], [classicFamilies]);
   const [activeFamily, setActiveFamily] = useState('all');
   const [activeSpirit, setActiveSpirit] = useState('all');
   const [search, setSearch] = useState('');
@@ -60,7 +60,7 @@ export default function ClassicsPage({ onOpenAuthorCocktail }) {
       );
     }
     return list;
-  }, [activeFamily, activeSpirit, search]);
+  }, [classics, activeFamily, activeSpirit, search]);
 
   const activeFamilyObj = classicFamilies.find((f) => f.key === activeFamily);
   const pct = Math.round(learned.size / classics.length * 100);

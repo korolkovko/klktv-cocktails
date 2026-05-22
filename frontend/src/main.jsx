@@ -4,12 +4,18 @@ import './index.css'
 import App from './App.jsx'
 import { AuthProvider } from './auth/AuthContext'
 import AuthGate from './auth/AuthGate'
+import { ContentProvider } from './data/ContentContext'
+import ContentGate from './data/ContentGate'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <AuthProvider>
       <AuthGate>
-        <App />
+        <ContentProvider>
+          <ContentGate>
+            <App />
+          </ContentGate>
+        </ContentProvider>
       </AuthGate>
     </AuthProvider>
   </StrictMode>,

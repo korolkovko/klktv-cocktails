@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { cocktails } from '../data/cocktails';
+import { useContent } from '../data/ContentContext';
 
 const FAMILY_COLORS = {
   sour: '#4e7a4e', daisy: '#7a8a2d', mary: '#8a2d2d',
@@ -15,6 +15,7 @@ const FAMILY_LABELS = {
 };
 
 export default function ClassicSheet({ classic, learned, onToggleLearned, onClose, onOpenAuthorCocktail }) {
+  const { cocktails } = useContent();
   const sheetRef = useRef(null);
   const fc = FAMILY_COLORS[classic?.family] || '#555';
 

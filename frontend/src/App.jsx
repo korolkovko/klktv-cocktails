@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { cocktails, spiritFilters, glassFilters } from './data/cocktails';
+import { useContent } from './data/ContentContext';
 import NavTabs from './components/NavTabs';
 import SearchBar from './components/SearchBar';
 import FilterTags from './components/FilterTags';
@@ -20,6 +20,7 @@ function LogoutButton() {
 }
 
 export default function App() {
+  const { cocktails, spiritFilters, glassFilters } = useContent();
   const [page, setPage] = useState('menu');
   const [search, setSearch] = useState('');
   const [activeSpirit, setActiveSpirit] = useState('all');
@@ -39,7 +40,7 @@ export default function App() {
       );
     }
     return list;
-  }, [search, activeSpirit, activeGlass]);
+  }, [cocktails, search, activeSpirit, activeGlass]);
 
   return (
     <div className="container">

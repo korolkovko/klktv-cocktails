@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { classics, classicFamilies } from '../data/classics';
+import { useContent } from '../data/ContentContext';
 
 export default function ProgressPanel({ learned, onClose, onOpenClassic }) {
+  const { classics, families: classicFamilies } = useContent();
   const [tab, setTab] = useState('learned');
   const sheetRef = useRef(null);
 
