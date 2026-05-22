@@ -6,6 +6,18 @@ import FilterTags from './components/FilterTags';
 import CocktailCard from './components/CocktailCard';
 import BottomSheet from './components/BottomSheet';
 import ClassicsPage from './pages/ClassicsPage';
+import { useAuth } from './auth/AuthContext';
+
+function LogoutButton() {
+  const { user, logout } = useAuth();
+  if (!user) return null;
+  return (
+    <button className="logout-btn" onClick={logout} title="Выйти">
+      <span className="logout-btn-name">{user.name || user.username}</span>
+      <span>↪</span>
+    </button>
+  );
+}
 
 export default function App() {
   const [page, setPage] = useState('menu');
@@ -31,6 +43,7 @@ export default function App() {
 
   return (
     <div className="container">
+      <LogoutButton />
       <NavTabs active={page} onSelect={setPage} />
 
       {page === 'menu' && (

@@ -1,0 +1,28 @@
+# Local dev: postgres only.
+# Run backend + frontend natively (faster reload).
+#
+#   docker compose up -d        # start postgres
+#   cd backend && uv sync && uv run python seed.py
+#   cd backend && uv run uvicorn app.main:app --reload --port 8000
+#   cd frontend && npm install && npm run dev
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: klktv_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: klktv_cocktails
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  pgdata:
