@@ -222,8 +222,8 @@ body {
 
 .zc-badge {
   position: absolute;
-  top: .65rem;
-  right: .65rem;
+  top: .55rem;
+  left: .55rem;
   z-index: 2;
   font-size: .58rem;
   font-weight: 700;
@@ -631,9 +631,11 @@ body {
   gap: 0;
 }
 
+/* Default thumb — tuned for the wide banner-style cocktail logos
+ * (5:2 contain with a hair of padding). */
 .card-thumb {
   width: 100%;
-  aspect-ratio: 3 / 2;
+  aspect-ratio: 5 / 2;
   flex-shrink: 0;
   overflow: hidden;
   position: relative;
@@ -646,8 +648,19 @@ body {
 .card-thumb img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  object-position: center;
+  object-fit: contain;
+  padding: 8px;
+}
+
+/* Photo thumb — for product/dish/bottle shots that are usually portrait
+ * or square. Taller container, full image visible (no cropping). */
+.card-thumb--photo {
+  aspect-ratio: 4 / 3;
+}
+
+.card-thumb--photo img {
+  object-fit: contain;
+  padding: 6px;
 }
 
 .card-content {
@@ -836,10 +849,10 @@ body {
   background: rgba(255,255,255,.25);
 }
 
-/* Hero image fills the sheet width (small or large source); height
- * adapts to the source aspect, capped so the image never dominates
- * the viewport. We use cover so even tiny portraits become visually
- * present — the source can be retaken later for better framing.   */
+/* Hero: full image always visible (no cropping). Container takes
+ * up to 60vh of height; image is scaled to fit inside, preserving
+ * aspect ratio. Portrait labels (e.g. ZC bottles) and wide dish
+ * photos both display in full.                                     */
 .sheet-hero {
   margin: 1.5rem 1.5rem 0;
   border-radius: var(--radius-md);
@@ -849,15 +862,17 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  min-height: 240px;
+  max-height: 60vh;
 }
 
 .sheet-hero img {
   display: block;
-  width: 100%;
+  width: auto;
   height: auto;
+  max-width: 100%;
   max-height: 60vh;
-  object-fit: cover;
-  object-position: center;
+  object-fit: contain;
 }
 
 .sheet-body {
@@ -1433,6 +1448,40 @@ body {
 .classic-learned-btn.learned {
   background: var(--fc, var(--accent));
   border-color: var(--fc, var(--accent));
+  color: #fff;
+}
+
+/* Generic card-level learned toggle (cocktails, kitchen, zero, zc, spirits). */
+.card-learned-btn {
+  position: absolute;
+  top: .55rem;
+  right: .55rem;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-light);
+  background: rgba(20, 20, 20, .8);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  color: var(--text-dim);
+  font-size: .85rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .15s ease, border-color .15s ease, color .15s ease;
+  z-index: 3;
+}
+
+.card-learned-btn:hover {
+  border-color: var(--text-secondary);
+  color: var(--text);
+}
+
+.card-learned-btn.learned {
+  background: var(--accent);
+  border-color: var(--accent);
   color: #fff;
 }
 

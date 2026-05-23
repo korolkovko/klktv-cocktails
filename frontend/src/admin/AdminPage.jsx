@@ -9,6 +9,7 @@ import ZCEditor from './ZCEditor';
 import KitchenEditor from './KitchenEditor';
 import KitchenCategoryRow from './KitchenCategoryRow';
 import SpiritEditor from './SpiritEditor';
+import SpiritCategoryRow from './SpiritCategoryRow';
 import CategoriesTab from './CategoriesTab';
 
 /**
@@ -351,15 +352,30 @@ export default function AdminPage() {
         <section>
           <div className="admin-list-head">
             <h2 className="admin-list-title">Крепкое (энциклопедия)</h2>
-            <button className="login-submit admin-add-cta" onClick={() => setCreating(true)}>
-              + Новая позиция
-            </button>
+            <div style={{ display: 'flex', gap: '.5rem' }}>
+              <button className="admin-btn" onClick={async () => {
+                const label = prompt('Название новой категории:');
+                if (!label || !label.trim()) return;
+                const slug = prompt('Slug (латиница):', label.trim().toLowerCase().replace(/\s+/g, '-'));
+                if (!slug || !slug.trim()) return;
+                try {
+                  await api.post('/api/admin/spirit-categories', {
+                    slug: slug.trim(),
+                    label: label.trim(),
+                    sort_order: spiritCategories.length,
+                    is_archived: false,
+                  });
+                  await reload();
+                } catch (e) { alert(e.message); }
+              }}>+ Категория</button>
+              <button className="login-submit admin-add-cta" onClick={() => setCreating(true)}>
+                + Новая позиция
+              </button>
+            </div>
           </div>
           {spiritsByCategory.map((cat) => (
             <div key={cat.slug} style={{ marginBottom: '1.5rem' }}>
-              <div className="admin-cat-section-head">
-                {cat.label}{cat.is_archived ? ' · архив' : ''} · {cat.entries.length}
-              </div>
+              <SpiritCategoryRow category={cat} entryCount={cat.entries.length} onChanged={reload} />
               <div className="admin-list">
                 {cat.entries.map((s) => (
                   <div key={s.id} className="admin-list-row">

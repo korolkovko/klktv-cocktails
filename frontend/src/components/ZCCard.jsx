@@ -1,16 +1,18 @@
 import { useImageColor } from '../hooks/useImageColor';
 import { resolveImageUrl } from '../auth/api';
+import CardLearnedBtn from './CardLearnedBtn';
 
 export default function ZCCard({ item, onClick }) {
   const imgUrl = resolveImageUrl(item.img);
   const bgColor = useImageColor(imgUrl);
   return (
     <article className="card" onClick={() => onClick(item)}>
+      <CardLearnedBtn kind="zc" slug={item.id} />
       <span className={`badge zc-badge ${item.isAlcoholic ? 'zc-badge--alc' : 'zc-badge--non'}`}>
         {item.isAlcoholic ? 'Алко' : 'Non Alc'}
       </span>
       <div className="card-inner">
-        <div className="card-thumb" style={{ background: bgColor || '#111' }}>
+        <div className="card-thumb card-thumb--photo" style={{ background: bgColor || '#111' }}>
           {imgUrl && <img src={imgUrl} alt={item.name} loading="lazy" />}
         </div>
         <div className="card-content">

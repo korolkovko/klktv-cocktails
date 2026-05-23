@@ -1,5 +1,6 @@
 import { useImageColor } from '../hooks/useImageColor';
 import { resolveImageUrl } from '../auth/api';
+import CardLearnedBtn from './CardLearnedBtn';
 
 const badgeStyles = {
   premium: 'badge badge--premium',
@@ -25,6 +26,7 @@ export default function CocktailCard({ cocktail, onClick }) {
 
   return (
     <article className="card" onClick={() => onClick(cocktail)}>
+      <CardLearnedBtn kind="menu" slug={cocktail.id} />
       {cocktail.badge && (
         <span className={badgeStyles[cocktail.badge.type]}>
           {cocktail.badge.label}

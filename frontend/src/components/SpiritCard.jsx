@@ -1,5 +1,6 @@
 import { useImageColor } from '../hooks/useImageColor';
 import { resolveImageUrl } from '../auth/api';
+import CardLearnedBtn from './CardLearnedBtn';
 
 export default function SpiritCard({ entry, onClick }) {
   const imgUrl = resolveImageUrl(entry.img);
@@ -8,9 +9,10 @@ export default function SpiritCard({ entry, onClick }) {
 
   return (
     <article className={`card kitchen-card${hasImg ? '' : ' kitchen-card--no-img'}`} onClick={() => onClick(entry)}>
+      <CardLearnedBtn kind="spirits" slug={entry.id} />
       <div className="card-inner">
         {hasImg && (
-          <div className="card-thumb" style={{ background: bgColor || '#111' }}>
+          <div className="card-thumb card-thumb--photo" style={{ background: bgColor || '#111' }}>
             <img src={imgUrl} alt={entry.name} loading="lazy" />
           </div>
         )}
