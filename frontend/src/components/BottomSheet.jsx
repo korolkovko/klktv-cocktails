@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useImageColor } from '../hooks/useImageColor';
 import { resolveImageUrl } from '../auth/api';
+import LearnedToggle from './LearnedToggle';
 
 export default function BottomSheet({ cocktail, onClose }) {
   const imgUrl = resolveImageUrl(cocktail?.img);
@@ -76,6 +77,8 @@ export default function BottomSheet({ cocktail, onClose }) {
                 ))}
               </>
             )}
+
+            <LearnedToggle kind="menu" slug={cocktail.id} />
           </div>
         </div>
       </div>

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useImageColor } from '../hooks/useImageColor';
 import { resolveImageUrl } from '../auth/api';
+import LearnedToggle from './LearnedToggle';
 
 function CaffeineBar({ level }) {
   return (
@@ -88,6 +89,8 @@ export default function ZCSheet({ item, onClose }) {
                 ))}
               </>
             )}
+
+            <LearnedToggle kind="zc" slug={item.id} />
           </div>
         </div>
       </div>

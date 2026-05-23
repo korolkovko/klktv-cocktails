@@ -6,6 +6,7 @@ import { AuthProvider } from './auth/AuthContext'
 import AuthGate from './auth/AuthGate'
 import { ContentProvider } from './data/ContentContext'
 import ContentGate from './data/ContentGate'
+import { ProgressProvider } from './data/useProgress'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -13,7 +14,9 @@ createRoot(document.getElementById('root')).render(
       <AuthGate>
         <ContentProvider>
           <ContentGate>
-            <App />
+            <ProgressProvider>
+              <App />
+            </ProgressProvider>
           </ContentGate>
         </ContentProvider>
       </AuthGate>

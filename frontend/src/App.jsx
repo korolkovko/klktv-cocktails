@@ -11,6 +11,7 @@ import ClassicsPage from './pages/ClassicsPage';
 import ZeroPage from './pages/ZeroPage';
 import ZCPage from './pages/ZCPage';
 import KitchenPage from './pages/KitchenPage';
+import ProgressPage from './pages/ProgressPage';
 import AdminPage from './admin/AdminPage';
 import UsersPage from './admin/UsersPage';
 
@@ -97,6 +98,7 @@ export default function App() {
       {page === 'zero' && <ZeroPage />}
       {page === 'zc' && <ZCPage />}
       {page === 'kitchen' && <KitchenPage />}
+      {page === 'progress' && <ProgressPage onOpenCategory={(k) => setPage(k)} />}
 
       {page === 'admin' && <AdminPage />}
       {page === 'users' && <UsersPage />}
@@ -104,6 +106,7 @@ export default function App() {
       <Footer
         onOpenAdmin={() => { setPage('admin'); setSelected(null); }}
         onOpenUsers={() => { setPage('users'); setSelected(null); }}
+        onOpenProgress={() => { setPage('progress'); setSelected(null); }}
       />
 
       <BottomSheet cocktail={selected} onClose={() => setSelected(null)} />

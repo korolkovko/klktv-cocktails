@@ -30,7 +30,7 @@ export default function ClassicsPage({ onOpenAuthorCocktail }) {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState(null);
   const [showProgress, setShowProgress] = useState(false);
-  const { learned, toggle: toggleLearned } = useProgress();
+  const { learned, toggle: toggleLearned } = useProgress('classics');
 
   const filtered = useMemo(() => {
     let list = classics;

@@ -63,6 +63,114 @@ body {
 }
 
 /* ── PAGE NAV ── */
+/* ── GLOBAL PROGRESS ── */
+.progress-overall {
+  margin-top: -.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.progress-overall-track {
+  width: 100%;
+  height: 8px;
+  background: var(--bg-card);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress-overall-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #7baae6, #7ec87c, var(--accent));
+  border-radius: 999px;
+  transition: width .3s ease;
+}
+
+.progress-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: .75rem;
+}
+
+.progress-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  cursor: pointer;
+  font-family: inherit;
+  color: inherit;
+  text-align: left;
+  transition: border-color .15s ease, background .15s ease;
+}
+
+.progress-card:hover {
+  border-color: var(--text-secondary);
+  background: var(--bg-elevated);
+}
+
+.progress-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.progress-card-label {
+  font-weight: 700;
+  font-size: .95rem;
+}
+
+.progress-card-count {
+  font-size: .8rem;
+  color: var(--text-dim);
+}
+
+.progress-card-track {
+  height: 6px;
+  background: rgba(255,255,255,.05);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress-card-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+}
+
+.progress-card-pct {
+  text-align: right;
+  font-size: .75rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.progress-list-title {
+  font-family: 'Unbounded', sans-serif;
+  font-weight: 700;
+  font-size: .75rem;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin-bottom: .5rem;
+}
+
+.progress-list-compact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem;
+}
+
+.progress-list-compact-item {
+  font-size: .8rem;
+  padding: .35rem .7rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-secondary);
+}
+
 /* ── ZERO + ZC ── */
 .flavor-tag--price {
   background: rgba(232,54,61,.12);
@@ -215,10 +323,13 @@ body {
   margin-top: .25rem;
 }
 
-.admin-btn--active {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--text);
+.admin-btn--active,
+.admin-btn--active:hover {
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+  color: var(--text) !important;
+  font-weight: 700;
+  box-shadow: 0 0 0 2px rgba(232, 54, 61, .25);
 }
 
 /* ── BURGER NAV ── */
@@ -725,16 +836,16 @@ body {
   background: rgba(255,255,255,.25);
 }
 
-/* Hero adapts to image aspect (portrait bottles, square cocktails,
- * wide food shots all fit). Width filled, height bounded so the image
- * doesn't push the body off-screen.  */
+/* Hero image fills the sheet width (small or large source); height
+ * adapts to the source aspect, capped so the image never dominates
+ * the viewport. We use cover so even tiny portraits become visually
+ * present — the source can be retaken later for better framing.   */
 .sheet-hero {
   margin: 1.5rem 1.5rem 0;
-  min-height: 220px;
-  max-height: 55vh;
+  border-radius: var(--radius-md);
   overflow: hidden;
   flex-shrink: 0;
-  border-radius: var(--radius-md);
+  background: var(--bg-card);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -742,11 +853,11 @@ body {
 
 .sheet-hero img {
   display: block;
-  width: auto;
+  width: 100%;
   height: auto;
-  max-width: 100%;
-  max-height: 55vh;
-  object-fit: contain;
+  max-height: 60vh;
+  object-fit: cover;
+  object-position: center;
 }
 
 .sheet-body {

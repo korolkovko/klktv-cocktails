@@ -213,9 +213,24 @@ class ClassicRelatedCocktail(Base):
 # ────────────────────────────────────────────────────────────
 
 class ClassicProgress(Base):
+    """Legacy table — superseded by LearningProgress (D-4.5).
+    Kept declared so SQLAlchemy doesn't try to drop it. New code uses
+    LearningProgress; existing rows are migrated at startup."""
     __tablename__ = "classic_progress"
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
     classic_id: Mapped[int] = mapped_column(ForeignKey("classics.id", ondelete="CASCADE"), primary_key=True)
+    learned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class LearningProgress(Base):
+    """Generic per-user "learned" mark across all content kinds.
+    Slug-based (no FK to specific entity tables) — supports cocktails,
+    classics, kitchen, zero, zc, spirits, etc. without table-per-kind
+    duplication. `kind` is one of the category kinds used by the frontend."""
+    __tablename__ = "learning_progress"
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    kind: Mapped[str] = mapped_column(String(32), primary_key=True)
+    slug: Mapped[str] = mapped_column(String(80), primary_key=True)
     learned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useImageColor } from '../hooks/useImageColor';
 import { resolveImageUrl } from '../auth/api';
+import LearnedToggle from './LearnedToggle';
 
 export default function KitchenSheet({ dish, onClose }) {
   const imgUrl = resolveImageUrl(dish?.img);
@@ -79,6 +80,8 @@ export default function KitchenSheet({ dish, onClose }) {
                 </div>
               </div>
             )}
+
+            <LearnedToggle kind="kitchen" slug={dish.id} />
           </div>
         </div>
       </div>

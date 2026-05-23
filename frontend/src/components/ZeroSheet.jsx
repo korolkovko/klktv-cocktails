@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useImageColor } from '../hooks/useImageColor';
 import { resolveImageUrl } from '../auth/api';
+import LearnedToggle from './LearnedToggle';
 
 export default function ZeroSheet({ item, onClose }) {
   const imgUrl = resolveImageUrl(item?.img);
@@ -74,6 +75,8 @@ export default function ZeroSheet({ item, onClose }) {
                 ))}
               </>
             )}
+
+            <LearnedToggle kind="zero" slug={item.id} />
           </div>
         </div>
       </div>

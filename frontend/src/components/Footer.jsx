@@ -6,7 +6,7 @@ import { useAuth } from '../auth/AuthContext';
  *   - admin only   → "Юзеры"
  *   - all logged-in → "Выйти"  (with current user's name as label)
  */
-export default function Footer({ onOpenAdmin, onOpenUsers }) {
+export default function Footer({ onOpenAdmin, onOpenUsers, onOpenProgress }) {
   const { user, logout } = useAuth();
   if (!user) return null;
   const canEdit  = user.role === 'admin' || user.role === 'editor';
@@ -20,6 +20,9 @@ export default function Footer({ onOpenAdmin, onOpenUsers }) {
       </div>
 
       <div className="footer-actions">
+        <button className="footer-link" onClick={onOpenProgress}>
+          Прогресс изучения
+        </button>
         {canEdit && (
           <button className="footer-link" onClick={onOpenAdmin}>
             Управление контентом
