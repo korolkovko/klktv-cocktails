@@ -7,6 +7,7 @@ import FamilyEditor from './FamilyEditor';
 import ZeroEditor from './ZeroEditor';
 import ZCEditor from './ZCEditor';
 import KitchenEditor from './KitchenEditor';
+import KitchenCategoryRow from './KitchenCategoryRow';
 import CategoriesTab from './CategoriesTab';
 
 /**
@@ -284,13 +285,29 @@ export default function AdminPage() {
         <section>
           <div className="admin-list-head">
             <h2 className="admin-list-title">Кухня</h2>
-            <button className="login-submit admin-add-cta" onClick={() => setCreating(true)}>
-              + Новое блюдо
-            </button>
+            <div style={{ display: 'flex', gap: '.5rem' }}>
+              <button className="admin-btn" onClick={async () => {
+                const label = prompt('Название новой категории:');
+                if (!label || !label.trim()) return;
+                const slug = prompt('Slug (латиница, без пробелов):', label.trim().toLowerCase().replace(/\s+/g, '-'));
+                if (!slug || !slug.trim()) return;
+                try {
+                  await api.post('/api/admin/kitchen-categories', {
+                    slug: slug.trim(),
+                    label: label.trim(),
+                    sort_order: kitchenCategories.length,
+                  });
+                  await reload();
+                } catch (e) { alert(e.message); }
+              }}>+ Категория</button>
+              <button className="login-submit admin-add-cta" onClick={() => setCreating(true)}>
+                + Новое блюдо
+              </button>
+            </div>
           </div>
           {dishesByCategory.map((cat) => (
             <div key={cat.slug} style={{ marginBottom: '1.5rem' }}>
-              <div className="admin-cat-section-head">{cat.label} · {cat.dishes.length}</div>
+              <KitchenCategoryRow category={cat} dishCount={cat.dishes.length} onChanged={reload} />
               <div className="admin-list">
                 {cat.dishes.map((d) => (
                   <div key={d.id} className="admin-list-row">

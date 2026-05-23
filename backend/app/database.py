@@ -24,6 +24,7 @@ def get_db():
 # this grows past ~10 entries, switch to Alembic.
 _COLUMN_MIGRATIONS = [
     "ALTER TABLE zc_drinks ADD COLUMN IF NOT EXISTS is_carbonated BOOLEAN",
+    "ALTER TABLE kitchen_dishes ADD COLUMN IF NOT EXISTS interesting_facts TEXT",
 ]
 
 

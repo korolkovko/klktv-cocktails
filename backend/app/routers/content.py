@@ -186,6 +186,7 @@ def get_content_bundle(db: Session = Depends(get_db)):
                 name=d.name, img=d.img, description=d.description,
                 timing=d.timing, weight=d.weight,
                 nutrition=d.nutrition, serving=d.serving,
+                interesting_facts=d.interesting_facts,
             )
             for d in kitchen_dishes
         ],

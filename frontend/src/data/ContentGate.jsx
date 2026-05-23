@@ -3,7 +3,10 @@ import { useContent } from './ContentContext';
 export default function ContentGate({ children }) {
   const { loading, error, reload, cocktails } = useContent();
 
-  if (loading) {
+  // Only block render on the FIRST load (when we have no bundle yet).
+  // Subsequent reloads (after an admin edit) must keep the UI mounted —
+  // otherwise the page state in <App> resets to the default category.
+  if (loading && !cocktails) {
     return (
       <div className="login-page">
         <div className="login-sub" style={{ textAlign: 'center' }}>Загружаем карту…</div>
@@ -11,7 +14,7 @@ export default function ContentGate({ children }) {
     );
   }
 
-  if (error || !cocktails) {
+  if (error && !cocktails) {
     return (
       <div className="login-page">
         <div className="login-card">
@@ -23,5 +26,5 @@ export default function ContentGate({ children }) {
     );
   }
 
-  return children;
+  return cocktails ? children : null;
 }

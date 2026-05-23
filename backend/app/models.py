@@ -258,6 +258,7 @@ class KitchenDish(Base):
     weight: Mapped[str | None] = mapped_column(String(64))       # "280", "320/50"
     nutrition: Mapped[str | None] = mapped_column(Text)
     serving: Mapped[str | None] = mapped_column(Text)
+    interesting_facts: Mapped[str | None] = mapped_column(Text)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

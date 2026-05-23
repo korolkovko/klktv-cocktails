@@ -73,6 +73,7 @@ function normaliseDish(d) {
     weight: d.weight,
     nutrition: d.nutrition,
     serving: d.serving,
+    interestingFacts: d.interesting_facts,
   };
 }
 

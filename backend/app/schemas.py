@@ -118,6 +118,7 @@ class KitchenDishOut(BaseModel):
     weight: str | None
     nutrition: str | None
     serving: str | None
+    interesting_facts: str | None
 
 
 # ── Zero (non-alcoholic) cocktails ───────────────────────

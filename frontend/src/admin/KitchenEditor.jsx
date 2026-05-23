@@ -19,6 +19,7 @@ export default function KitchenEditor({ initial, onClose, onSaved }) {
     weight: initial?.weight ?? '',
     nutrition: initial?.nutrition ?? '',
     serving: initial?.serving ?? '',
+    interesting_facts: initial?.interestingFacts ?? '',
   }));
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
@@ -62,6 +63,7 @@ export default function KitchenEditor({ initial, onClose, onSaved }) {
       weight: form.weight || null,
       nutrition: form.nutrition || null,
       serving: form.serving || null,
+      interesting_facts: form.interesting_facts || null,
       sort_order: 0,
     };
     try {
@@ -106,6 +108,8 @@ export default function KitchenEditor({ initial, onClose, onSaved }) {
               placeholder="На порцию б 30,24 ж 11,91 у 136,45 784 ккал" />
             <TextArea label="Сервировка" value={form.serving} onChange={(v) => set('serving', v)} rows={2}
               placeholder="Подается в стальной форме, с вилкой и салфеткой" />
+            <TextArea label="Интересные факты" value={form.interesting_facts} onChange={(v) => set('interesting_facts', v)} rows={3}
+              placeholder="Откуда рецепт, что необычного в составе, история блюда…" />
 
             {error && <div className="login-error">{error}</div>}
 

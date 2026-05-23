@@ -81,6 +81,7 @@ class KitchenDishWriteIn(BaseModel):
     weight: str | None = None
     nutrition: str | None = None
     serving: str | None = None
+    interesting_facts: str | None = None
     sort_order: int = 0
 
 
@@ -582,6 +583,7 @@ def _apply_dish(db: Session, obj: KitchenDish, data: KitchenDishWriteIn) -> None
     obj.name = data.name; obj.img = data.img; obj.description = data.description
     obj.timing = data.timing; obj.weight = data.weight
     obj.nutrition = data.nutrition; obj.serving = data.serving
+    obj.interesting_facts = data.interesting_facts
     obj.category_id = cat.id; obj.sort_order = data.sort_order
     if obj.id is None:
         db.flush()

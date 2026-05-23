@@ -64,6 +64,13 @@ export default function KitchenSheet({ dish, onClose }) {
               </div>
             )}
 
+            {dish.interestingFacts && (
+              <div className="sheet-section">
+                <div className="sheet-label">Интересные факты</div>
+                <div className="sheet-text">{dish.interestingFacts}</div>
+              </div>
+            )}
+
             {dish.nutrition && (
               <div className="sheet-section">
                 <div className="sheet-label">Пищевая ценность</div>
