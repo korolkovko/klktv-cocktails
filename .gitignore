@@ -37,3 +37,13 @@ venv/
 *.njsproj
 *.sln
 *.sw?
+
+# Office documents and other local-only working files
+*.xlsx
+*.xls
+*.docx
+*.doc
+*.pdf
+*.numbers
+*.pages
+*.key
