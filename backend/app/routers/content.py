@@ -6,13 +6,13 @@ from app.auth import get_current_user
 from app.database import get_db
 from app.models import (
     Category, Classic, ClassicDescriptor, ClassicRelatedCocktail, ClassicSpirit,
-    Cocktail, CocktailFlavor, CocktailTag, Family, TimelineEntry,
-    ZCDrink, ZeroCocktail,
+    Cocktail, CocktailFlavor, CocktailTag, Family, KitchenCategory, KitchenDish,
+    TimelineEntry, ZCDrink, ZeroCocktail,
 )
 from app.schemas import (
     CategoryOut, ClassicOut, CocktailBadgeOut, CocktailDetailOut, CocktailOut,
-    ContentBundleOut, FamilyOut, FilterOut, TimelineOut,
-    ZCDrinkOut, ZeroCocktailOut, ZeroDetailOut,
+    ContentBundleOut, FamilyOut, FilterOut, KitchenCategoryOut, KitchenDishOut,
+    TimelineOut, ZCDrinkOut, ZeroCocktailOut, ZeroDetailOut,
 )
 
 # Content is only available to authenticated users — the menu is closed.
@@ -165,6 +165,13 @@ def get_content_bundle(db: Session = Depends(get_db)):
         .order_by(ZCDrink.sort_order, ZCDrink.id)
         .all()
     )
+    kitchen_cats = db.query(KitchenCategory).order_by(KitchenCategory.sort_order, KitchenCategory.id).all()
+    kitchen_dishes = (
+        db.query(KitchenDish)
+        .options(selectinload(KitchenDish.category))
+        .order_by(KitchenDish.sort_order, KitchenDish.id)
+        .all()
+    )
     return ContentBundleOut(
         categories=[CategoryOut.model_validate(c) for c in categories],
         cocktails=[_serialize_cocktail(c) for c in _cocktails_query(db)],
@@ -172,6 +179,16 @@ def get_content_bundle(db: Session = Depends(get_db)):
         families=[FamilyOut.model_validate(f) for f in families],
         zero_cocktails=[_serialize_zero(z) for z in zero_rows],
         zc_drinks=[_serialize_zc(z) for z in zc_rows],
+        kitchen_categories=[KitchenCategoryOut.model_validate(c) for c in kitchen_cats],
+        kitchen_dishes=[
+            KitchenDishOut(
+                id=d.slug, category_slug=d.category.slug,
+                name=d.name, img=d.img, description=d.description,
+                timing=d.timing, weight=d.weight,
+                nutrition=d.nutrition, serving=d.serving,
+            )
+            for d in kitchen_dishes
+        ],
         cocktail_spirit_filters=[FilterOut(**f) for f in COCKTAIL_SPIRIT_FILTERS],
         cocktail_glass_filters=[FilterOut(**f) for f in COCKTAIL_GLASS_FILTERS],
         timeline=[

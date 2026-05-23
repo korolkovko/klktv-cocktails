@@ -6,6 +6,7 @@ import ClassicEditor from './ClassicEditor';
 import FamilyEditor from './FamilyEditor';
 import ZeroEditor from './ZeroEditor';
 import ZCEditor from './ZCEditor';
+import KitchenEditor from './KitchenEditor';
 import CategoriesTab from './CategoriesTab';
 
 /**
@@ -13,7 +14,7 @@ import CategoriesTab from './CategoriesTab';
  * (separate footer link). Categories editing arrives in D-2.
  */
 export default function AdminPage() {
-  const { cocktails, classics, families, zeroCocktails, zcDrinks, reload } = useContent();
+  const { cocktails, classics, families, zeroCocktails, zcDrinks, kitchenCategories, kitchenDishes, reload } = useContent();
   const [tab, setTab] = useState('cocktails');
   const [editing, setEditing] = useState(null);
   const [creating, setCreating] = useState(false);
@@ -43,6 +44,16 @@ export default function AdminPage() {
     () => [...zcDrinks].sort((a, b) => a.name.localeCompare(b.name, 'ru')),
     [zcDrinks]
   );
+  // Kitchen dishes grouped by category (preserves category sort order)
+  const dishesByCategory = useMemo(() => {
+    const cats = [...kitchenCategories].sort((a, b) => a.sort_order - b.sort_order);
+    return cats.map((c) => ({
+      ...c,
+      dishes: kitchenDishes
+        .filter((d) => d.categorySlug === c.slug)
+        .sort((a, b) => a.name.localeCompare(b.name, 'ru')),
+    }));
+  }, [kitchenCategories, kitchenDishes]);
 
   const closeEditor = () => { setEditing(null); setCreating(false); };
 
@@ -91,6 +102,12 @@ export default function AdminPage() {
           onClick={() => setTab('zc')}
         >
           Zero Culture · {zcDrinks.length}
+        </button>
+        <button
+          className={`admin-subtab${tab === 'kitchen' ? ' active' : ''}`}
+          onClick={() => setTab('kitchen')}
+        >
+          Кухня · {kitchenDishes.length}
         </button>
         <button
           className={`admin-subtab${tab === 'categories' ? ' active' : ''}`}
@@ -263,6 +280,40 @@ export default function AdminPage() {
         </section>
       )}
 
+      {tab === 'kitchen' && (
+        <section>
+          <div className="admin-list-head">
+            <h2 className="admin-list-title">Кухня</h2>
+            <button className="login-submit admin-add-cta" onClick={() => setCreating(true)}>
+              + Новое блюдо
+            </button>
+          </div>
+          {dishesByCategory.map((cat) => (
+            <div key={cat.slug} style={{ marginBottom: '1.5rem' }}>
+              <div className="admin-cat-section-head">{cat.label} · {cat.dishes.length}</div>
+              <div className="admin-list">
+                {cat.dishes.map((d) => (
+                  <div key={d.id} className="admin-list-row">
+                    <div className="admin-list-row-main">
+                      <div className="admin-list-row-name">{d.name}</div>
+                      <div className="admin-list-row-sub">
+                        <span>{d.id}</span>
+                        {d.timing && <span>· {d.timing} мин</span>}
+                        {d.weight && <span>· {d.weight} г</span>}
+                      </div>
+                    </div>
+                    <div className="admin-list-row-actions">
+                      <button className="admin-btn" onClick={() => setEditing({ ...d, _kind: 'kitchen' })} disabled={busy}>Изменить</button>
+                      <button className="admin-btn admin-btn--danger" onClick={() => onDelete('kitchen-dishes', d.id, d.name)} disabled={busy}>Удалить</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
+
       {tab === 'categories' && <CategoriesTab onSaved={reload} />}
 
       {editorEntity === 'cocktails' && (editing || creating) && (
@@ -279,6 +330,9 @@ export default function AdminPage() {
       )}
       {editorEntity === 'zc' && (editing || creating) && (
         <ZCEditor initial={editing} onClose={closeEditor} onSaved={reload} />
+      )}
+      {editorEntity === 'kitchen' && (editing || creating) && (
+        <KitchenEditor initial={editing} onClose={closeEditor} onSaved={reload} />
       )}
     </>
   );

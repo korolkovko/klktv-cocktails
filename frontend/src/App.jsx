@@ -10,6 +10,7 @@ import BottomSheet from './components/BottomSheet';
 import ClassicsPage from './pages/ClassicsPage';
 import ZeroPage from './pages/ZeroPage';
 import ZCPage from './pages/ZCPage';
+import KitchenPage from './pages/KitchenPage';
 import AdminPage from './admin/AdminPage';
 import UsersPage from './admin/UsersPage';
 
@@ -95,6 +96,7 @@ export default function App() {
 
       {page === 'zero' && <ZeroPage />}
       {page === 'zc' && <ZCPage />}
+      {page === 'kitchen' && <KitchenPage />}
 
       {page === 'admin' && <AdminPage />}
       {page === 'users' && <UsersPage />}

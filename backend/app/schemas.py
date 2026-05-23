@@ -98,6 +98,28 @@ class ClassicOut(BaseModel):
     related_ours: list[str]   # cocktail slugs
 
 
+# ── Kitchen ──────────────────────────────────────────────
+
+class KitchenCategoryOut(BaseModel):
+    slug: str
+    label: str
+    sort_order: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class KitchenDishOut(BaseModel):
+    id: str          # slug
+    category_slug: str
+    name: str
+    img: str | None
+    description: str | None
+    timing: str | None
+    weight: str | None
+    nutrition: str | None
+    serving: str | None
+
+
 # ── Zero (non-alcoholic) cocktails ───────────────────────
 
 class ZeroDetailOut(BaseModel):
@@ -144,6 +166,8 @@ class ContentBundleOut(BaseModel):
     families: list[FamilyOut]
     zero_cocktails: list[ZeroCocktailOut]
     zc_drinks: list[ZCDrinkOut]
+    kitchen_categories: list[KitchenCategoryOut]
+    kitchen_dishes: list[KitchenDishOut]
     cocktail_spirit_filters: list[FilterOut]
     cocktail_glass_filters: list[FilterOut]
     timeline: list[TimelineOut]

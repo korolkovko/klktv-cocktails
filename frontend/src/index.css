@@ -1653,6 +1653,33 @@ body {
   font-size: .9rem;
 }
 
+.admin-cat-section-head {
+  font-family: 'Unbounded', sans-serif;
+  font-weight: 700;
+  font-size: .75rem;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  padding: .5rem 1.25rem;
+  margin-top: .5rem;
+}
+
+.kitchen-section + .kitchen-section {
+  margin-top: 1.5rem;
+}
+
+.kitchen-card--no-img .card-thumb {
+  display: none;
+}
+
+.kitchen-card--no-img .card-inner {
+  flex-direction: column;
+}
+
+.kitchen-card--no-img .card-content {
+  padding: 1rem;
+}
+
 .admin-cat-label {
   background: transparent;
   border: 1px solid transparent;

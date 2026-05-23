@@ -14,7 +14,8 @@ from app.database import get_db
 from app.models import (
     Badge, Category, Classic, ClassicDescriptor, ClassicRelatedCocktail, ClassicSpirit,
     Cocktail, CocktailDetail, CocktailFlavor, CocktailTag,
-    Descriptor, Family, Flavor, Glass, Spirit, Tag, User,
+    Descriptor, Family, Flavor, Glass, KitchenCategory, KitchenDish,
+    Spirit, Tag, User,
     ZCDrink, ZCDrinkDetail, ZeroCocktail, ZeroCocktailDetail,
 )
 
@@ -61,6 +62,25 @@ class ClassicWriteIn(BaseModel):
     history: str | None = None
     for_whom: str | None = None
     related_ours: list[str] = []
+    sort_order: int = 0
+
+
+class KitchenCategoryWriteIn(BaseModel):
+    slug: str
+    label: str
+    sort_order: int = 0
+
+
+class KitchenDishWriteIn(BaseModel):
+    slug: str
+    category_slug: str
+    name: str
+    img: str | None = None
+    description: str | None = None
+    timing: str | None = None
+    weight: str | None = None
+    nutrition: str | None = None
+    serving: str | None = None
     sort_order: int = 0
 
 
@@ -518,4 +538,79 @@ def delete_zc(slug: str, db: Session = Depends(get_db)):
     obj = db.query(ZCDrink).filter(ZCDrink.slug == slug).first()
     if not obj:
         raise HTTPException(404, detail="ZC drink not found")
+    db.delete(obj); db.commit()
+
+
+# ── Kitchen ───────────────────────────────────────────────
+
+def _resolve_kitchen_cat(db: Session, slug: str) -> KitchenCategory:
+    obj = db.query(KitchenCategory).filter(KitchenCategory.slug == slug).first()
+    if not obj:
+        raise HTTPException(400, detail=f"Kitchen category {slug!r} not found")
+    return obj
+
+
+@router.post("/kitchen-categories", status_code=status.HTTP_201_CREATED)
+def create_kitchen_cat(data: KitchenCategoryWriteIn, db: Session = Depends(get_db)):
+    if db.query(KitchenCategory).filter(KitchenCategory.slug == data.slug).first():
+        raise HTTPException(409, detail="Kitchen category with this slug already exists")
+    obj = KitchenCategory(slug=data.slug, label=data.label, sort_order=data.sort_order)
+    db.add(obj); db.commit()
+    return {"slug": obj.slug}
+
+
+@router.patch("/kitchen-categories/{slug}")
+def update_kitchen_cat(slug: str, data: KitchenCategoryWriteIn, db: Session = Depends(get_db)):
+    obj = _resolve_kitchen_cat(db, slug)
+    if data.slug != slug and db.query(KitchenCategory).filter(KitchenCategory.slug == data.slug).first():
+        raise HTTPException(409, detail="New slug already in use")
+    obj.slug = data.slug; obj.label = data.label; obj.sort_order = data.sort_order
+    db.commit()
+    return {"slug": obj.slug}
+
+
+@router.delete("/kitchen-categories/{slug}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_kitchen_cat(slug: str, db: Session = Depends(get_db)):
+    obj = _resolve_kitchen_cat(db, slug)
+    if db.query(KitchenDish).filter(KitchenDish.category_id == obj.id).first():
+        raise HTTPException(409, detail="Category has dishes — reassign them first")
+    db.delete(obj); db.commit()
+
+
+def _apply_dish(db: Session, obj: KitchenDish, data: KitchenDishWriteIn) -> None:
+    cat = _resolve_kitchen_cat(db, data.category_slug)
+    obj.name = data.name; obj.img = data.img; obj.description = data.description
+    obj.timing = data.timing; obj.weight = data.weight
+    obj.nutrition = data.nutrition; obj.serving = data.serving
+    obj.category_id = cat.id; obj.sort_order = data.sort_order
+    if obj.id is None:
+        db.flush()
+
+
+@router.post("/kitchen-dishes", status_code=status.HTTP_201_CREATED)
+def create_dish(data: KitchenDishWriteIn, db: Session = Depends(get_db)):
+    if db.query(KitchenDish).filter(KitchenDish.slug == data.slug).first():
+        raise HTTPException(409, detail="Dish with this slug already exists")
+    obj = KitchenDish(slug=data.slug); db.add(obj)
+    _apply_dish(db, obj, data); db.commit()
+    return {"slug": obj.slug}
+
+
+@router.patch("/kitchen-dishes/{slug}")
+def update_dish(slug: str, data: KitchenDishWriteIn, db: Session = Depends(get_db)):
+    obj = db.query(KitchenDish).filter(KitchenDish.slug == slug).first()
+    if not obj:
+        raise HTTPException(404, detail="Dish not found")
+    if data.slug != slug and db.query(KitchenDish).filter(KitchenDish.slug == data.slug).first():
+        raise HTTPException(409, detail="New slug already in use")
+    obj.slug = data.slug
+    _apply_dish(db, obj, data); db.commit()
+    return {"slug": obj.slug}
+
+
+@router.delete("/kitchen-dishes/{slug}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_dish(slug: str, db: Session = Depends(get_db)):
+    obj = db.query(KitchenDish).filter(KitchenDish.slug == slug).first()
+    if not obj:
+        raise HTTPException(404, detail="Dish not found")
     db.delete(obj); db.commit()

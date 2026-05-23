@@ -233,6 +233,39 @@ class TimelineEntry(Base):
 
 
 # ────────────────────────────────────────────────────────────
+# Kitchen — food menu, grouped by KitchenCategory
+# ────────────────────────────────────────────────────────────
+
+class KitchenCategory(Base):
+    __tablename__ = "kitchen_categories"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    slug: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    label: Mapped[str] = mapped_column(String(128), nullable=False)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+    dishes: Mapped[list["KitchenDish"]] = relationship(back_populates="category", order_by="KitchenDish.sort_order")
+
+
+class KitchenDish(Base):
+    __tablename__ = "kitchen_dishes"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    slug: Mapped[str] = mapped_column(String(80), unique=True, nullable=False, index=True)
+    category_id: Mapped[int] = mapped_column(ForeignKey("kitchen_categories.id", ondelete="RESTRICT"), index=True)
+    name: Mapped[str] = mapped_column(String(256), nullable=False)
+    img: Mapped[str | None] = mapped_column(String(256))
+    description: Mapped[str | None] = mapped_column(Text)
+    timing: Mapped[str | None] = mapped_column(String(32))       # "10", "10-12", "12"
+    weight: Mapped[str | None] = mapped_column(String(64))       # "280", "320/50"
+    nutrition: Mapped[str | None] = mapped_column(Text)
+    serving: Mapped[str | None] = mapped_column(Text)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    category: Mapped["KitchenCategory"] = relationship(back_populates="dishes")
+
+
+# ────────────────────────────────────────────────────────────
 # Zero — non-alcoholic cocktails (their own category page)
 # ────────────────────────────────────────────────────────────
 

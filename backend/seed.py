@@ -22,7 +22,8 @@ from app.database import SessionLocal, init_db  # noqa: E402
 from app.models import (  # noqa: E402
     Badge, Category, Classic, ClassicDescriptor, ClassicRelatedCocktail, ClassicSpirit,
     Cocktail, CocktailDetail, CocktailFlavor, CocktailTag,
-    Descriptor, Family, Flavor, Glass, Spirit, Tag, TimelineEntry, User,
+    Descriptor, Family, Flavor, Glass, KitchenCategory, KitchenDish,
+    Spirit, Tag, TimelineEntry, User,
 )
 
 
@@ -42,6 +43,7 @@ USERS = [
 ]
 
 DATA_PATH = Path(__file__).parent / "data" / "seed_data.json"
+KITCHEN_PATH = Path(__file__).parent / "data" / "kitchen_seed.json"
 
 
 DEFAULT_CATEGORIES = [
@@ -68,6 +70,40 @@ def seed_categories(db: Session) -> None:
                         sort_order=i, is_visible=is_visible))
     db.commit()
     print(f"  categories: {len(DEFAULT_CATEGORIES)} created (defaults)")
+
+
+def seed_kitchen(db: Session) -> None:
+    """First-run only: load the kitchen menu from JSON. Subsequent
+    starts preserve any admin edits (per the has-content guard below)."""
+    if not KITCHEN_PATH.exists():
+        print("  kitchen: skip (no JSON)")
+        return
+    if db.query(KitchenDish).first():
+        print("  kitchen: skip (already seeded)")
+        return
+    data = json.loads(KITCHEN_PATH.read_text(encoding="utf-8"))
+    cat_by_slug: dict[str, KitchenCategory] = {}
+    for c in data["categories"]:
+        obj = KitchenCategory(slug=c["slug"], label=c["label"], sort_order=c["sort_order"])
+        db.add(obj); db.flush()
+        cat_by_slug[c["slug"]] = obj
+    for d in data["dishes"]:
+        cat = cat_by_slug.get(d["category_slug"])
+        if not cat:
+            continue
+        db.add(KitchenDish(
+            slug=d["slug"][:80],
+            category_id=cat.id,
+            name=d["name"],
+            description=d.get("description"),
+            timing=d.get("timing"),
+            weight=d.get("weight"),
+            nutrition=d.get("nutrition"),
+            serving=d.get("serving"),
+            sort_order=d["sort_order"],
+        ))
+    db.commit()
+    print(f"  kitchen: {len(data['categories'])} categories, {len(data['dishes'])} dishes")
 
 
 def seed_users(db: Session) -> None:
@@ -327,6 +363,9 @@ def main():
 
         print(">>> seeding categories")
         seed_categories(db)
+
+        print(">>> seeding kitchen")
+        seed_kitchen(db)
 
         # Content is seeded ONLY on first deploy (when the DB is empty).
         # Subsequent restarts must not overwrite admin/editor changes made
