@@ -1348,6 +1348,21 @@ body {
   font-size: .9rem;
 }
 
+.admin-role {
+  display: inline-block;
+  font-size: .65rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  padding: .15rem .45rem;
+  border-radius: 4px;
+  margin-right: .5rem;
+  vertical-align: middle;
+}
+.admin-role--admin  { background: rgba(232,54,61,.18);  color: var(--accent); }
+.admin-role--editor { background: rgba(208,180,80,.18); color: #d6b450; }
+.admin-role--reader { background: rgba(255,255,255,.06); color: var(--text-dim); }
+
 /* ── ADMIN FORM ── */
 .admin-form {
   display: flex;

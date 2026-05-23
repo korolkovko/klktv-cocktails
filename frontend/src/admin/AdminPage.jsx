@@ -1,13 +1,36 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { api } from '../auth/api';
+import { useAuth } from '../auth/AuthContext';
 import { useContent } from '../data/ContentContext';
 import CocktailEditor from './CocktailEditor';
 import ClassicEditor from './ClassicEditor';
 import FamilyEditor from './FamilyEditor';
+import UserEditor from './UserEditor';
 
 export default function AdminPage() {
+  const { user: currentUser } = useAuth();
   const { cocktails, classics, families, reload } = useContent();
+  const isAdmin = currentUser?.role === 'admin';
   const [tab, setTab] = useState('cocktails');
+  const [users, setUsers] = useState([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+
+  // Load users list lazily when admin opens the Users tab
+  const loadUsers = async () => {
+    setUsersLoading(true);
+    try {
+      const list = await api.get('/api/admin/users');
+      setUsers(list);
+    } catch (e) {
+      alert(`Не удалось загрузить юзеров: ${e.message}`);
+    } finally {
+      setUsersLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (tab === 'users' && isAdmin) loadUsers();
+  }, [tab, isAdmin]);
   const [editing, setEditing] = useState(null);   // current entity being edited
   const [creating, setCreating] = useState(false); // bool — show "new" editor
   const [busy, setBusy] = useState(false);
@@ -45,6 +68,19 @@ export default function AdminPage() {
     }
   };
 
+  const onDeleteUser = async (u) => {
+    if (!confirm(`Удалить юзера «${u.username}»? Это действие необратимо.`)) return;
+    setBusy(true);
+    try {
+      await api.delete(`/api/admin/users/${encodeURIComponent(u.username)}`);
+      await loadUsers();
+    } catch (e) {
+      alert(`Не удалось удалить: ${e.message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <>
       <div className="admin-subtabs">
@@ -66,6 +102,14 @@ export default function AdminPage() {
         >
           Семейства · {families.length}
         </button>
+        {isAdmin && (
+          <button
+            className={`admin-subtab${tab === 'users' ? ' active' : ''}`}
+            onClick={() => setTab('users')}
+          >
+            Юзеры{users.length ? ` · ${users.length}` : ''}
+          </button>
+        )}
       </div>
 
       {tab === 'cocktails' && (
@@ -168,6 +212,46 @@ export default function AdminPage() {
         </section>
       )}
 
+      {tab === 'users' && isAdmin && (
+        <section>
+          <div className="admin-list-head">
+            <h2 className="admin-list-title">Пользователи</h2>
+            <button className="login-submit admin-add-cta" onClick={() => setCreating(true)}>
+              + Новый юзер
+            </button>
+          </div>
+          {usersLoading ? (
+            <div className="admin-soon">Загружаю…</div>
+          ) : (
+            <div className="admin-list">
+              {users.map((u) => (
+                <div key={u.id} className="admin-list-row">
+                  <div className="admin-list-row-main">
+                    <div className="admin-list-row-name">
+                      <span className={`admin-role admin-role--${u.role}`}>{u.role}</span>
+                      {u.name || u.username}
+                    </div>
+                    <div className="admin-list-row-sub">
+                      <span>@{u.username}</span>
+                      {u.id === currentUser?.id && <span>· это вы</span>}
+                    </div>
+                  </div>
+                  <div className="admin-list-row-actions">
+                    <button className="admin-btn" onClick={() => setEditing({ ...u, _kind: 'users' })} disabled={busy}>Изменить</button>
+                    <button
+                      className="admin-btn admin-btn--danger"
+                      onClick={() => onDeleteUser(u)}
+                      disabled={busy || u.id === currentUser?.id}
+                      title={u.id === currentUser?.id ? 'Нельзя удалить себя' : 'Удалить'}
+                    >Удалить</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
       {editorEntity === 'cocktails' && (editing || creating) && (
         <CocktailEditor initial={editing} onClose={closeEditor} onSaved={reload} />
       )}
@@ -176,6 +260,9 @@ export default function AdminPage() {
       )}
       {editorEntity === 'families' && (editing || creating) && (
         <FamilyEditor initial={editing} onClose={closeEditor} onSaved={reload} />
+      )}
+      {editorEntity === 'users' && (editing || creating) && (
+        <UserEditor initial={editing} onClose={closeEditor} onSaved={loadUsers} />
       )}
     </>
   );
