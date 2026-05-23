@@ -25,6 +25,12 @@ export default function ZCCard({ item, onClick }) {
                 кофеин {item.caffeineLevel}/3
               </span>
             )}
+            {!item.isAlcoholic && item.isCarbonated === true && (
+              <span className="flavor-tag flavor-tag--carbo">газ</span>
+            )}
+            {!item.isAlcoholic && item.isCarbonated === false && (
+              <span className="flavor-tag flavor-tag--still">без газа</span>
+            )}
           </div>
         </div>
       </div>

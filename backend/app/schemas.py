@@ -131,6 +131,7 @@ class ZCDrinkOut(BaseModel):
     glass_tag: str | None
     tagline: str | None
     caffeine_level: int | None
+    is_carbonated: bool | None
     details: list[ZeroDetailOut]
 
 

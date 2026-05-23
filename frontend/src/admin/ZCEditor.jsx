@@ -22,6 +22,7 @@ export default function ZCEditor({ initial, onClose, onSaved }) {
     glass_label_override: '',
     tagline: initial?.tagline ?? '',
     caffeine_level: initial?.caffeineLevel ?? null,
+    is_carbonated: initial?.isCarbonated ?? null,
     details: (initial?.details ?? []).map((d) => ({ ...d })),
   }));
 
@@ -65,6 +66,7 @@ export default function ZCEditor({ initial, onClose, onSaved }) {
       glass_label_override: form.glass_label_override || null,
       tagline: form.tagline || null,
       caffeine_level: form.is_alcoholic ? null : (form.caffeine_level ?? null),
+      is_carbonated: form.is_alcoholic ? null : (form.is_carbonated ?? null),
       details: form.details.filter((d) => d.label || d.text),
       sort_order: 0,
     };
@@ -128,7 +130,33 @@ export default function ZCEditor({ initial, onClose, onSaved }) {
               placeholder={form.is_alcoholic ? 'Ромовый, кисло-сладкий, умеренно пряный, газированный' : 'Травянистый, с лёгкой горечью'} />
 
             {!form.is_alcoholic && (
-              <NumberField label="Уровень кофеина (1-3)" value={form.caffeine_level} onChange={(v) => set('caffeine_level', v)} placeholder="1, 2 или 3" />
+              <>
+                <NumberField label="Уровень кофеина (1-3)" value={form.caffeine_level} onChange={(v) => set('caffeine_level', v)} placeholder="1, 2 или 3" />
+
+                <div className="admin-field">
+                  <span className="admin-field-label">Газация</span>
+                  <div style={{ display: 'flex', gap: '.5rem' }}>
+                    <button
+                      type="button"
+                      className={`admin-btn${form.is_carbonated === true ? ' admin-btn--active' : ''}`}
+                      style={{ flex: 1 }}
+                      onClick={() => set('is_carbonated', true)}
+                    >Да</button>
+                    <button
+                      type="button"
+                      className={`admin-btn${form.is_carbonated === false ? ' admin-btn--active' : ''}`}
+                      style={{ flex: 1 }}
+                      onClick={() => set('is_carbonated', false)}
+                    >Нет</button>
+                    <button
+                      type="button"
+                      className={`admin-btn${form.is_carbonated == null ? ' admin-btn--active' : ''}`}
+                      style={{ flex: 1 }}
+                      onClick={() => set('is_carbonated', null)}
+                    >—</button>
+                  </div>
+                </div>
+              </>
             )}
 
             <ParagraphsField label="Блоки рассказа (lore, что такое линейка, etc.)" items={form.details} onChange={(v) => set('details', v)} />

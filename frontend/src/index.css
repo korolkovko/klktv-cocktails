@@ -77,6 +77,41 @@ body {
   border-color: rgba(123,170,230,.25);
 }
 
+.flavor-tag--carbo {
+  background: rgba(214, 180, 80, .14);
+  color: #d6b450;
+  border-color: rgba(214,180,80,.28);
+}
+
+.flavor-tag--still {
+  background: rgba(255,255,255,.04);
+  color: var(--text-dim);
+  border-color: var(--border-light);
+}
+
+.zc-carbo {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  margin: .65rem 0 0;
+  padding: .55rem 1rem;
+  background: rgba(255,255,255,.03);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  font-size: .85rem;
+  color: var(--text-dim);
+}
+
+.zc-carbo.on {
+  background: rgba(214, 180, 80, .08);
+  border-color: rgba(214, 180, 80, .25);
+  color: #d6b450;
+}
+
+.zc-carbo-icon {
+  font-size: 1rem;
+}
+
 .zc-badge {
   position: absolute;
   top: .65rem;

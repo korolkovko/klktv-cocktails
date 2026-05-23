@@ -286,6 +286,7 @@ class ZCDrink(Base):
     glass_label_override: Mapped[str | None] = mapped_column(String(64))
     tagline: Mapped[str | None] = mapped_column(Text)
     caffeine_level: Mapped[int | None] = mapped_column(Integer)    # 1..3, only for non-alc
+    is_carbonated: Mapped[bool | None] = mapped_column(Boolean)    # nullable; meaningful only for non-alc
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

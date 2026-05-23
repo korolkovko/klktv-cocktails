@@ -70,6 +70,13 @@ export default function ZCSheet({ item, onClose }) {
               <CaffeineBar level={item.caffeineLevel} />
             )}
 
+            {!item.isAlcoholic && item.isCarbonated != null && (
+              <div className={`zc-carbo${item.isCarbonated ? ' on' : ''}`}>
+                <span className="zc-carbo-icon">{item.isCarbonated ? '◉' : '◯'}</span>
+                <span>{item.isCarbonated ? 'Газированный' : 'Без газа'}</span>
+              </div>
+            )}
+
             {item.details && item.details.length > 0 && (
               <>
                 <div className="sheet-divider" />

@@ -96,6 +96,7 @@ class ZCDrinkWriteIn(BaseModel):
     glass_label_override: str | None = None
     tagline: str | None = None
     caffeine_level: int | None = None    # ignored when is_alcoholic=True
+    is_carbonated: bool | None = None    # ignored when is_alcoholic=True
     details: list[ZeroDetailIn] = []
     sort_order: int = 0
 
@@ -482,6 +483,7 @@ def _apply_zc(db: Session, obj: ZCDrink, data: ZCDrinkWriteIn) -> None:
     obj.glass_label_override = data.glass_label_override if not glass else None
     obj.tagline = data.tagline
     obj.caffeine_level = data.caffeine_level if not data.is_alcoholic else None
+    obj.is_carbonated = data.is_carbonated if not data.is_alcoholic else None
     obj.sort_order = data.sort_order
     if obj.id is None:
         db.flush()

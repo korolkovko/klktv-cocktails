@@ -87,6 +87,7 @@ function normaliseZC(c) {
     glassTag: c.glass_tag,
     tagline: c.tagline,
     caffeineLevel: c.caffeine_level,
+    isCarbonated: c.is_carbonated,
     details: c.details,
   };
 }

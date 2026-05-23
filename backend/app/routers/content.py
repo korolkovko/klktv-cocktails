@@ -121,6 +121,7 @@ def _serialize_zc(c: ZCDrink) -> ZCDrinkOut:
         glass_tag=(c.glass.key if c.glass else None),
         tagline=c.tagline,
         caffeine_level=c.caffeine_level if not c.is_alcoholic else None,
+        is_carbonated=c.is_carbonated if not c.is_alcoholic else None,
         details=[ZeroDetailOut(label=d.label, text=d.text) for d in c.details],
     )
 
