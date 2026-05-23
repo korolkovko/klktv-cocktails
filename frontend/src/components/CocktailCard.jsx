@@ -1,4 +1,5 @@
 import { useImageColor } from '../hooks/useImageColor';
+import { resolveImageUrl } from '../auth/api';
 
 const badgeStyles = {
   premium: 'badge badge--premium',
@@ -17,7 +18,8 @@ const SPIRIT_LABELS = {
 };
 
 export default function CocktailCard({ cocktail, onClick }) {
-  const bgColor = useImageColor(cocktail.img);
+  const imgUrl = resolveImageUrl(cocktail.img);
+  const bgColor = useImageColor(imgUrl);
   const spiritKey = cocktail.tags.find((t) => SPIRIT_LABELS[t]);
   const spiritLabel = spiritKey ? SPIRIT_LABELS[spiritKey] : null;
 
@@ -30,7 +32,7 @@ export default function CocktailCard({ cocktail, onClick }) {
       )}
       <div className="card-inner">
         <div className="card-thumb" style={{ background: bgColor || '#111' }}>
-          <img src={cocktail.img} alt={cocktail.name} loading="lazy" />
+          {imgUrl && <img src={imgUrl} alt={cocktail.name} loading="lazy" />}
         </div>
         <div className="card-content">
           <div className="card-name">{cocktail.name}</div>

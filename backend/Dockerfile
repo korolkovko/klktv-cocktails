@@ -17,7 +17,8 @@ RUN uv pip install --system --no-cache \
     "python-jose[cryptography]>=3.3.0" \
     "bcrypt>=4.2.1" \
     "python-dotenv>=1.0.1" \
-    "pydantic>=2.10.0"
+    "pydantic>=2.10.0" \
+    "python-multipart>=0.0.12"
 
 COPY . .
 

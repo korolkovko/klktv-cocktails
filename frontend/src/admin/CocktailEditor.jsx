@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../auth/api';
 import { useContent } from '../data/ContentContext';
 import {
-  TextField, TextArea, NumberField, SelectField, ChipsField, ParagraphsField,
+  TextField, TextArea, NumberField, SelectField, ChipsField, ParagraphsField, ImageField,
 } from './FormFields';
 
 const BADGES = [
@@ -126,12 +126,11 @@ export default function CocktailEditor({ initial, onClose, onSaved }) {
               hint="латиница, без пробелов. Используется в URL/связках. После создания лучше не менять."
             />
             <TextField label="Название" value={form.name} onChange={(v) => set('name', v)} required />
-            <TextField
-              label="Картинка (URL)"
+            <ImageField
+              label="Картинка"
               value={form.img}
               onChange={(v) => set('img', v)}
-              placeholder="/logos/file.webp"
-              hint="загрузка из админки появится позже — пока вставлять путь вручную"
+              hint="webp/jpg/png/avif, до 5 МБ. Можно загрузить файл или вставить путь вручную."
             />
             <TextField label="Крепость (ABV)" value={form.abv} onChange={(v) => set('abv', v)} placeholder="13.3%" />
             <SelectField

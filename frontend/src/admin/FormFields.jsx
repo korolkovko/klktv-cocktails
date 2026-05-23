@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { api, resolveImageUrl } from '../auth/api';
 
 /**
  * Single-line text field.
@@ -17,6 +18,79 @@ export function TextField({ label, value, onChange, required, placeholder, hint 
       />
       {hint && <span className="admin-field-hint">{hint}</span>}
     </label>
+  );
+}
+
+/**
+ * Image upload + preview. Stores the resulting URL/path as the value.
+ * If the editor pastes a manual path (legacy /logos/...), it still works —
+ * the upload button is one option, the text input is the other.
+ */
+export function ImageField({ label, value, onChange, hint }) {
+  const inputRef = useRef(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState('');
+
+  const pick = () => inputRef.current?.click();
+
+  const onFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setError('');
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await api.upload('/api/admin/uploads/image', fd);
+      onChange(res.url);
+    } catch (err) {
+      setError(err.message || 'Не удалось загрузить');
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = '';
+    }
+  };
+
+  const preview = value ? resolveImageUrl(value) : null;
+
+  return (
+    <div className="admin-field">
+      <span className="admin-field-label">{label}</span>
+      <div className="admin-image-field">
+        {preview && (
+          <div className="admin-image-preview">
+            <img src={preview} alt="" />
+          </div>
+        )}
+        <div className="admin-image-controls">
+          <input
+            type="text"
+            value={value ?? ''}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="/static/img/file.webp или /logos/file.webp"
+          />
+          <div className="admin-image-actions">
+            <button type="button" className="admin-btn" onClick={pick} disabled={uploading}>
+              {uploading ? 'Загружаю…' : 'Загрузить файл'}
+            </button>
+            {value && (
+              <button type="button" className="admin-btn admin-btn--danger" onClick={() => onChange('')}>
+                Очистить
+              </button>
+            )}
+          </div>
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/webp,image/jpeg,image/png,image/avif"
+            onChange={onFile}
+            style={{ display: 'none' }}
+          />
+        </div>
+      </div>
+      {error && <span className="admin-field-hint" style={{ color: 'var(--accent)' }}>{error}</span>}
+      {hint && !error && <span className="admin-field-hint">{hint}</span>}
+    </div>
   );
 }
 

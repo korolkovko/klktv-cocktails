@@ -1,8 +1,10 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useImageColor } from '../hooks/useImageColor';
+import { resolveImageUrl } from '../auth/api';
 
 export default function BottomSheet({ cocktail, onClose }) {
-  const bgColor = useImageColor(cocktail?.img);
+  const imgUrl = resolveImageUrl(cocktail?.img);
+  const bgColor = useImageColor(imgUrl);
   const sheetRef = useRef(null);
 
   // Lock body scroll
@@ -38,7 +40,7 @@ export default function BottomSheet({ cocktail, onClose }) {
         </button>
         <div className="sheet" ref={sheetRef}>
           <div className="sheet-hero" style={{ background: bgColor || '#111' }}>
-            <img src={cocktail.img} alt={cocktail.name} />
+            {imgUrl && <img src={imgUrl} alt={cocktail.name} />}
           </div>
           <div className="sheet-body">
             <div className="sheet-name">{cocktail.name}</div>
