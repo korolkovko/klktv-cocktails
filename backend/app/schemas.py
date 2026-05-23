@@ -23,6 +23,16 @@ class FilterOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class CategoryOut(BaseModel):
+    key: str
+    label: str
+    kind: str
+    sort_order: int
+    is_visible: bool
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class FamilyOut(BaseModel):
     key: str
     label: str
@@ -91,6 +101,7 @@ class ClassicOut(BaseModel):
 # ── Content bundle (single call returns everything for first page render) ──
 
 class ContentBundleOut(BaseModel):
+    categories: list[CategoryOut]
     cocktails: list[CocktailOut]
     classics: list[ClassicOut]
     families: list[FamilyOut]

@@ -16,6 +16,7 @@ export function ContentProvider({ children }) {
         // Backend uses snake_case (cocktail_spirit_filters, glass_tag, etc.).
         // Normalise to the shape the existing components consume.
         setBundle({
+          categories: data.categories || [],
           cocktails: data.cocktails.map(normaliseCocktail),
           classics: data.classics.map(normaliseClassic),
           families: data.families,

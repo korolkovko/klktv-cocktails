@@ -4,6 +4,7 @@ import { useContent } from '../data/ContentContext';
 import CocktailEditor from './CocktailEditor';
 import ClassicEditor from './ClassicEditor';
 import FamilyEditor from './FamilyEditor';
+import CategoriesTab from './CategoriesTab';
 
 /**
  * Content management (admin or editor). User management is at /users
@@ -68,6 +69,12 @@ export default function AdminPage() {
           onClick={() => setTab('families')}
         >
           Семейства · {families.length}
+        </button>
+        <button
+          className={`admin-subtab${tab === 'categories' ? ' active' : ''}`}
+          onClick={() => setTab('categories')}
+        >
+          Категории
         </button>
       </div>
 
@@ -170,6 +177,8 @@ export default function AdminPage() {
           </div>
         </section>
       )}
+
+      {tab === 'categories' && <CategoriesTab onSaved={reload} />}
 
       {editorEntity === 'cocktails' && (editing || creating) && (
         <CocktailEditor initial={editing} onClose={closeEditor} onSaved={reload} />

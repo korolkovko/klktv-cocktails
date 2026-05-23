@@ -1,6 +1,6 @@
 from datetime import datetime
 from sqlalchemy import (
-    Integer, String, Text, DateTime, ForeignKey, UniqueConstraint, func,
+    Boolean, Integer, String, Text, DateTime, ForeignKey, UniqueConstraint, func,
 )
 from sqlalchemy.orm import relationship, mapped_column, Mapped
 from app.database import Base
@@ -230,3 +230,29 @@ class TimelineEntry(Base):
     description: Mapped[str] = mapped_column(Text, nullable=False)
     examples: Mapped[str | None] = mapped_column(Text)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+
+# ────────────────────────────────────────────────────────────
+# Navigation categories (the burger menu)
+# ────────────────────────────────────────────────────────────
+
+class Category(Base):
+    """Public categories shown in the burger menu.
+
+    `key` is the page identifier the frontend routes on (matches the
+    `page` state — e.g. "menu", "classics"). `kind` declares which
+    backend content type this category surfaces (used in D-3+ when
+    burger items dispatch to per-type list pages).
+
+    Admins can rename (`label`), reorder (`sort_order`) and hide
+    (`is_visible`) categories. The `key` itself is structural and not
+    editable from the UI.
+    """
+    __tablename__ = "categories"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    key: Mapped[str] = mapped_column(String(32), unique=True, nullable=False, index=True)
+    label: Mapped[str] = mapped_column(String(64), nullable=False)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)  # one of: menu, classics, spirits, kitchen, zero, zc
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    is_visible: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)

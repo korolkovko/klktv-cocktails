@@ -5,11 +5,11 @@ from sqlalchemy.orm import Session, selectinload
 from app.auth import get_current_user
 from app.database import get_db
 from app.models import (
-    Classic, ClassicDescriptor, ClassicRelatedCocktail, ClassicSpirit,
+    Category, Classic, ClassicDescriptor, ClassicRelatedCocktail, ClassicSpirit,
     Cocktail, CocktailFlavor, CocktailTag, Family, TimelineEntry,
 )
 from app.schemas import (
-    ClassicOut, CocktailBadgeOut, CocktailDetailOut, CocktailOut,
+    CategoryOut, ClassicOut, CocktailBadgeOut, CocktailDetailOut, CocktailOut,
     ContentBundleOut, FamilyOut, FilterOut, TimelineOut,
 )
 
@@ -110,14 +110,17 @@ def _classics_query(db: Session) -> list[Classic]:
 @router.get("/content", response_model=ContentBundleOut)
 def get_content_bundle(db: Session = Depends(get_db)):
     """Single endpoint that returns everything needed for the SPA's first
-    render. Avoids the N+1 of having each page fetch its own slice."""
-    families = (
-        db.query(Family).order_by(Family.sort_order, Family.id).all()
-    )
-    timeline = (
-        db.query(TimelineEntry).order_by(TimelineEntry.sort_order, TimelineEntry.id).all()
-    )
+    render. Avoids the N+1 of having each page fetch its own slice.
+
+    Categories are returned to all logged-in users (filtered by is_visible
+    in the frontend's burger render; admins also need invisible ones for
+    the editor — they can request /api/admin/categories for the full set).
+    """
+    categories = db.query(Category).order_by(Category.sort_order, Category.id).all()
+    families = db.query(Family).order_by(Family.sort_order, Family.id).all()
+    timeline = db.query(TimelineEntry).order_by(TimelineEntry.sort_order, TimelineEntry.id).all()
     return ContentBundleOut(
+        categories=[CategoryOut.model_validate(c) for c in categories],
         cocktails=[_serialize_cocktail(c) for c in _cocktails_query(db)],
         classics=[_serialize_classic(c) for c in _classics_query(db)],
         families=[FamilyOut.model_validate(f) for f in families],

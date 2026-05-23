@@ -1495,6 +1495,23 @@ body {
   font-size: .9rem;
 }
 
+.admin-cat-label {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text);
+  font-family: inherit;
+  font-size: .95rem;
+  font-weight: 600;
+  padding: .3rem .5rem;
+  border-radius: var(--radius-sm);
+  width: 100%;
+  outline: none;
+  transition: border-color .15s ease, background .15s ease;
+}
+
+.admin-cat-label:hover { background: var(--bg-card); }
+.admin-cat-label:focus { border-color: var(--accent); background: var(--bg-card); }
+
 .admin-role {
   display: inline-block;
   font-size: .65rem;

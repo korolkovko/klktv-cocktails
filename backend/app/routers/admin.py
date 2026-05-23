@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.auth import require_editor
 from app.database import get_db
 from app.models import (
-    Badge, Classic, ClassicDescriptor, ClassicRelatedCocktail, ClassicSpirit,
+    Badge, Category, Classic, ClassicDescriptor, ClassicRelatedCocktail, ClassicSpirit,
     Cocktail, CocktailDetail, CocktailFlavor, CocktailTag,
     Descriptor, Family, Flavor, Glass, Spirit, Tag, User,
 )
@@ -61,6 +61,18 @@ class ClassicWriteIn(BaseModel):
     for_whom: str | None = None
     related_ours: list[str] = []
     sort_order: int = 0
+
+
+class CategoryWriteIn(BaseModel):
+    """Admin-editable fields. `key` and `kind` are structural and not
+    editable from the UI — they're set when seeding/scaffolding new types."""
+    label: str
+    sort_order: int = 0
+    is_visible: bool = True
+
+
+class CategoryReorderIn(BaseModel):
+    keys: list[str]  # full ordered list of category keys
 
 
 class FamilyWriteIn(BaseModel):
@@ -332,3 +344,40 @@ def delete_family(key: str, db: Session = Depends(get_db)):
         raise HTTPException(409, detail="Family has classics — reassign them first")
     db.delete(obj)
     db.commit()
+
+
+# ── Categories ────────────────────────────────────────────
+
+@router.get("/categories")
+def list_categories(db: Session = Depends(get_db)):
+    """Admin view: ALL categories (including invisible ones)."""
+    rows = db.query(Category).order_by(Category.sort_order, Category.id).all()
+    return [
+        {"key": r.key, "label": r.label, "kind": r.kind,
+         "sort_order": r.sort_order, "is_visible": r.is_visible}
+        for r in rows
+    ]
+
+
+@router.patch("/categories/{key}")
+def update_category(key: str, data: CategoryWriteIn, db: Session = Depends(get_db)):
+    obj = db.query(Category).filter(Category.key == key).first()
+    if not obj:
+        raise HTTPException(404, detail="Category not found")
+    obj.label = data.label
+    obj.sort_order = data.sort_order
+    obj.is_visible = data.is_visible
+    db.commit()
+    return {"key": obj.key}
+
+
+@router.post("/categories/reorder")
+def reorder_categories(data: CategoryReorderIn, db: Session = Depends(get_db)):
+    """Set sort_order from the position of each key in the provided list.
+    Unknown keys are skipped. Missing keys keep their old sort_order."""
+    for i, key in enumerate(data.keys):
+        obj = db.query(Category).filter(Category.key == key).first()
+        if obj:
+            obj.sort_order = i
+    db.commit()
+    return {"count": len(data.keys)}

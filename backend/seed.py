@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session  # noqa: E402
 from app.auth import hash_password  # noqa: E402
 from app.database import SessionLocal, init_db  # noqa: E402
 from app.models import (  # noqa: E402
-    Badge, Classic, ClassicDescriptor, ClassicRelatedCocktail, ClassicSpirit,
+    Badge, Category, Classic, ClassicDescriptor, ClassicRelatedCocktail, ClassicSpirit,
     Cocktail, CocktailDetail, CocktailFlavor, CocktailTag,
     Descriptor, Family, Flavor, Glass, Spirit, Tag, TimelineEntry, User,
 )
@@ -42,6 +42,32 @@ USERS = [
 ]
 
 DATA_PATH = Path(__file__).parent / "data" / "seed_data.json"
+
+
+DEFAULT_CATEGORIES = [
+    # (key, label, kind, is_visible)
+    ("menu",     "Меню",         "menu",     True),
+    ("classics", "Классика",     "classics", True),
+    ("spirits",  "Крепкое",      "spirits",  False),  # filled in D-5
+    ("kitchen",  "Кухня",        "kitchen",  False),  # filled in D-4
+    ("zero",     "Безалко",      "zero",     False),  # filled in D-3
+    ("zc",       "Zero Culture", "zc",       False),  # filled in D-3
+]
+
+
+def seed_categories(db: Session) -> None:
+    """Create the default category rows if the table is empty.
+    Once populated, admin edits (label/order/visibility) are preserved
+    on every restart.
+    """
+    if db.query(Category).first():
+        print("  categories: skip (admin edits preserved)")
+        return
+    for i, (key, label, kind, is_visible) in enumerate(DEFAULT_CATEGORIES):
+        db.add(Category(key=key, label=label, kind=kind,
+                        sort_order=i, is_visible=is_visible))
+    db.commit()
+    print(f"  categories: {len(DEFAULT_CATEGORIES)} created (defaults)")
 
 
 def seed_users(db: Session) -> None:
@@ -298,6 +324,9 @@ def main():
     try:
         print(">>> seeding users")
         seed_users(db)
+
+        print(">>> seeding categories")
+        seed_categories(db)
 
         # Content is seeded ONLY on first deploy (when the DB is empty).
         # Subsequent restarts must not overwrite admin/editor changes made

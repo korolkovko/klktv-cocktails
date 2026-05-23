@@ -11,15 +11,15 @@ import ClassicsPage from './pages/ClassicsPage';
 import AdminPage from './admin/AdminPage';
 import UsersPage from './admin/UsersPage';
 
-// Public categories shown in the burger menu. In D-2 this will come from the DB.
-const CATEGORIES = [
-  { key: 'menu',     label: 'Меню' },
-  { key: 'classics', label: 'Классика' },
-];
-
 export default function App() {
   const { user } = useAuth();
-  const { cocktails, spiritFilters, glassFilters } = useContent();
+  const { categories, cocktails, spiritFilters, glassFilters } = useContent();
+  // Burger shows only visible categories. We render `kind`-based pages
+  // (so admin can rename "Меню" without breaking routing).
+  const burgerItems = useMemo(
+    () => (categories || []).filter((c) => c.is_visible).map((c) => ({ key: c.kind, label: c.label })),
+    [categories]
+  );
   const [page, setPage] = useState('menu');
   const [search, setSearch] = useState('');
   const [activeSpirit, setActiveSpirit] = useState('all');
@@ -50,7 +50,7 @@ export default function App() {
 
   return (
     <div className="container">
-      <BurgerMenu items={CATEGORIES} active={page} onSelect={onSelectCategory} />
+      <BurgerMenu items={burgerItems} active={page} onSelect={onSelectCategory} />
 
       {page === 'menu' && (
         <>
