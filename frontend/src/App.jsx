@@ -1,26 +1,24 @@
 import { useState, useMemo } from 'react';
 import { useContent } from './data/ContentContext';
-import NavTabs from './components/NavTabs';
+import { useAuth } from './auth/AuthContext';
+import BurgerMenu from './components/BurgerMenu';
+import Footer from './components/Footer';
 import SearchBar from './components/SearchBar';
 import FilterTags from './components/FilterTags';
 import CocktailCard from './components/CocktailCard';
 import BottomSheet from './components/BottomSheet';
 import ClassicsPage from './pages/ClassicsPage';
 import AdminPage from './admin/AdminPage';
-import { useAuth } from './auth/AuthContext';
+import UsersPage from './admin/UsersPage';
 
-function LogoutButton() {
-  const { user, logout } = useAuth();
-  if (!user) return null;
-  return (
-    <button className="logout-btn" onClick={logout} title="Выйти">
-      <span className="logout-btn-name">{user.name || user.username}</span>
-      <span>↪</span>
-    </button>
-  );
-}
+// Public categories shown in the burger menu. In D-2 this will come from the DB.
+const CATEGORIES = [
+  { key: 'menu',     label: 'Меню' },
+  { key: 'classics', label: 'Классика' },
+];
 
 export default function App() {
+  const { user } = useAuth();
   const { cocktails, spiritFilters, glassFilters } = useContent();
   const [page, setPage] = useState('menu');
   const [search, setSearch] = useState('');
@@ -43,10 +41,16 @@ export default function App() {
     return list;
   }, [cocktails, search, activeSpirit, activeGlass]);
 
+  // When the user navigates between public categories via the burger, fall
+  // back to 'menu' on logout etc.
+  const onSelectCategory = (key) => {
+    setPage(key);
+    setSelected(null);
+  };
+
   return (
     <div className="container">
-      <LogoutButton />
-      <NavTabs active={page} onSelect={setPage} />
+      <BurgerMenu items={CATEGORIES} active={page} onSelect={onSelectCategory} />
 
       {page === 'menu' && (
         <>
@@ -80,11 +84,6 @@ export default function App() {
               </div>
             )}
           </section>
-
-          <footer className="footer">
-            <div className="logo-text">Kollektiv</div>
-            <p>Коктейльная карта</p>
-          </footer>
         </>
       )}
 
@@ -93,6 +92,12 @@ export default function App() {
       )}
 
       {page === 'admin' && <AdminPage />}
+      {page === 'users' && <UsersPage />}
+
+      <Footer
+        onOpenAdmin={() => { setPage('admin'); setSelected(null); }}
+        onOpenUsers={() => { setPage('users'); setSelected(null); }}
+      />
 
       <BottomSheet cocktail={selected} onClose={() => setSelected(null)} />
     </div>
