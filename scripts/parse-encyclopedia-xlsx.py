@@ -76,6 +76,93 @@ def stringify(v) -> str | None:
     return str(v).strip() or None
 
 
+URL_RE = re.compile(r'https?://\S+')
+
+
+def extract_url_from_name(name: str | None) -> tuple[str | None, str | None]:
+    """Returns (clean_name, url) — URL is moved out, name is whitespace-trimmed."""
+    if not name:
+        return name, None
+    m = URL_RE.search(name)
+    if not m:
+        return name, None
+    url = m.group(0).rstrip('.,;')
+    clean = URL_RE.sub('', name)
+    clean = re.sub(r'\s+', ' ', clean).strip()
+    return clean or name, url
+
+
+# Ordered most-specific → least-specific. Multi-word prefixes catch
+# "Страна производителя" before single "Страна".
+LINE_PREFIXES = [
+    ('страна производителя', 'country'),
+    ('производитель',        'brand'),
+    ('бренд / серия',        'brand'),
+    ('бренд/серия',          'brand'),
+    ('бренд',                'brand'),
+    ('страна',               'country'),
+    ('регион',               'country'),
+]
+
+# Standalone country-only lines like "Мексика, Халиско" or "Шотландия".
+RU_COUNTRY_HINT = re.compile(
+    r'^(Россия|Мексика|США|Шотландия|Ирландия|Англия|Великобритания|Франция|Италия|'
+    r'Испания|Германия|Куба|Перу|Чили|Бразилия|Япония|Корея|Грузия|Молдова|Армения|'
+    r'Чехия|Польша|Венгрия|Финляндия|Швеция|Нидерланды|Австралия|Австрия)\b',
+    re.IGNORECASE,
+)
+
+# A single line counts as structured only if it's short — otherwise it's
+# prose ("Компания X была основана в...") and we leave it as notes.
+MAX_STRUCTURED_LINE = 120
+
+
+def split_brand_country(text: str | None) -> tuple[str | None, str | None, str | None]:
+    """Conservative extraction: only short, clearly structured lines turn
+    into brand / country. Long prose stays in `leftover_notes`."""
+    if not text:
+        return None, None, None
+    brand_lines: list[str] = []
+    country_lines: list[str] = []
+    other_lines: list[str] = []
+
+    for raw in text.split('\n'):
+        line = raw.strip()
+        if not line:
+            continue
+        low = line.lower().lstrip()
+
+        handled = False
+        if len(line) <= MAX_STRUCTURED_LINE:
+            for prefix, field in LINE_PREFIXES:
+                if low.startswith(prefix):
+                    rest = line[len(prefix):].lstrip(' :\t-/').strip()
+                    if rest:
+                        (brand_lines if field == 'brand' else country_lines).append(rest)
+                    handled = True
+                    break
+            if not handled and RU_COUNTRY_HINT.match(line) and len(line) < 80:
+                country_lines.append(line)
+                handled = True
+
+        if not handled:
+            other_lines.append(line)
+
+    # De-duplicate and join
+    def clean_join(parts, sep):
+        seen = []
+        for p in parts:
+            p = p.strip(' ,.;')
+            if p and p not in seen:
+                seen.append(p)
+        return sep.join(seen) or None
+
+    brand = clean_join(brand_lines, '; ')
+    country = clean_join(country_lines, ', ')
+    leftover = '\n'.join(other_lines) or None
+    return brand, country, leftover
+
+
 def detect_header_row(ws) -> tuple[int, dict[int, str]] | tuple[None, None]:
     """Find the row index (1-based) where col A contains 'Название'.
     Returns (row_index, {col_index: field_name})."""
@@ -130,7 +217,10 @@ def parse(xlsx_path: Path) -> dict:
                 if v is not None:
                     data[field] = v
 
-            slug = slugify(name, fallback=f'spirit-{len(spirits)+1}')[:70]
+            clean_name, url_in_name = extract_url_from_name(data.get('name'))
+            brand, country, leftover = split_brand_country(data.get('brand_country'))
+
+            slug = slugify(clean_name or '', fallback=f'spirit-{len(spirits)+1}')[:70]
             n = seen_spirit_slugs.get(slug, 0)
             if n:
                 slug = f'{slug}-{n+1}'
@@ -139,11 +229,14 @@ def parse(xlsx_path: Path) -> dict:
             spirits.append({
                 'slug': slug[:80],
                 'category_slug': cat_slug,
-                'name': data.get('name'),
+                'name': clean_name,
+                'source_url': url_in_name,
                 'abv': data.get('abv'),
                 'price': data.get('price'),
                 'flavour': data.get('flavour'),
-                'brand_country': data.get('brand_country'),
+                'brand': brand,
+                'country': country,
+                'brand_country': leftover,        # only the lines we couldn't classify
                 'features': data.get('features'),
                 'cocktail_pairings': data.get('cocktail_pairings'),
                 'fact': data.get('fact'),

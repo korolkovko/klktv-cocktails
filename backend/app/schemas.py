@@ -117,7 +117,10 @@ class SpiritEntryOut(BaseModel):
     abv: str | None
     price: str | None
     flavour: str | None
-    brand_country: str | None
+    brand: str | None
+    country: str | None
+    brand_country: str | None      # additional notes (long descriptions)
+    source_url: str | None
     features: str | None
     cocktail_pairings: str | None
     fact: str | None

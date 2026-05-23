@@ -205,7 +205,9 @@ def get_content_bundle(db: Session = Depends(get_db)):
                 id=s.slug, category_slug=s.category.slug,
                 name=s.name, img=s.img,
                 abv=s.abv, price=s.price,
-                flavour=s.flavour, brand_country=s.brand_country,
+                flavour=s.flavour,
+                brand=s.brand, country=s.country,
+                brand_country=s.brand_country, source_url=s.source_url,
                 features=s.features, cocktail_pairings=s.cocktail_pairings,
                 fact=s.fact,
             )

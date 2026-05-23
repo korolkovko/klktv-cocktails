@@ -272,7 +272,10 @@ class SpiritEntry(Base):
     abv: Mapped[str | None] = mapped_column(String(32))
     price: Mapped[str | None] = mapped_column(String(64))
     flavour: Mapped[str | None] = mapped_column(Text)
-    brand_country: Mapped[str | None] = mapped_column(Text)
+    brand: Mapped[str | None] = mapped_column(Text)
+    country: Mapped[str | None] = mapped_column(Text)
+    brand_country: Mapped[str | None] = mapped_column(Text)        # raw notes that didn't fit
+    source_url: Mapped[str | None] = mapped_column(Text)
     features: Mapped[str | None] = mapped_column(Text)
     cocktail_pairings: Mapped[str | None] = mapped_column(Text)
     fact: Mapped[str | None] = mapped_column(Text)

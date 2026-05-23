@@ -21,11 +21,17 @@ export default function AdminPage() {
   const [tab, setTab] = useState('cocktails');
   const [editing, setEditing] = useState(null);
   const [creating, setCreating] = useState(false);
+  const [creatingKind, setCreatingKind] = useState(null); // overrides `tab` for the "+ create" dispatch
   const [busy, setBusy] = useState(false);
 
+  const openCreate = (kind) => {
+    setCreating(true);
+    setCreatingKind(kind);
+  };
+
   const editorEntity = editing
-    ? (editing._kind || tab)
-    : (creating ? tab : null);
+    ? editing._kind
+    : (creating ? (creatingKind || tab) : null);
 
   const sortedCocktails = useMemo(
     () => [...cocktails].sort((a, b) => a.name.localeCompare(b.name, 'ru')),
@@ -39,6 +45,15 @@ export default function AdminPage() {
     () => [...families].sort((a, b) => a.label.localeCompare(b.label, 'ru')),
     [families]
   );
+  // Classics grouped by family (like dishes by kitchen category).
+  const classicsByFamily = useMemo(() => {
+    return families.map((f) => ({
+      ...f,
+      classics: [...classics]
+        .filter((c) => c.family === f.key)
+        .sort((a, b) => a.name.localeCompare(b.name, 'ru')),
+    }));
+  }, [families, classics]);
   const sortedZero = useMemo(
     () => [...zeroCocktails].sort((a, b) => a.name.localeCompare(b.name, 'ru')),
     [zeroCocktails]
@@ -67,7 +82,7 @@ export default function AdminPage() {
     }));
   }, [spiritCategories, spiritEntries]);
 
-  const closeEditor = () => { setEditing(null); setCreating(false); };
+  const closeEditor = () => { setEditing(null); setCreating(false); setCreatingKind(null); };
 
   const onDelete = async (kind, identifier, displayName) => {
     if (!confirm(`Удалить «${displayName}»? Это действие необратимо.`)) return;
@@ -96,12 +111,6 @@ export default function AdminPage() {
           onClick={() => setTab('classics')}
         >
           Классика · {classics.length}
-        </button>
-        <button
-          className={`admin-subtab${tab === 'families' ? ' active' : ''}`}
-          onClick={() => setTab('families')}
-        >
-          Семейства · {families.length}
         </button>
         <button
           className={`admin-subtab${tab === 'zero' ? ' active' : ''}`}
@@ -139,7 +148,7 @@ export default function AdminPage() {
         <section>
           <div className="admin-list-head">
             <h2 className="admin-list-title">Авторские коктейли</h2>
-            <button className="login-submit admin-add-cta" onClick={() => setCreating(true)}>
+            <button className="login-submit admin-add-cta" onClick={() => openCreate('cocktails')}>
               + Новый коктейль
             </button>
           </div>
@@ -167,71 +176,63 @@ export default function AdminPage() {
       {tab === 'classics' && (
         <section>
           <div className="admin-list-head">
-            <h2 className="admin-list-title">Классические коктейли</h2>
-            <button className="login-submit admin-add-cta" onClick={() => setCreating(true)}>
-              + Новая классика
-            </button>
+            <h2 className="admin-list-title">Классика</h2>
+            <div style={{ display: 'flex', gap: '.5rem' }}>
+              <button className="admin-btn" onClick={() => openCreate('families')}>+ Семейство</button>
+              <button className="login-submit admin-add-cta" onClick={() => openCreate('classics')}>
+                + Новая классика
+              </button>
+            </div>
           </div>
-          <div className="admin-list">
-            {sortedClassics.map((c) => (
-              <div key={c.id} className="admin-list-row">
-                <div className="admin-list-row-main">
-                  <div className="admin-list-row-name">{c.name}</div>
-                  <div className="admin-list-row-sub">
-                    <span>{c.id}</span>
-                    <span>· {c.family}</span>
-                    {c.year && <span>· {c.year}</span>}
-                    {c.origin && <span>· {c.origin}</span>}
-                  </div>
-                </div>
-                <div className="admin-list-row-actions">
-                  <button className="admin-btn" onClick={() => setEditing({ ...c, _kind: 'classics' })} disabled={busy}>Изменить</button>
-                  <button className="admin-btn admin-btn--danger" onClick={() => onDelete('classics', c.id, c.name)} disabled={busy}>Удалить</button>
-                </div>
+          {classicsByFamily.map((fam) => (
+            <div key={fam.key} style={{ marginBottom: '1.5rem' }}>
+              <div className="admin-cat-row">
+                <span
+                  style={{
+                    display: 'inline-block',
+                    width: 10, height: 10,
+                    borderRadius: 999,
+                    background: fam.color || '#555',
+                    flexShrink: 0,
+                  }}
+                />
+                <span style={{ flex: 1, fontFamily: "'Unbounded', sans-serif", fontSize: '.85rem', textTransform: 'uppercase', letterSpacing: '.04em', padding: '.35rem .5rem' }}>
+                  {fam.label}
+                </span>
+                <span className="admin-cat-count">{fam.classics.length}</span>
+                <button className="admin-btn" onClick={() => setEditing({ ...fam, _kind: 'families' })}>Править</button>
+                <button
+                  className="admin-btn admin-btn--danger"
+                  onClick={() => onDelete('families', fam.key, fam.label)}
+                  disabled={fam.classics.length > 0}
+                  title={fam.classics.length > 0 ? 'Сначала перенесите коктейли' : 'Удалить'}
+                >×</button>
               </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {tab === 'families' && (
-        <section>
-          <div className="admin-list-head">
-            <h2 className="admin-list-title">Семейства классики</h2>
-            <button className="login-submit admin-add-cta" onClick={() => setCreating(true)}>
-              + Новое семейство
-            </button>
-          </div>
-          <div className="admin-list">
-            {sortedFamilies.map((f) => (
-              <div key={f.key} className="admin-list-row">
-                <div className="admin-list-row-main">
-                  <div className="admin-list-row-name">
-                    <span
-                      style={{
-                        display: 'inline-block',
-                        width: 10,
-                        height: 10,
-                        borderRadius: 999,
-                        background: f.color || '#555',
-                        marginRight: 8,
-                        verticalAlign: 'middle',
-                      }}
-                    />
-                    {f.label}
+              <div className="admin-list">
+                {fam.classics.map((c) => (
+                  <div key={c.id} className="admin-list-row">
+                    <div className="admin-list-row-main">
+                      <div className="admin-list-row-name">{c.name}</div>
+                      <div className="admin-list-row-sub">
+                        <span>{c.id}</span>
+                        {c.year && <span>· {c.year}</span>}
+                        {c.origin && <span>· {c.origin}</span>}
+                      </div>
+                    </div>
+                    <div className="admin-list-row-actions">
+                      <button className="admin-btn" onClick={() => setEditing({ ...c, _kind: 'classics' })} disabled={busy}>Изменить</button>
+                      <button className="admin-btn admin-btn--danger" onClick={() => onDelete('classics', c.id, c.name)} disabled={busy}>Удалить</button>
+                    </div>
                   </div>
-                  <div className="admin-list-row-sub">
-                    <span>{f.key}</span>
-                    {f.sub && <span>· {f.sub}</span>}
+                ))}
+                {fam.classics.length === 0 && (
+                  <div className="admin-soon" style={{ padding: '.75rem', fontSize: '.8rem' }}>
+                    нет классик в этом семействе
                   </div>
-                </div>
-                <div className="admin-list-row-actions">
-                  <button className="admin-btn" onClick={() => setEditing({ ...f, _kind: 'families' })} disabled={busy}>Изменить</button>
-                  <button className="admin-btn admin-btn--danger" onClick={() => onDelete('families', f.key, f.label)} disabled={busy}>Удалить</button>
-                </div>
+                )}
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </section>
       )}
 
@@ -239,7 +240,7 @@ export default function AdminPage() {
         <section>
           <div className="admin-list-head">
             <h2 className="admin-list-title">Безалкогольные коктейли</h2>
-            <button className="login-submit admin-add-cta" onClick={() => setCreating(true)}>
+            <button className="login-submit admin-add-cta" onClick={() => openCreate('zero')}>
               + Новый безалко
             </button>
           </div>
@@ -268,7 +269,7 @@ export default function AdminPage() {
         <section>
           <div className="admin-list-head">
             <h2 className="admin-list-title">Zero Culture</h2>
-            <button className="login-submit admin-add-cta" onClick={() => setCreating(true)}>
+            <button className="login-submit admin-add-cta" onClick={() => openCreate('zc')}>
               + Новый ZC
             </button>
           </div>
@@ -317,7 +318,7 @@ export default function AdminPage() {
                   await reload();
                 } catch (e) { alert(e.message); }
               }}>+ Категория</button>
-              <button className="login-submit admin-add-cta" onClick={() => setCreating(true)}>
+              <button className="login-submit admin-add-cta" onClick={() => openCreate('kitchen')}>
                 + Новое блюдо
               </button>
             </div>
@@ -368,7 +369,7 @@ export default function AdminPage() {
                   await reload();
                 } catch (e) { alert(e.message); }
               }}>+ Категория</button>
-              <button className="login-submit admin-add-cta" onClick={() => setCreating(true)}>
+              <button className="login-submit admin-add-cta" onClick={() => openCreate('spirits')}>
                 + Новая позиция
               </button>
             </div>

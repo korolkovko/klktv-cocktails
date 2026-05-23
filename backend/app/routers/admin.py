@@ -101,7 +101,10 @@ class SpiritEntryWriteIn(BaseModel):
     abv: str | None = None
     price: str | None = None
     flavour: str | None = None
-    brand_country: str | None = None
+    brand: str | None = None
+    country: str | None = None
+    brand_country: str | None = None      # long-form notes
+    source_url: str | None = None
     features: str | None = None
     cocktail_pairings: str | None = None
     fact: str | None = None
@@ -683,7 +686,10 @@ def _apply_spirit(db: Session, obj: SpiritEntry, data: SpiritEntryWriteIn) -> No
     cat = _resolve_spirit_cat(db, data.category_slug)
     obj.name = data.name; obj.img = data.img
     obj.abv = data.abv; obj.price = data.price
-    obj.flavour = data.flavour; obj.brand_country = data.brand_country
+    obj.flavour = data.flavour
+    obj.brand = data.brand; obj.country = data.country
+    obj.brand_country = data.brand_country
+    obj.source_url = data.source_url
     obj.features = data.features; obj.cocktail_pairings = data.cocktail_pairings
     obj.fact = data.fact
     obj.category_id = cat.id; obj.sort_order = data.sort_order

@@ -63,6 +63,13 @@ body {
 }
 
 /* ── PAGE NAV ── */
+/* External link inside a sheet body. */
+.sheet-link {
+  color: var(--accent);
+  text-decoration: underline;
+  word-break: break-all;
+}
+
 /* ── GLOBAL PROGRESS ── */
 .progress-overall {
   margin-top: -.5rem;

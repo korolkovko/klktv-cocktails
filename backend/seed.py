@@ -112,10 +112,36 @@ def seed_encyclopedia(db: Session) -> None:
     if not ENCYCLOPEDIA_PATH.exists():
         print("  encyclopedia: skip (no JSON)")
         return
-    if db.query(SpiritEntry).first():
-        print("  encyclopedia: skip (already seeded)")
-        return
     data = json.loads(ENCYCLOPEDIA_PATH.read_text(encoding="utf-8"))
+
+    if db.query(SpiritEntry).first():
+        # Already seeded — only backfill fields that are NULL on existing rows.
+        # This lets us re-run the parser to add new structured fields
+        # (brand/country/source_url) without overwriting admin edits.
+        filled = 0
+        for s in data["spirits"]:
+            row = db.query(SpiritEntry).filter(SpiritEntry.slug == s["slug"]).first()
+            if not row:
+                continue
+            touched = False
+            for field in ("brand", "country", "source_url"):
+                val = s.get(field)
+                if val and getattr(row, field) is None:
+                    setattr(row, field, val)
+                    touched = True
+            # Also re-write brand_country if the new (leftover) version is
+            # *shorter* than the existing one — earlier seed stored the full
+            # raw blob in brand_country; we now prefer the cleaned leftover.
+            new_bc = s.get("brand_country")
+            if new_bc is not None and row.brand_country and len(new_bc) < len(row.brand_country):
+                row.brand_country = new_bc
+                touched = True
+            if touched:
+                filled += 1
+        db.commit()
+        print(f"  encyclopedia: skip (seeded) — backfilled {filled} rows with new fields")
+        return
+
     cat_by_slug: dict[str, SpiritCategory] = {}
     for c in data["categories"]:
         obj = SpiritCategory(slug=c["slug"], label=c["label"],
@@ -133,7 +159,10 @@ def seed_encyclopedia(db: Session) -> None:
             abv=s.get("abv"),
             price=s.get("price"),
             flavour=s.get("flavour"),
+            brand=s.get("brand"),
+            country=s.get("country"),
             brand_country=s.get("brand_country"),
+            source_url=s.get("source_url"),
             features=s.get("features"),
             cocktail_pairings=s.get("cocktail_pairings"),
             fact=s.get("fact"),

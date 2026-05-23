@@ -17,7 +17,10 @@ export default function SpiritEditor({ initial, onClose, onSaved }) {
     abv: initial?.abv ?? '',
     price: initial?.price ?? '',
     flavour: initial?.flavour ?? '',
+    brand: initial?.brand ?? '',
+    country: initial?.country ?? '',
     brand_country: initial?.brandCountry ?? '',
+    source_url: initial?.sourceUrl ?? '',
     features: initial?.features ?? '',
     cocktail_pairings: initial?.cocktailPairings ?? '',
     fact: initial?.fact ?? '',
@@ -62,7 +65,10 @@ export default function SpiritEditor({ initial, onClose, onSaved }) {
       abv: form.abv || null,
       price: form.price || null,
       flavour: form.flavour || null,
+      brand: form.brand || null,
+      country: form.country || null,
       brand_country: form.brand_country || null,
+      source_url: form.source_url || null,
       features: form.features || null,
       cocktail_pairings: form.cocktail_pairings || null,
       fact: form.fact || null,
@@ -104,7 +110,14 @@ export default function SpiritEditor({ initial, onClose, onSaved }) {
             <TextField label="ABV (%)" value={form.abv} onChange={(v) => set('abv', v)} placeholder="40" />
             <TextField label="Цена" value={form.price} onChange={(v) => set('price', v)} placeholder="550 за 30 мл" />
             <TextArea label="Flavour / вкус" value={form.flavour} onChange={(v) => set('flavour', v)} rows={3} />
-            <TextArea label="Бренд / Страна" value={form.brand_country} onChange={(v) => set('brand_country', v)} rows={3} />
+            <TextField label="Бренд" value={form.brand} onChange={(v) => set('brand', v)}
+              placeholder="Destileria Orendain" />
+            <TextField label="Страна / регион" value={form.country} onChange={(v) => set('country', v)}
+              placeholder="Шотландия, Спейсайд" />
+            <TextArea label="Подробно про бренд" value={form.brand_country} onChange={(v) => set('brand_country', v)} rows={4}
+              hint="История компании, особенности производства — всё, что не помещается в короткие поля выше" />
+            <TextField label="Ссылка" value={form.source_url} onChange={(v) => set('source_url', v)}
+              placeholder="https://..." hint="официальный сайт или каталог" />
             <TextArea label="Особенности" value={form.features} onChange={(v) => set('features', v)} rows={3} />
             <TextArea label="В каких коктейлях" value={form.cocktail_pairings} onChange={(v) => set('cocktail_pairings', v)} rows={2}
               placeholder="Маргарита&#10;Негрони" />

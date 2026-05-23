@@ -58,10 +58,38 @@ export default function SpiritSheet({ entry, onClose }) {
               </>
             )}
 
-            {entry.brand_country && (
+            {(entry.brand || entry.country) && (
               <div className="sheet-section">
-                <div className="sheet-label">Бренд / Страна</div>
-                <div className="sheet-text" style={{ whiteSpace: 'pre-wrap' }}>{entry.brand_country}</div>
+                {entry.brand && (
+                  <div style={{ marginBottom: entry.country ? '.5rem' : 0 }}>
+                    <div className="sheet-label">Бренд</div>
+                    <div className="sheet-text">{entry.brand}</div>
+                  </div>
+                )}
+                {entry.country && (
+                  <div>
+                    <div className="sheet-label">Страна / регион</div>
+                    <div className="sheet-text">{entry.country}</div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {entry.brandCountry && (
+              <div className="sheet-section">
+                <div className="sheet-label">Подробно про бренд</div>
+                <div className="sheet-text" style={{ whiteSpace: 'pre-wrap' }}>{entry.brandCountry}</div>
+              </div>
+            )}
+
+            {entry.sourceUrl && (
+              <div className="sheet-section">
+                <div className="sheet-label">Ссылка</div>
+                <div className="sheet-text">
+                  <a href={entry.sourceUrl} target="_blank" rel="noopener noreferrer" className="sheet-link">
+                    {entry.sourceUrl}
+                  </a>
+                </div>
               </div>
             )}
 

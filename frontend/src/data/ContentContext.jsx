@@ -73,7 +73,10 @@ function normaliseSpirit(s) {
     abv: s.abv,
     price: s.price,
     flavour: s.flavour,
-    brandCountry: s.brand_country,
+    brand: s.brand,
+    country: s.country,
+    brandCountry: s.brand_country,   // long notes
+    sourceUrl: s.source_url,
     features: s.features,
     cocktailPairings: s.cocktail_pairings,
     fact: s.fact,
