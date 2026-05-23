@@ -19,6 +19,10 @@ RUN rm /etc/nginx/conf.d/default.conf
 COPY nginx.conf /etc/nginx/templates/default.conf.template
 COPY --from=build /app/dist /usr/share/nginx/html
 
+# Only substitute the variables WE want — leaves nginx's own $vars
+# (like $proxy_host, $request_uri, $remote_addr) untouched.
+ENV NGINX_ENVSUBST_FILTER="^(PORT|BACKEND_URL)$"
+
 ENV PORT=80
 EXPOSE 80
 
