@@ -299,13 +299,23 @@ def main():
         print(">>> seeding users")
         seed_users(db)
 
-        if DATA_PATH.exists():
-            print(f">>> seeding content from {DATA_PATH}")
-            with open(DATA_PATH, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            seed_content(db, data)
+        # Content is seeded ONLY on first deploy (when the DB is empty).
+        # Subsequent restarts must not overwrite admin/editor changes made
+        # through the UI. To force a re-seed (e.g. after a destructive
+        # migration), drop the cocktails table or set SEED_CONTENT_FORCE=1.
+        from app.models import Cocktail  # local to avoid top-level cycles
+        force = os.environ.get("SEED_CONTENT_FORCE") == "1"
+        has_content = db.query(Cocktail).first() is not None
+        if force or not has_content:
+            if DATA_PATH.exists():
+                print(f">>> seeding content from {DATA_PATH} (force={force}, had_content={has_content})")
+                with open(DATA_PATH, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                seed_content(db, data)
+            else:
+                print(f"  WARNING: {DATA_PATH} not found, skipping content seed")
         else:
-            print(f"  WARNING: {DATA_PATH} not found, skipping content seed")
+            print(">>> skipping content seed (DB already has cocktails — set SEED_CONTENT_FORCE=1 to override)")
 
         print("Done.")
     finally:

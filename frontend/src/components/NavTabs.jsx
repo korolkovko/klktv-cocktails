@@ -1,4 +1,8 @@
+import { useAuth } from '../auth/AuthContext';
+
 export default function NavTabs({ active, onSelect }) {
+  const { user } = useAuth();
+  const canEdit = user && (user.role === 'admin' || user.role === 'editor');
   return (
     <div className="page-nav">
       <button
@@ -13,6 +17,14 @@ export default function NavTabs({ active, onSelect }) {
       >
         Классика
       </button>
+      {canEdit && (
+        <button
+          className={`page-nav-tab${active === 'admin' ? ' active' : ''}`}
+          onClick={() => onSelect('admin')}
+        >
+          Админка
+        </button>
+      )}
     </div>
   );
 }

@@ -6,6 +6,7 @@ import FilterTags from './components/FilterTags';
 import CocktailCard from './components/CocktailCard';
 import BottomSheet from './components/BottomSheet';
 import ClassicsPage from './pages/ClassicsPage';
+import AdminPage from './admin/AdminPage';
 import { useAuth } from './auth/AuthContext';
 
 function LogoutButton() {
@@ -90,6 +91,8 @@ export default function App() {
       {page === 'classics' && (
         <ClassicsPage onOpenAuthorCocktail={setSelected} />
       )}
+
+      {page === 'admin' && <AdminPage />}
 
       <BottomSheet cocktail={selected} onClose={() => setSelected(null)} />
     </div>
