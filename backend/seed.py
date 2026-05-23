@@ -10,6 +10,7 @@ Run with: python seed.py
 
 import json
 import os
+import re
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -108,6 +109,32 @@ def seed_kitchen(db: Session) -> None:
     print(f"  kitchen: {len(data['categories'])} categories, {len(data['dishes'])} dishes")
 
 
+_URL_RE = re.compile(r'https?://\S+')
+
+
+def _cleanup_legacy_urls(db: Session) -> int:
+    """Old parser kept URLs embedded in the name; new one extracts them.
+    Find rows whose name still contains a URL and split them out into
+    source_url. Slugs are left untouched to keep learning_progress refs."""
+    rows = db.query(SpiritEntry).filter(SpiritEntry.name.like('%http%')).all()
+    n = 0
+    for row in rows:
+        m = _URL_RE.search(row.name or '')
+        if not m:
+            continue
+        url = m.group(0).rstrip('.,;')
+        clean = _URL_RE.sub('', row.name or '')
+        clean = ' '.join(clean.split())
+        if clean:
+            row.name = clean[:256]
+        if not row.source_url:
+            row.source_url = url
+        n += 1
+    if n:
+        db.commit()
+    return n
+
+
 def seed_encyclopedia(db: Session) -> None:
     if not ENCYCLOPEDIA_PATH.exists():
         print("  encyclopedia: skip (no JSON)")
@@ -115,6 +142,9 @@ def seed_encyclopedia(db: Session) -> None:
     data = json.loads(ENCYCLOPEDIA_PATH.read_text(encoding="utf-8"))
 
     if db.query(SpiritEntry).first():
+        cleaned = _cleanup_legacy_urls(db)
+        if cleaned:
+            print(f"  encyclopedia: cleaned {cleaned} legacy rows (URLs extracted from names)")
         # Already seeded — only backfill fields that are NULL on existing rows.
         # This lets us re-run the parser to add new structured fields
         # (brand/country/source_url) without overwriting admin edits.
