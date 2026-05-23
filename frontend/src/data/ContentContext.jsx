@@ -20,6 +20,8 @@ export function ContentProvider({ children }) {
           cocktails: data.cocktails.map(normaliseCocktail),
           classics: data.classics.map(normaliseClassic),
           families: data.families,
+          zeroCocktails: (data.zero_cocktails || []).map(normaliseZero),
+          zcDrinks: (data.zc_drinks || []).map(normaliseZC),
           spiritFilters: data.cocktail_spirit_filters,
           glassFilters: data.cocktail_glass_filters,
           timeline: data.timeline,
@@ -55,6 +57,37 @@ function normaliseCocktail(c) {
     flavors: c.flavors,
     details: c.details,
     badge: c.badge ? { type: c.badge.key, label: c.badge.label } : null,
+  };
+}
+
+function normaliseZero(c) {
+  return {
+    id: c.id,
+    name: c.name,
+    img: c.img,
+    price: c.price,
+    abv: c.abv,
+    glass: c.glass,
+    glassTag: c.glass_tag,
+    tagline: c.tagline,
+    ingredients: c.ingredients,
+    details: c.details,
+  };
+}
+
+function normaliseZC(c) {
+  return {
+    id: c.id,
+    name: c.name,
+    img: c.img,
+    isAlcoholic: c.is_alcoholic,
+    price: c.price,
+    abv: c.abv,
+    glass: c.glass,
+    glassTag: c.glass_tag,
+    tagline: c.tagline,
+    caffeineLevel: c.caffeine_level,
+    details: c.details,
   };
 }
 

@@ -1,0 +1,33 @@
+import { useImageColor } from '../hooks/useImageColor';
+import { resolveImageUrl } from '../auth/api';
+
+export default function ZCCard({ item, onClick }) {
+  const imgUrl = resolveImageUrl(item.img);
+  const bgColor = useImageColor(imgUrl);
+  return (
+    <article className="card" onClick={() => onClick(item)}>
+      <span className={`badge zc-badge ${item.isAlcoholic ? 'zc-badge--alc' : 'zc-badge--non'}`}>
+        {item.isAlcoholic ? 'Алко' : 'Non Alc'}
+      </span>
+      <div className="card-inner">
+        <div className="card-thumb" style={{ background: bgColor || '#111' }}>
+          {imgUrl && <img src={imgUrl} alt={item.name} loading="lazy" />}
+        </div>
+        <div className="card-content">
+          <div className="card-name">{item.name}</div>
+          {item.tagline && <div className="card-tagline">{item.tagline}</div>}
+          <div className="card-flavors">
+            {item.price && <span className="flavor-tag flavor-tag--price">{item.price}</span>}
+            {item.abv && <span className="flavor-tag flavor-tag--abv">{item.abv}</span>}
+            {item.glass && <span className="flavor-tag">{item.glass}</span>}
+            {!item.isAlcoholic && item.caffeineLevel != null && (
+              <span className="flavor-tag flavor-tag--caffeine">
+                кофеин {item.caffeineLevel}/3
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+}

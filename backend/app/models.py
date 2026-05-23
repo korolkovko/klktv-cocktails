@@ -233,6 +233,79 @@ class TimelineEntry(Base):
 
 
 # ────────────────────────────────────────────────────────────
+# Zero — non-alcoholic cocktails (their own category page)
+# ────────────────────────────────────────────────────────────
+
+class ZeroCocktail(Base):
+    __tablename__ = "zero_cocktails"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    slug: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    img: Mapped[str | None] = mapped_column(String(256))
+    price: Mapped[str | None] = mapped_column(String(32))          # "430 ₽"
+    abv: Mapped[str | None] = mapped_column(String(32))            # "Non Alc"
+    glass_id: Mapped[int | None] = mapped_column(ForeignKey("glasses.id", ondelete="SET NULL"))
+    glass_label_override: Mapped[str | None] = mapped_column(String(64))
+    tagline: Mapped[str | None] = mapped_column(Text)
+    ingredients_text: Mapped[str | None] = mapped_column(Text)     # newline-separated list
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    glass: Mapped["Glass | None"] = relationship()
+    details: Mapped[list["ZeroCocktailDetail"]] = relationship(back_populates="parent", cascade="all, delete-orphan", order_by="ZeroCocktailDetail.sort_order")
+
+
+class ZeroCocktailDetail(Base):
+    __tablename__ = "zero_cocktail_details"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    parent_id: Mapped[int] = mapped_column(ForeignKey("zero_cocktails.id", ondelete="CASCADE"), index=True)
+    label: Mapped[str] = mapped_column(String(128), nullable=False)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+    parent: Mapped["ZeroCocktail"] = relationship(back_populates="details")
+
+
+# ────────────────────────────────────────────────────────────
+# Zero Culture — separate brand line (alc + non-alc mixed)
+# ────────────────────────────────────────────────────────────
+
+class ZCDrink(Base):
+    __tablename__ = "zc_drinks"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    slug: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    img: Mapped[str | None] = mapped_column(String(256))
+    is_alcoholic: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    price: Mapped[str | None] = mapped_column(String(32))
+    abv: Mapped[str | None] = mapped_column(String(32))
+    glass_id: Mapped[int | None] = mapped_column(ForeignKey("glasses.id", ondelete="SET NULL"))
+    glass_label_override: Mapped[str | None] = mapped_column(String(64))
+    tagline: Mapped[str | None] = mapped_column(Text)
+    caffeine_level: Mapped[int | None] = mapped_column(Integer)    # 1..3, only for non-alc
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    glass: Mapped["Glass | None"] = relationship()
+    details: Mapped[list["ZCDrinkDetail"]] = relationship(back_populates="parent", cascade="all, delete-orphan", order_by="ZCDrinkDetail.sort_order")
+
+
+class ZCDrinkDetail(Base):
+    __tablename__ = "zc_drink_details"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    parent_id: Mapped[int] = mapped_column(ForeignKey("zc_drinks.id", ondelete="CASCADE"), index=True)
+    label: Mapped[str] = mapped_column(String(128), nullable=False)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+    parent: Mapped["ZCDrink"] = relationship(back_populates="details")
+
+
+# ────────────────────────────────────────────────────────────
 # Navigation categories (the burger menu)
 # ────────────────────────────────────────────────────────────
 

@@ -98,6 +98,42 @@ class ClassicOut(BaseModel):
     related_ours: list[str]   # cocktail slugs
 
 
+# ── Zero (non-alcoholic) cocktails ───────────────────────
+
+class ZeroDetailOut(BaseModel):
+    label: str
+    text: str
+
+
+class ZeroCocktailOut(BaseModel):
+    id: str
+    name: str
+    img: str | None
+    price: str | None
+    abv: str | None
+    glass: str | None
+    glass_tag: str | None
+    tagline: str | None
+    ingredients: list[str]            # parsed from ingredients_text
+    details: list[ZeroDetailOut]
+
+
+# ── Zero Culture ─────────────────────────────────────────
+
+class ZCDrinkOut(BaseModel):
+    id: str
+    name: str
+    img: str | None
+    is_alcoholic: bool
+    price: str | None
+    abv: str | None
+    glass: str | None
+    glass_tag: str | None
+    tagline: str | None
+    caffeine_level: int | None
+    details: list[ZeroDetailOut]
+
+
 # ── Content bundle (single call returns everything for first page render) ──
 
 class ContentBundleOut(BaseModel):
@@ -105,6 +141,8 @@ class ContentBundleOut(BaseModel):
     cocktails: list[CocktailOut]
     classics: list[ClassicOut]
     families: list[FamilyOut]
+    zero_cocktails: list[ZeroCocktailOut]
+    zc_drinks: list[ZCDrinkOut]
     cocktail_spirit_filters: list[FilterOut]
     cocktail_glass_filters: list[FilterOut]
     timeline: list[TimelineOut]

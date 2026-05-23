@@ -15,6 +15,7 @@ from app.models import (
     Badge, Category, Classic, ClassicDescriptor, ClassicRelatedCocktail, ClassicSpirit,
     Cocktail, CocktailDetail, CocktailFlavor, CocktailTag,
     Descriptor, Family, Flavor, Glass, Spirit, Tag, User,
+    ZCDrink, ZCDrinkDetail, ZeroCocktail, ZeroCocktailDetail,
 )
 
 router = APIRouter(prefix="/api/admin", tags=["admin"], dependencies=[Depends(require_editor)])
@@ -60,6 +61,42 @@ class ClassicWriteIn(BaseModel):
     history: str | None = None
     for_whom: str | None = None
     related_ours: list[str] = []
+    sort_order: int = 0
+
+
+class ZeroDetailIn(BaseModel):
+    label: str
+    text: str
+
+    model_config = ConfigDict(extra="ignore")
+
+
+class ZeroCocktailWriteIn(BaseModel):
+    slug: str
+    name: str
+    img: str | None = None
+    price: str | None = None
+    abv: str | None = None
+    glass_key: str | None = None
+    glass_label_override: str | None = None
+    tagline: str | None = None
+    ingredients_text: str | None = None
+    details: list[ZeroDetailIn] = []
+    sort_order: int = 0
+
+
+class ZCDrinkWriteIn(BaseModel):
+    slug: str
+    name: str
+    img: str | None = None
+    is_alcoholic: bool = True
+    price: str | None = None
+    abv: str | None = None
+    glass_key: str | None = None
+    glass_label_override: str | None = None
+    tagline: str | None = None
+    caffeine_level: int | None = None    # ignored when is_alcoholic=True
+    details: list[ZeroDetailIn] = []
     sort_order: int = 0
 
 
@@ -381,3 +418,102 @@ def reorder_categories(data: CategoryReorderIn, db: Session = Depends(get_db)):
             obj.sort_order = i
     db.commit()
     return {"count": len(data.keys)}
+
+
+# ── Zero cocktails (non-alc) ──────────────────────────────
+
+def _apply_zero(db: Session, obj: ZeroCocktail, data: ZeroCocktailWriteIn) -> None:
+    glass = _get_or_create_glass(db, data.glass_key, data.glass_label_override) if data.glass_key else None
+    obj.name = data.name
+    obj.img = data.img
+    obj.price = data.price
+    obj.abv = data.abv
+    obj.glass_id = glass.id if glass else None
+    obj.glass_label_override = data.glass_label_override if not glass else None
+    obj.tagline = data.tagline
+    obj.ingredients_text = data.ingredients_text
+    obj.sort_order = data.sort_order
+    if obj.id is None:
+        db.flush()
+    db.query(ZeroCocktailDetail).filter(ZeroCocktailDetail.parent_id == obj.id).delete()
+    for i, d in enumerate(data.details):
+        db.add(ZeroCocktailDetail(parent_id=obj.id, label=d.label, text=d.text, sort_order=i))
+
+
+@router.post("/zero-cocktails", status_code=status.HTTP_201_CREATED)
+def create_zero(data: ZeroCocktailWriteIn, db: Session = Depends(get_db)):
+    if db.query(ZeroCocktail).filter(ZeroCocktail.slug == data.slug).first():
+        raise HTTPException(409, detail="Zero cocktail with this slug already exists")
+    obj = ZeroCocktail(slug=data.slug); db.add(obj)
+    _apply_zero(db, obj, data); db.commit()
+    return {"slug": obj.slug}
+
+
+@router.patch("/zero-cocktails/{slug}")
+def update_zero(slug: str, data: ZeroCocktailWriteIn, db: Session = Depends(get_db)):
+    obj = db.query(ZeroCocktail).filter(ZeroCocktail.slug == slug).first()
+    if not obj:
+        raise HTTPException(404, detail="Zero cocktail not found")
+    if data.slug != slug and db.query(ZeroCocktail).filter(ZeroCocktail.slug == data.slug).first():
+        raise HTTPException(409, detail="New slug already in use")
+    obj.slug = data.slug
+    _apply_zero(db, obj, data); db.commit()
+    return {"slug": obj.slug}
+
+
+@router.delete("/zero-cocktails/{slug}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_zero(slug: str, db: Session = Depends(get_db)):
+    obj = db.query(ZeroCocktail).filter(ZeroCocktail.slug == slug).first()
+    if not obj:
+        raise HTTPException(404, detail="Zero cocktail not found")
+    db.delete(obj); db.commit()
+
+
+# ── Zero Culture drinks ──────────────────────────────────
+
+def _apply_zc(db: Session, obj: ZCDrink, data: ZCDrinkWriteIn) -> None:
+    glass = _get_or_create_glass(db, data.glass_key, data.glass_label_override) if data.glass_key else None
+    obj.name = data.name
+    obj.img = data.img
+    obj.is_alcoholic = data.is_alcoholic
+    obj.price = data.price
+    obj.abv = data.abv
+    obj.glass_id = glass.id if glass else None
+    obj.glass_label_override = data.glass_label_override if not glass else None
+    obj.tagline = data.tagline
+    obj.caffeine_level = data.caffeine_level if not data.is_alcoholic else None
+    obj.sort_order = data.sort_order
+    if obj.id is None:
+        db.flush()
+    db.query(ZCDrinkDetail).filter(ZCDrinkDetail.parent_id == obj.id).delete()
+    for i, d in enumerate(data.details):
+        db.add(ZCDrinkDetail(parent_id=obj.id, label=d.label, text=d.text, sort_order=i))
+
+
+@router.post("/zc-drinks", status_code=status.HTTP_201_CREATED)
+def create_zc(data: ZCDrinkWriteIn, db: Session = Depends(get_db)):
+    if db.query(ZCDrink).filter(ZCDrink.slug == data.slug).first():
+        raise HTTPException(409, detail="ZC drink with this slug already exists")
+    obj = ZCDrink(slug=data.slug); db.add(obj)
+    _apply_zc(db, obj, data); db.commit()
+    return {"slug": obj.slug}
+
+
+@router.patch("/zc-drinks/{slug}")
+def update_zc(slug: str, data: ZCDrinkWriteIn, db: Session = Depends(get_db)):
+    obj = db.query(ZCDrink).filter(ZCDrink.slug == slug).first()
+    if not obj:
+        raise HTTPException(404, detail="ZC drink not found")
+    if data.slug != slug and db.query(ZCDrink).filter(ZCDrink.slug == data.slug).first():
+        raise HTTPException(409, detail="New slug already in use")
+    obj.slug = data.slug
+    _apply_zc(db, obj, data); db.commit()
+    return {"slug": obj.slug}
+
+
+@router.delete("/zc-drinks/{slug}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_zc(slug: str, db: Session = Depends(get_db)):
+    obj = db.query(ZCDrink).filter(ZCDrink.slug == slug).first()
+    if not obj:
+        raise HTTPException(404, detail="ZC drink not found")
+    db.delete(obj); db.commit()

@@ -4,6 +4,8 @@ import { useContent } from '../data/ContentContext';
 import CocktailEditor from './CocktailEditor';
 import ClassicEditor from './ClassicEditor';
 import FamilyEditor from './FamilyEditor';
+import ZeroEditor from './ZeroEditor';
+import ZCEditor from './ZCEditor';
 import CategoriesTab from './CategoriesTab';
 
 /**
@@ -11,7 +13,7 @@ import CategoriesTab from './CategoriesTab';
  * (separate footer link). Categories editing arrives in D-2.
  */
 export default function AdminPage() {
-  const { cocktails, classics, families, reload } = useContent();
+  const { cocktails, classics, families, zeroCocktails, zcDrinks, reload } = useContent();
   const [tab, setTab] = useState('cocktails');
   const [editing, setEditing] = useState(null);
   const [creating, setCreating] = useState(false);
@@ -32,6 +34,14 @@ export default function AdminPage() {
   const sortedFamilies = useMemo(
     () => [...families].sort((a, b) => a.label.localeCompare(b.label, 'ru')),
     [families]
+  );
+  const sortedZero = useMemo(
+    () => [...zeroCocktails].sort((a, b) => a.name.localeCompare(b.name, 'ru')),
+    [zeroCocktails]
+  );
+  const sortedZC = useMemo(
+    () => [...zcDrinks].sort((a, b) => a.name.localeCompare(b.name, 'ru')),
+    [zcDrinks]
   );
 
   const closeEditor = () => { setEditing(null); setCreating(false); };
@@ -69,6 +79,18 @@ export default function AdminPage() {
           onClick={() => setTab('families')}
         >
           Семейства · {families.length}
+        </button>
+        <button
+          className={`admin-subtab${tab === 'zero' ? ' active' : ''}`}
+          onClick={() => setTab('zero')}
+        >
+          Безалко · {zeroCocktails.length}
+        </button>
+        <button
+          className={`admin-subtab${tab === 'zc' ? ' active' : ''}`}
+          onClick={() => setTab('zc')}
+        >
+          Zero Culture · {zcDrinks.length}
         </button>
         <button
           className={`admin-subtab${tab === 'categories' ? ' active' : ''}`}
@@ -178,6 +200,69 @@ export default function AdminPage() {
         </section>
       )}
 
+      {tab === 'zero' && (
+        <section>
+          <div className="admin-list-head">
+            <h2 className="admin-list-title">Безалкогольные коктейли</h2>
+            <button className="login-submit admin-add-cta" onClick={() => setCreating(true)}>
+              + Новый безалко
+            </button>
+          </div>
+          <div className="admin-list">
+            {sortedZero.map((c) => (
+              <div key={c.id} className="admin-list-row">
+                <div className="admin-list-row-main">
+                  <div className="admin-list-row-name">{c.name}</div>
+                  <div className="admin-list-row-sub">
+                    <span>{c.id}</span>
+                    {c.price && <span>· {c.price}</span>}
+                    {c.glass && <span>· {c.glass}</span>}
+                  </div>
+                </div>
+                <div className="admin-list-row-actions">
+                  <button className="admin-btn" onClick={() => setEditing({ ...c, _kind: 'zero' })} disabled={busy}>Изменить</button>
+                  <button className="admin-btn admin-btn--danger" onClick={() => onDelete('zero-cocktails', c.id, c.name)} disabled={busy}>Удалить</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {tab === 'zc' && (
+        <section>
+          <div className="admin-list-head">
+            <h2 className="admin-list-title">Zero Culture</h2>
+            <button className="login-submit admin-add-cta" onClick={() => setCreating(true)}>
+              + Новый ZC
+            </button>
+          </div>
+          <div className="admin-list">
+            {sortedZC.map((c) => (
+              <div key={c.id} className="admin-list-row">
+                <div className="admin-list-row-main">
+                  <div className="admin-list-row-name">
+                    <span className={`zc-badge zc-badge--${c.isAlcoholic ? 'alc' : 'non'}`} style={{ position: 'static', marginRight: 8 }}>
+                      {c.isAlcoholic ? 'Alc' : 'Non'}
+                    </span>
+                    {c.name}
+                  </div>
+                  <div className="admin-list-row-sub">
+                    <span>{c.id}</span>
+                    {c.price && <span>· {c.price}</span>}
+                    {!c.isAlcoholic && c.caffeineLevel != null && <span>· кофеин {c.caffeineLevel}/3</span>}
+                  </div>
+                </div>
+                <div className="admin-list-row-actions">
+                  <button className="admin-btn" onClick={() => setEditing({ ...c, _kind: 'zc' })} disabled={busy}>Изменить</button>
+                  <button className="admin-btn admin-btn--danger" onClick={() => onDelete('zc-drinks', c.id, c.name)} disabled={busy}>Удалить</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {tab === 'categories' && <CategoriesTab onSaved={reload} />}
 
       {editorEntity === 'cocktails' && (editing || creating) && (
@@ -188,6 +273,12 @@ export default function AdminPage() {
       )}
       {editorEntity === 'families' && (editing || creating) && (
         <FamilyEditor initial={editing} onClose={closeEditor} onSaved={reload} />
+      )}
+      {editorEntity === 'zero' && (editing || creating) && (
+        <ZeroEditor initial={editing} onClose={closeEditor} onSaved={reload} />
+      )}
+      {editorEntity === 'zc' && (editing || creating) && (
+        <ZCEditor initial={editing} onClose={closeEditor} onSaved={reload} />
       )}
     </>
   );

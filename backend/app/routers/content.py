@@ -7,10 +7,12 @@ from app.database import get_db
 from app.models import (
     Category, Classic, ClassicDescriptor, ClassicRelatedCocktail, ClassicSpirit,
     Cocktail, CocktailFlavor, CocktailTag, Family, TimelineEntry,
+    ZCDrink, ZeroCocktail,
 )
 from app.schemas import (
     CategoryOut, ClassicOut, CocktailBadgeOut, CocktailDetailOut, CocktailOut,
     ContentBundleOut, FamilyOut, FilterOut, TimelineOut,
+    ZCDrinkOut, ZeroCocktailOut, ZeroDetailOut,
 )
 
 # Content is only available to authenticated users — the menu is closed.
@@ -92,6 +94,37 @@ def _cocktails_query(db: Session) -> list[Cocktail]:
     )
 
 
+def _parse_ingredients(text: str | None) -> list[str]:
+    if not text:
+        return []
+    return [line.strip(" \t-•·*—–") for line in text.splitlines() if line.strip()]
+
+
+def _serialize_zero(c: ZeroCocktail) -> ZeroCocktailOut:
+    return ZeroCocktailOut(
+        id=c.slug, name=c.name, img=c.img,
+        price=c.price, abv=c.abv,
+        glass=(c.glass.label if c.glass else c.glass_label_override),
+        glass_tag=(c.glass.key if c.glass else None),
+        tagline=c.tagline,
+        ingredients=_parse_ingredients(c.ingredients_text),
+        details=[ZeroDetailOut(label=d.label, text=d.text) for d in c.details],
+    )
+
+
+def _serialize_zc(c: ZCDrink) -> ZCDrinkOut:
+    return ZCDrinkOut(
+        id=c.slug, name=c.name, img=c.img,
+        is_alcoholic=c.is_alcoholic,
+        price=c.price, abv=c.abv,
+        glass=(c.glass.label if c.glass else c.glass_label_override),
+        glass_tag=(c.glass.key if c.glass else None),
+        tagline=c.tagline,
+        caffeine_level=c.caffeine_level if not c.is_alcoholic else None,
+        details=[ZeroDetailOut(label=d.label, text=d.text) for d in c.details],
+    )
+
+
 def _classics_query(db: Session) -> list[Classic]:
     return (
         db.query(Classic)
@@ -119,11 +152,25 @@ def get_content_bundle(db: Session = Depends(get_db)):
     categories = db.query(Category).order_by(Category.sort_order, Category.id).all()
     families = db.query(Family).order_by(Family.sort_order, Family.id).all()
     timeline = db.query(TimelineEntry).order_by(TimelineEntry.sort_order, TimelineEntry.id).all()
+    zero_rows = (
+        db.query(ZeroCocktail)
+        .options(selectinload(ZeroCocktail.glass), selectinload(ZeroCocktail.details))
+        .order_by(ZeroCocktail.sort_order, ZeroCocktail.id)
+        .all()
+    )
+    zc_rows = (
+        db.query(ZCDrink)
+        .options(selectinload(ZCDrink.glass), selectinload(ZCDrink.details))
+        .order_by(ZCDrink.sort_order, ZCDrink.id)
+        .all()
+    )
     return ContentBundleOut(
         categories=[CategoryOut.model_validate(c) for c in categories],
         cocktails=[_serialize_cocktail(c) for c in _cocktails_query(db)],
         classics=[_serialize_classic(c) for c in _classics_query(db)],
         families=[FamilyOut.model_validate(f) for f in families],
+        zero_cocktails=[_serialize_zero(z) for z in zero_rows],
+        zc_drinks=[_serialize_zc(z) for z in zc_rows],
         cocktail_spirit_filters=[FilterOut(**f) for f in COCKTAIL_SPIRIT_FILTERS],
         cocktail_glass_filters=[FilterOut(**f) for f in COCKTAIL_GLASS_FILTERS],
         timeline=[

@@ -8,6 +8,8 @@ import FilterTags from './components/FilterTags';
 import CocktailCard from './components/CocktailCard';
 import BottomSheet from './components/BottomSheet';
 import ClassicsPage from './pages/ClassicsPage';
+import ZeroPage from './pages/ZeroPage';
+import ZCPage from './pages/ZCPage';
 import AdminPage from './admin/AdminPage';
 import UsersPage from './admin/UsersPage';
 
@@ -90,6 +92,9 @@ export default function App() {
       {page === 'classics' && (
         <ClassicsPage onOpenAuthorCocktail={setSelected} />
       )}
+
+      {page === 'zero' && <ZeroPage />}
+      {page === 'zc' && <ZCPage />}
 
       {page === 'admin' && <AdminPage />}
       {page === 'users' && <UsersPage />}
