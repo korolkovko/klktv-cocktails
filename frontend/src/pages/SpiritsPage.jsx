@@ -55,7 +55,7 @@ export default function SpiritsPage() {
           ]}
           active={archivedMode ? 'arc' : 'cur'}
           onSelect={(k) => switchMode(k === 'arc')}
-          className="nav-tags--menu-1"
+          className="nav-tags--classics-1"
         />
       )}
 
@@ -63,7 +63,7 @@ export default function SpiritsPage() {
         filters={catFilters}
         active={activeCat}
         onSelect={setActiveCat}
-        className="nav-tags--menu-2"
+        className={hasArchived ? 'nav-tags--classics-2' : 'nav-tags--classics-1'}
       />
 
       {grouped.length === 0 && (
