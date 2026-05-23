@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useContent } from '../data/ContentContext';
+import { useProgress } from '../data/useProgress';
 import FilterTags from '../components/FilterTags';
 import SearchBar from '../components/SearchBar';
 import ClassicCard from '../components/ClassicCard';
@@ -29,23 +30,7 @@ export default function ClassicsPage({ onOpenAuthorCocktail }) {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState(null);
   const [showProgress, setShowProgress] = useState(false);
-  const [learned, setLearned] = useState(() => {
-    try {
-      const saved = localStorage.getItem('classics_learned');
-      return new Set(saved ? JSON.parse(saved) : []);
-    } catch {
-      return new Set();
-    }
-  });
-
-  const toggleLearned = (id) => {
-    setLearned((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      localStorage.setItem('classics_learned', JSON.stringify([...next]));
-      return next;
-    });
-  };
+  const { learned, toggle: toggleLearned } = useProgress();
 
   const filtered = useMemo(() => {
     let list = classics;
