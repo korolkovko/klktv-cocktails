@@ -20,6 +20,29 @@ export function TextField({ label, value, onChange, required, placeholder, hint 
   );
 }
 
+/** Native color picker + hex text input side by side. */
+export function ColorField({ label, value, onChange }) {
+  return (
+    <label className="admin-field">
+      <span className="admin-field-label">{label}</span>
+      <div className="admin-color-row">
+        <input
+          type="color"
+          value={value || '#888888'}
+          onChange={(e) => onChange(e.target.value)}
+        />
+        <input
+          type="text"
+          value={value ?? ''}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="#aabbcc"
+          className="admin-color-hex"
+        />
+      </div>
+    </label>
+  );
+}
+
 /** Multi-line text. */
 export function TextArea({ label, value, onChange, rows = 4, placeholder, hint }) {
   return (

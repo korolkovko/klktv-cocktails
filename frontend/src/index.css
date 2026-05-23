@@ -1515,6 +1515,26 @@ body {
   border-color: var(--text-secondary);
 }
 
+.admin-color-row {
+  display: flex;
+  gap: .5rem;
+  align-items: stretch;
+}
+
+.admin-color-row input[type="color"] {
+  width: 3rem;
+  height: 2.6rem;
+  padding: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.admin-color-hex {
+  flex: 1;
+}
+
 .admin-form-actions {
   display: flex;
   justify-content: flex-end;

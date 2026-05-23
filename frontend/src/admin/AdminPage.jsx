@@ -2,24 +2,41 @@ import { useMemo, useState } from 'react';
 import { api } from '../auth/api';
 import { useContent } from '../data/ContentContext';
 import CocktailEditor from './CocktailEditor';
+import ClassicEditor from './ClassicEditor';
+import FamilyEditor from './FamilyEditor';
 
 export default function AdminPage() {
   const { cocktails, classics, families, reload } = useContent();
   const [tab, setTab] = useState('cocktails');
-  const [editing, setEditing] = useState(null);  // entity object being edited
+  const [editing, setEditing] = useState(null);   // current entity being edited
   const [creating, setCreating] = useState(false); // bool — show "new" editor
   const [busy, setBusy] = useState(false);
+
+  // What entity is the editor working on (matches `tab` when creating)
+  const editorEntity = editing
+    ? (editing._kind /* tagged on open */ || tab)
+    : (creating ? tab : null);
 
   const sortedCocktails = useMemo(
     () => [...cocktails].sort((a, b) => a.name.localeCompare(b.name, 'ru')),
     [cocktails]
   );
+  const sortedClassics = useMemo(
+    () => [...classics].sort((a, b) => a.name.localeCompare(b.name, 'ru')),
+    [classics]
+  );
+  const sortedFamilies = useMemo(
+    () => [...families].sort((a, b) => a.label.localeCompare(b.label, 'ru')),
+    [families]
+  );
 
-  const onDeleteCocktail = async (c) => {
-    if (!confirm(`Удалить «${c.name}»? Это действие необратимо.`)) return;
+  const closeEditor = () => { setEditing(null); setCreating(false); };
+
+  const onDelete = async (kind, identifier, displayName) => {
+    if (!confirm(`Удалить «${displayName}»? Это действие необратимо.`)) return;
     setBusy(true);
     try {
-      await api.delete(`/api/admin/cocktails/${encodeURIComponent(c.id)}`);
+      await api.delete(`/api/admin/${kind}/${encodeURIComponent(identifier)}`);
       await reload();
     } catch (e) {
       alert(`Не удалось удалить: ${e.message}`);
@@ -71,8 +88,8 @@ export default function AdminPage() {
                   </div>
                 </div>
                 <div className="admin-list-row-actions">
-                  <button className="admin-btn" onClick={() => setEditing(c)} disabled={busy}>Изменить</button>
-                  <button className="admin-btn admin-btn--danger" onClick={() => onDeleteCocktail(c)} disabled={busy}>Удалить</button>
+                  <button className="admin-btn" onClick={() => setEditing({ ...c, _kind: 'cocktails' })} disabled={busy}>Изменить</button>
+                  <button className="admin-btn admin-btn--danger" onClick={() => onDelete('cocktails', c.id, c.name)} disabled={busy}>Удалить</button>
                 </div>
               </div>
             ))}
@@ -81,23 +98,84 @@ export default function AdminPage() {
       )}
 
       {tab === 'classics' && (
-        <div className="admin-soon">
-          Редактор классики появится в следующей итерации (C-2).
-        </div>
+        <section>
+          <div className="admin-list-head">
+            <h2 className="admin-list-title">Классические коктейли</h2>
+            <button className="login-submit admin-add-cta" onClick={() => setCreating(true)}>
+              + Новая классика
+            </button>
+          </div>
+          <div className="admin-list">
+            {sortedClassics.map((c) => (
+              <div key={c.id} className="admin-list-row">
+                <div className="admin-list-row-main">
+                  <div className="admin-list-row-name">{c.name}</div>
+                  <div className="admin-list-row-sub">
+                    <span>{c.id}</span>
+                    <span>· {c.family}</span>
+                    {c.year && <span>· {c.year}</span>}
+                    {c.origin && <span>· {c.origin}</span>}
+                  </div>
+                </div>
+                <div className="admin-list-row-actions">
+                  <button className="admin-btn" onClick={() => setEditing({ ...c, _kind: 'classics' })} disabled={busy}>Изменить</button>
+                  <button className="admin-btn admin-btn--danger" onClick={() => onDelete('classics', c.id, c.name)} disabled={busy}>Удалить</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
       {tab === 'families' && (
-        <div className="admin-soon">
-          Редактор семейств появится в следующей итерации (C-2).
-        </div>
+        <section>
+          <div className="admin-list-head">
+            <h2 className="admin-list-title">Семейства классики</h2>
+            <button className="login-submit admin-add-cta" onClick={() => setCreating(true)}>
+              + Новое семейство
+            </button>
+          </div>
+          <div className="admin-list">
+            {sortedFamilies.map((f) => (
+              <div key={f.key} className="admin-list-row">
+                <div className="admin-list-row-main">
+                  <div className="admin-list-row-name">
+                    <span
+                      style={{
+                        display: 'inline-block',
+                        width: 10,
+                        height: 10,
+                        borderRadius: 999,
+                        background: f.color || '#555',
+                        marginRight: 8,
+                        verticalAlign: 'middle',
+                      }}
+                    />
+                    {f.label}
+                  </div>
+                  <div className="admin-list-row-sub">
+                    <span>{f.key}</span>
+                    {f.sub && <span>· {f.sub}</span>}
+                  </div>
+                </div>
+                <div className="admin-list-row-actions">
+                  <button className="admin-btn" onClick={() => setEditing({ ...f, _kind: 'families' })} disabled={busy}>Изменить</button>
+                  <button className="admin-btn admin-btn--danger" onClick={() => onDelete('families', f.key, f.label)} disabled={busy}>Удалить</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
-      {(editing || creating) && (
-        <CocktailEditor
-          initial={editing}
-          onClose={() => { setEditing(null); setCreating(false); }}
-          onSaved={reload}
-        />
+      {editorEntity === 'cocktails' && (editing || creating) && (
+        <CocktailEditor initial={editing} onClose={closeEditor} onSaved={reload} />
+      )}
+      {editorEntity === 'classics' && (editing || creating) && (
+        <ClassicEditor initial={editing} onClose={closeEditor} onSaved={reload} />
+      )}
+      {editorEntity === 'families' && (editing || creating) && (
+        <FamilyEditor initial={editing} onClose={closeEditor} onSaved={reload} />
       )}
     </>
   );
