@@ -8,6 +8,7 @@ import ZeroEditor from './ZeroEditor';
 import ZCEditor from './ZCEditor';
 import KitchenEditor from './KitchenEditor';
 import KitchenCategoryRow from './KitchenCategoryRow';
+import SpiritEditor from './SpiritEditor';
 import CategoriesTab from './CategoriesTab';
 
 /**
@@ -15,7 +16,7 @@ import CategoriesTab from './CategoriesTab';
  * (separate footer link). Categories editing arrives in D-2.
  */
 export default function AdminPage() {
-  const { cocktails, classics, families, zeroCocktails, zcDrinks, kitchenCategories, kitchenDishes, reload } = useContent();
+  const { cocktails, classics, families, zeroCocktails, zcDrinks, kitchenCategories, kitchenDishes, spiritCategories, spiritEntries, reload } = useContent();
   const [tab, setTab] = useState('cocktails');
   const [editing, setEditing] = useState(null);
   const [creating, setCreating] = useState(false);
@@ -55,6 +56,15 @@ export default function AdminPage() {
         .sort((a, b) => a.name.localeCompare(b.name, 'ru')),
     }));
   }, [kitchenCategories, kitchenDishes]);
+  const spiritsByCategory = useMemo(() => {
+    const cats = [...spiritCategories].sort((a, b) => a.sort_order - b.sort_order);
+    return cats.map((c) => ({
+      ...c,
+      entries: spiritEntries
+        .filter((s) => s.categorySlug === c.slug)
+        .sort((a, b) => a.name.localeCompare(b.name, 'ru')),
+    }));
+  }, [spiritCategories, spiritEntries]);
 
   const closeEditor = () => { setEditing(null); setCreating(false); };
 
@@ -109,6 +119,12 @@ export default function AdminPage() {
           onClick={() => setTab('kitchen')}
         >
           Кухня · {kitchenDishes.length}
+        </button>
+        <button
+          className={`admin-subtab${tab === 'spirits' ? ' active' : ''}`}
+          onClick={() => setTab('spirits')}
+        >
+          Крепкое · {spiritEntries.length}
         </button>
         <button
           className={`admin-subtab${tab === 'categories' ? ' active' : ''}`}
@@ -331,6 +347,42 @@ export default function AdminPage() {
         </section>
       )}
 
+      {tab === 'spirits' && (
+        <section>
+          <div className="admin-list-head">
+            <h2 className="admin-list-title">Крепкое (энциклопедия)</h2>
+            <button className="login-submit admin-add-cta" onClick={() => setCreating(true)}>
+              + Новая позиция
+            </button>
+          </div>
+          {spiritsByCategory.map((cat) => (
+            <div key={cat.slug} style={{ marginBottom: '1.5rem' }}>
+              <div className="admin-cat-section-head">
+                {cat.label}{cat.is_archived ? ' · архив' : ''} · {cat.entries.length}
+              </div>
+              <div className="admin-list">
+                {cat.entries.map((s) => (
+                  <div key={s.id} className="admin-list-row">
+                    <div className="admin-list-row-main">
+                      <div className="admin-list-row-name">{s.name}</div>
+                      <div className="admin-list-row-sub">
+                        <span>{s.id}</span>
+                        {s.abv && <span>· {s.abv}%</span>}
+                        {s.price && <span>· {s.price}</span>}
+                      </div>
+                    </div>
+                    <div className="admin-list-row-actions">
+                      <button className="admin-btn" onClick={() => setEditing({ ...s, _kind: 'spirits' })} disabled={busy}>Изменить</button>
+                      <button className="admin-btn admin-btn--danger" onClick={() => onDelete('spirit-entries', s.id, s.name)} disabled={busy}>Удалить</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
+
       {tab === 'categories' && <CategoriesTab onSaved={reload} />}
 
       {editorEntity === 'cocktails' && (editing || creating) && (
@@ -350,6 +402,9 @@ export default function AdminPage() {
       )}
       {editorEntity === 'kitchen' && (editing || creating) && (
         <KitchenEditor initial={editing} onClose={closeEditor} onSaved={reload} />
+      )}
+      {editorEntity === 'spirits' && (editing || creating) && (
+        <SpiritEditor initial={editing} onClose={closeEditor} onSaved={reload} />
       )}
     </>
   );

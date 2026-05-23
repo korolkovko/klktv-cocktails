@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.auth import get_current_user
 from app.database import get_db
 from app.models import (
-    Classic, Cocktail, KitchenDish, LearningProgress, User, ZCDrink, ZeroCocktail,
+    Classic, Cocktail, KitchenDish, LearningProgress, SpiritEntry, User, ZCDrink, ZeroCocktail,
 )
 
 router = APIRouter(prefix="/api/me", tags=["me"])
@@ -24,7 +24,7 @@ KIND_MODELS = {
     "kitchen":  KitchenDish,
     "zero":     ZeroCocktail,
     "zc":       ZCDrink,
-    # 'spirits' will be added by D-5 once the encyclopedia ships.
+    "spirits":  SpiritEntry,
 }
 
 

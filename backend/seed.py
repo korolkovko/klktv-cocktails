@@ -23,7 +23,8 @@ from app.models import (  # noqa: E402
     Badge, Category, Classic, ClassicDescriptor, ClassicRelatedCocktail, ClassicSpirit,
     Cocktail, CocktailDetail, CocktailFlavor, CocktailTag,
     Descriptor, Family, Flavor, Glass, KitchenCategory, KitchenDish,
-    Spirit, Tag, TimelineEntry, User,
+    Spirit, SpiritCategory, SpiritEntry,
+    Tag, TimelineEntry, User,
 )
 
 
@@ -44,6 +45,7 @@ USERS = [
 
 DATA_PATH = Path(__file__).parent / "data" / "seed_data.json"
 KITCHEN_PATH = Path(__file__).parent / "data" / "kitchen_seed.json"
+ENCYCLOPEDIA_PATH = Path(__file__).parent / "data" / "encyclopedia_seed.json"
 
 
 DEFAULT_CATEGORIES = [
@@ -104,6 +106,41 @@ def seed_kitchen(db: Session) -> None:
         ))
     db.commit()
     print(f"  kitchen: {len(data['categories'])} categories, {len(data['dishes'])} dishes")
+
+
+def seed_encyclopedia(db: Session) -> None:
+    if not ENCYCLOPEDIA_PATH.exists():
+        print("  encyclopedia: skip (no JSON)")
+        return
+    if db.query(SpiritEntry).first():
+        print("  encyclopedia: skip (already seeded)")
+        return
+    data = json.loads(ENCYCLOPEDIA_PATH.read_text(encoding="utf-8"))
+    cat_by_slug: dict[str, SpiritCategory] = {}
+    for c in data["categories"]:
+        obj = SpiritCategory(slug=c["slug"], label=c["label"],
+                             sort_order=c["sort_order"], is_archived=c.get("is_archived", False))
+        db.add(obj); db.flush()
+        cat_by_slug[c["slug"]] = obj
+    for s in data["spirits"]:
+        cat = cat_by_slug.get(s["category_slug"])
+        if not cat:
+            continue
+        db.add(SpiritEntry(
+            slug=s["slug"][:80],
+            category_id=cat.id,
+            name=s["name"][:256],
+            abv=s.get("abv"),
+            price=s.get("price"),
+            flavour=s.get("flavour"),
+            brand_country=s.get("brand_country"),
+            features=s.get("features"),
+            cocktail_pairings=s.get("cocktail_pairings"),
+            fact=s.get("fact"),
+            sort_order=s["sort_order"],
+        ))
+    db.commit()
+    print(f"  encyclopedia: {len(data['categories'])} categories, {len(data['spirits'])} spirits")
 
 
 def seed_users(db: Session) -> None:
@@ -366,6 +403,9 @@ def main():
 
         print(">>> seeding kitchen")
         seed_kitchen(db)
+
+        print(">>> seeding encyclopedia")
+        seed_encyclopedia(db)
 
         # Content is seeded ONLY on first deploy (when the DB is empty).
         # Subsequent restarts must not overwrite admin/editor changes made

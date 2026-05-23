@@ -24,6 +24,8 @@ export function ContentProvider({ children }) {
           zcDrinks: (data.zc_drinks || []).map(normaliseZC),
           kitchenCategories: data.kitchen_categories || [],
           kitchenDishes: (data.kitchen_dishes || []).map(normaliseDish),
+          spiritCategories: data.spirit_categories || [],
+          spiritEntries: (data.spirit_entries || []).map(normaliseSpirit),
           spiritFilters: data.cocktail_spirit_filters,
           glassFilters: data.cocktail_glass_filters,
           timeline: data.timeline,
@@ -59,6 +61,22 @@ function normaliseCocktail(c) {
     flavors: c.flavors,
     details: c.details,
     badge: c.badge ? { type: c.badge.key, label: c.badge.label } : null,
+  };
+}
+
+function normaliseSpirit(s) {
+  return {
+    id: s.id,
+    categorySlug: s.category_slug,
+    name: s.name,
+    img: s.img,
+    abv: s.abv,
+    price: s.price,
+    flavour: s.flavour,
+    brandCountry: s.brand_country,
+    features: s.features,
+    cocktailPairings: s.cocktail_pairings,
+    fact: s.fact,
   };
 }
 

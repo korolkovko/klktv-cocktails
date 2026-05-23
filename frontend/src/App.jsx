@@ -11,6 +11,7 @@ import ClassicsPage from './pages/ClassicsPage';
 import ZeroPage from './pages/ZeroPage';
 import ZCPage from './pages/ZCPage';
 import KitchenPage from './pages/KitchenPage';
+import SpiritsPage from './pages/SpiritsPage';
 import ProgressPage from './pages/ProgressPage';
 import AdminPage from './admin/AdminPage';
 import UsersPage from './admin/UsersPage';
@@ -98,6 +99,7 @@ export default function App() {
       {page === 'zero' && <ZeroPage />}
       {page === 'zc' && <ZCPage />}
       {page === 'kitchen' && <KitchenPage />}
+      {page === 'spirits' && <SpiritsPage />}
       {page === 'progress' && <ProgressPage onOpenCategory={(k) => setPage(k)} />}
 
       {page === 'admin' && <AdminPage />}

@@ -7,11 +7,13 @@ from app.database import get_db
 from app.models import (
     Category, Classic, ClassicDescriptor, ClassicRelatedCocktail, ClassicSpirit,
     Cocktail, CocktailFlavor, CocktailTag, Family, KitchenCategory, KitchenDish,
+    SpiritCategory, SpiritEntry,
     TimelineEntry, ZCDrink, ZeroCocktail,
 )
 from app.schemas import (
     CategoryOut, ClassicOut, CocktailBadgeOut, CocktailDetailOut, CocktailOut,
     ContentBundleOut, FamilyOut, FilterOut, KitchenCategoryOut, KitchenDishOut,
+    SpiritCategoryOut, SpiritEntryOut,
     TimelineOut, ZCDrinkOut, ZeroCocktailOut, ZeroDetailOut,
 )
 
@@ -172,6 +174,13 @@ def get_content_bundle(db: Session = Depends(get_db)):
         .order_by(KitchenDish.sort_order, KitchenDish.id)
         .all()
     )
+    spirit_cats = db.query(SpiritCategory).order_by(SpiritCategory.sort_order, SpiritCategory.id).all()
+    spirit_entries = (
+        db.query(SpiritEntry)
+        .options(selectinload(SpiritEntry.category))
+        .order_by(SpiritEntry.sort_order, SpiritEntry.id)
+        .all()
+    )
     return ContentBundleOut(
         categories=[CategoryOut.model_validate(c) for c in categories],
         cocktails=[_serialize_cocktail(c) for c in _cocktails_query(db)],
@@ -189,6 +198,18 @@ def get_content_bundle(db: Session = Depends(get_db)):
                 interesting_facts=d.interesting_facts,
             )
             for d in kitchen_dishes
+        ],
+        spirit_categories=[SpiritCategoryOut.model_validate(c) for c in spirit_cats],
+        spirit_entries=[
+            SpiritEntryOut(
+                id=s.slug, category_slug=s.category.slug,
+                name=s.name, img=s.img,
+                abv=s.abv, price=s.price,
+                flavour=s.flavour, brand_country=s.brand_country,
+                features=s.features, cocktail_pairings=s.cocktail_pairings,
+                fact=s.fact,
+            )
+            for s in spirit_entries
         ],
         cocktail_spirit_filters=[FilterOut(**f) for f in COCKTAIL_SPIRIT_FILTERS],
         cocktail_glass_filters=[FilterOut(**f) for f in COCKTAIL_GLASS_FILTERS],

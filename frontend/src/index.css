@@ -633,7 +633,7 @@ body {
 
 .card-thumb {
   width: 100%;
-  aspect-ratio: 5 / 2;
+  aspect-ratio: 3 / 2;
   flex-shrink: 0;
   overflow: hidden;
   position: relative;
@@ -646,8 +646,8 @@ body {
 .card-thumb img {
   width: 100%;
   height: 100%;
-  object-fit: contain;
-  padding: 8px;
+  object-fit: cover;
+  object-position: center;
 }
 
 .card-content {
@@ -1022,7 +1022,6 @@ body {
 /* ── DESKTOP ── */
 @media (min-width: 640px) {
   .cocktail-list { gap: .75rem; padding: 0 1.25rem; }
-  .card-thumb img { padding: 24px; }
   .sheet-container { max-width: 500px; }
 }
 

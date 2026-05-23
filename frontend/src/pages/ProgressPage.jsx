@@ -7,6 +7,7 @@ import { useProgress } from '../data/useProgress';
 const KIND_CONFIG = [
   { kind: 'menu',     label: 'Меню',         source: 'cocktails' },
   { kind: 'classics', label: 'Классика',     source: 'classics' },
+  { kind: 'spirits',  label: 'Крепкое',      source: 'spiritEntries' },
   { kind: 'kitchen',  label: 'Кухня',        source: 'kitchenDishes' },
   { kind: 'zero',     label: 'Безалко',      source: 'zeroCocktails' },
   { kind: 'zc',       label: 'Zero Culture', source: 'zcDrinks' },

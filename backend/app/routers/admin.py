@@ -15,7 +15,8 @@ from app.models import (
     Badge, Category, Classic, ClassicDescriptor, ClassicRelatedCocktail, ClassicSpirit,
     Cocktail, CocktailDetail, CocktailFlavor, CocktailTag,
     Descriptor, Family, Flavor, Glass, KitchenCategory, KitchenDish,
-    Spirit, Tag, User,
+    Spirit, SpiritCategory, SpiritEntry,
+    Tag, User,
     ZCDrink, ZCDrinkDetail, ZeroCocktail, ZeroCocktailDetail,
 )
 
@@ -82,6 +83,28 @@ class KitchenDishWriteIn(BaseModel):
     nutrition: str | None = None
     serving: str | None = None
     interesting_facts: str | None = None
+    sort_order: int = 0
+
+
+class SpiritCategoryWriteIn(BaseModel):
+    slug: str
+    label: str
+    sort_order: int = 0
+    is_archived: bool = False
+
+
+class SpiritEntryWriteIn(BaseModel):
+    slug: str
+    category_slug: str
+    name: str
+    img: str | None = None
+    abv: str | None = None
+    price: str | None = None
+    flavour: str | None = None
+    brand_country: str | None = None
+    features: str | None = None
+    cocktail_pairings: str | None = None
+    fact: str | None = None
     sort_order: int = 0
 
 
@@ -615,4 +638,83 @@ def delete_dish(slug: str, db: Session = Depends(get_db)):
     obj = db.query(KitchenDish).filter(KitchenDish.slug == slug).first()
     if not obj:
         raise HTTPException(404, detail="Dish not found")
+    db.delete(obj); db.commit()
+
+
+# ── Encyclopedia of spirits ───────────────────────────────
+
+def _resolve_spirit_cat(db: Session, slug: str) -> SpiritCategory:
+    obj = db.query(SpiritCategory).filter(SpiritCategory.slug == slug).first()
+    if not obj:
+        raise HTTPException(400, detail=f"Spirit category {slug!r} not found")
+    return obj
+
+
+@router.post("/spirit-categories", status_code=status.HTTP_201_CREATED)
+def create_spirit_cat(data: SpiritCategoryWriteIn, db: Session = Depends(get_db)):
+    if db.query(SpiritCategory).filter(SpiritCategory.slug == data.slug).first():
+        raise HTTPException(409, detail="Spirit category with this slug already exists")
+    obj = SpiritCategory(slug=data.slug, label=data.label,
+                         sort_order=data.sort_order, is_archived=data.is_archived)
+    db.add(obj); db.commit()
+    return {"slug": obj.slug}
+
+
+@router.patch("/spirit-categories/{slug}")
+def update_spirit_cat(slug: str, data: SpiritCategoryWriteIn, db: Session = Depends(get_db)):
+    obj = _resolve_spirit_cat(db, slug)
+    if data.slug != slug and db.query(SpiritCategory).filter(SpiritCategory.slug == data.slug).first():
+        raise HTTPException(409, detail="New slug already in use")
+    obj.slug = data.slug; obj.label = data.label
+    obj.sort_order = data.sort_order; obj.is_archived = data.is_archived
+    db.commit()
+    return {"slug": obj.slug}
+
+
+@router.delete("/spirit-categories/{slug}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_spirit_cat(slug: str, db: Session = Depends(get_db)):
+    obj = _resolve_spirit_cat(db, slug)
+    if db.query(SpiritEntry).filter(SpiritEntry.category_id == obj.id).first():
+        raise HTTPException(409, detail="Category has entries — reassign them first")
+    db.delete(obj); db.commit()
+
+
+def _apply_spirit(db: Session, obj: SpiritEntry, data: SpiritEntryWriteIn) -> None:
+    cat = _resolve_spirit_cat(db, data.category_slug)
+    obj.name = data.name; obj.img = data.img
+    obj.abv = data.abv; obj.price = data.price
+    obj.flavour = data.flavour; obj.brand_country = data.brand_country
+    obj.features = data.features; obj.cocktail_pairings = data.cocktail_pairings
+    obj.fact = data.fact
+    obj.category_id = cat.id; obj.sort_order = data.sort_order
+    if obj.id is None:
+        db.flush()
+
+
+@router.post("/spirit-entries", status_code=status.HTTP_201_CREATED)
+def create_spirit(data: SpiritEntryWriteIn, db: Session = Depends(get_db)):
+    if db.query(SpiritEntry).filter(SpiritEntry.slug == data.slug).first():
+        raise HTTPException(409, detail="Spirit with this slug already exists")
+    obj = SpiritEntry(slug=data.slug); db.add(obj)
+    _apply_spirit(db, obj, data); db.commit()
+    return {"slug": obj.slug}
+
+
+@router.patch("/spirit-entries/{slug}")
+def update_spirit(slug: str, data: SpiritEntryWriteIn, db: Session = Depends(get_db)):
+    obj = db.query(SpiritEntry).filter(SpiritEntry.slug == slug).first()
+    if not obj:
+        raise HTTPException(404, detail="Spirit not found")
+    if data.slug != slug and db.query(SpiritEntry).filter(SpiritEntry.slug == data.slug).first():
+        raise HTTPException(409, detail="New slug already in use")
+    obj.slug = data.slug
+    _apply_spirit(db, obj, data); db.commit()
+    return {"slug": obj.slug}
+
+
+@router.delete("/spirit-entries/{slug}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_spirit(slug: str, db: Session = Depends(get_db)):
+    obj = db.query(SpiritEntry).filter(SpiritEntry.slug == slug).first()
+    if not obj:
+        raise HTTPException(404, detail="Spirit not found")
     db.delete(obj); db.commit()

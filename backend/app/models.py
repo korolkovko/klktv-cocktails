@@ -248,6 +248,42 @@ class TimelineEntry(Base):
 
 
 # ────────────────────────────────────────────────────────────
+# Encyclopedia of spirits — own category grouping + specific bottles
+# ────────────────────────────────────────────────────────────
+
+class SpiritCategory(Base):
+    __tablename__ = "spirit_categories"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    slug: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    label: Mapped[str] = mapped_column(String(128), nullable=False)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    is_archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+    entries: Mapped[list["SpiritEntry"]] = relationship(back_populates="category", order_by="SpiritEntry.sort_order")
+
+
+class SpiritEntry(Base):
+    __tablename__ = "spirit_entries"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    slug: Mapped[str] = mapped_column(String(80), unique=True, nullable=False, index=True)
+    category_id: Mapped[int] = mapped_column(ForeignKey("spirit_categories.id", ondelete="RESTRICT"), index=True)
+    name: Mapped[str] = mapped_column(String(256), nullable=False)
+    img: Mapped[str | None] = mapped_column(String(256))
+    abv: Mapped[str | None] = mapped_column(String(32))
+    price: Mapped[str | None] = mapped_column(String(64))
+    flavour: Mapped[str | None] = mapped_column(Text)
+    brand_country: Mapped[str | None] = mapped_column(Text)
+    features: Mapped[str | None] = mapped_column(Text)
+    cocktail_pairings: Mapped[str | None] = mapped_column(Text)
+    fact: Mapped[str | None] = mapped_column(Text)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    category: Mapped["SpiritCategory"] = relationship(back_populates="entries")
+
+
+# ────────────────────────────────────────────────────────────
 # Kitchen — food menu, grouped by KitchenCategory
 # ────────────────────────────────────────────────────────────
 

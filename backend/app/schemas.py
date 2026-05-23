@@ -98,6 +98,31 @@ class ClassicOut(BaseModel):
     related_ours: list[str]   # cocktail slugs
 
 
+# ── Encyclopedia of spirits ──────────────────────────────
+
+class SpiritCategoryOut(BaseModel):
+    slug: str
+    label: str
+    sort_order: int
+    is_archived: bool
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SpiritEntryOut(BaseModel):
+    id: str           # slug
+    category_slug: str
+    name: str
+    img: str | None
+    abv: str | None
+    price: str | None
+    flavour: str | None
+    brand_country: str | None
+    features: str | None
+    cocktail_pairings: str | None
+    fact: str | None
+
+
 # ── Kitchen ──────────────────────────────────────────────
 
 class KitchenCategoryOut(BaseModel):
@@ -169,6 +194,8 @@ class ContentBundleOut(BaseModel):
     zc_drinks: list[ZCDrinkOut]
     kitchen_categories: list[KitchenCategoryOut]
     kitchen_dishes: list[KitchenDishOut]
+    spirit_categories: list[SpiritCategoryOut]
+    spirit_entries: list[SpiritEntryOut]
     cocktail_spirit_filters: list[FilterOut]
     cocktail_glass_filters: list[FilterOut]
     timeline: list[TimelineOut]
