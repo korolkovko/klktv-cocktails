@@ -192,7 +192,9 @@ def get_content_bundle(db: Session = Depends(get_db)):
         kitchen_dishes=[
             KitchenDishOut(
                 id=d.slug, category_slug=d.category.slug,
-                name=d.name, img=d.img, description=d.description,
+                name=d.name, img=d.img,
+                price=d.price, tagline=d.tagline,
+                description=d.description,
                 timing=d.timing, weight=d.weight,
                 nutrition=d.nutrition, serving=d.serving,
                 interesting_facts=d.interesting_facts,

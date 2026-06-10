@@ -14,6 +14,8 @@ export default function KitchenEditor({ initial, onClose, onSaved }) {
     category_slug: initial?.categorySlug ?? (kitchenCategories[0]?.slug ?? ''),
     name: initial?.name ?? '',
     img: initial?.img ?? '',
+    price: initial?.price ?? '',
+    tagline: initial?.tagline ?? '',
     description: initial?.description ?? '',
     timing: initial?.timing ?? '',
     weight: initial?.weight ?? '',
@@ -58,6 +60,8 @@ export default function KitchenEditor({ initial, onClose, onSaved }) {
       category_slug: form.category_slug,
       name: form.name.trim(),
       img: form.img || null,
+      price: form.price || null,
+      tagline: form.tagline || null,
       description: form.description || null,
       timing: form.timing || null,
       weight: form.weight || null,
@@ -100,6 +104,9 @@ export default function KitchenEditor({ initial, onClose, onSaved }) {
             <SelectField label="Категория" value={form.category_slug} onChange={(v) => set('category_slug', v ?? '')} options={catOptions} allowEmpty={false} />
             <ImageField label="Эталон подачи (картинка)" value={form.img} onChange={(v) => set('img', v)}
               hint="опционально — можно добавить когда сделаем фото эталонной подачи" />
+            <TextField label="Цена" value={form.price} onChange={(v) => set('price', v)} placeholder="450₽" />
+            <TextArea label="Описание (для сайта)" value={form.tagline} onChange={(v) => set('tagline', v)} rows={3}
+              placeholder="Короткое описание блюда — то, что увидит гость на сайте" />
             <TextArea label="Состав" value={form.description} onChange={(v) => set('description', v)} rows={3}
               placeholder="Филе цыплёнка бройлера маринованное в мисо пасте..." />
             <TextField label="Тайминг (мин)" value={form.timing} onChange={(v) => set('timing', v)} placeholder="10 или 10-12" />

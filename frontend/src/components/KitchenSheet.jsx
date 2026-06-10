@@ -42,8 +42,10 @@ export default function KitchenSheet({ dish, onClose }) {
           )}
           <div className="sheet-body">
             <div className="sheet-name">{dish.name}</div>
+            {dish.tagline && <div className="sheet-tagline">{dish.tagline}</div>}
 
             <div className="sheet-meta">
+              {dish.price && <span className="sheet-meta-pill sheet-meta-pill--price">{dish.price}</span>}
               {dish.weight && <span className="sheet-meta-pill">{dish.weight} г</span>}
               {dish.timing && <span className="sheet-meta-pill">{dish.timing} мин</span>}
             </div>

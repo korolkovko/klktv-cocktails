@@ -141,6 +141,8 @@ class KitchenDishOut(BaseModel):
     category_slug: str
     name: str
     img: str | None
+    price: str | None
+    tagline: str | None
     description: str | None
     timing: str | None
     weight: str | None

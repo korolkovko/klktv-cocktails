@@ -307,7 +307,9 @@ class KitchenDish(Base):
     category_id: Mapped[int] = mapped_column(ForeignKey("kitchen_categories.id", ondelete="RESTRICT"), index=True)
     name: Mapped[str] = mapped_column(String(256), nullable=False)
     img: Mapped[str | None] = mapped_column(String(256))
-    description: Mapped[str | None] = mapped_column(Text)
+    price: Mapped[str | None] = mapped_column(String(32))       # "450₽"
+    tagline: Mapped[str | None] = mapped_column(Text)            # short "for site" description
+    description: Mapped[str | None] = mapped_column(Text)        # composition / ingredients
     timing: Mapped[str | None] = mapped_column(String(32))       # "10", "10-12", "12"
     weight: Mapped[str | None] = mapped_column(String(64))       # "280", "320/50"
     nutrition: Mapped[str | None] = mapped_column(Text)

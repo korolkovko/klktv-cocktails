@@ -89,6 +89,8 @@ function normaliseDish(d) {
     categorySlug: d.category_slug,
     name: d.name,
     img: d.img,
+    price: d.price,
+    tagline: d.tagline,
     description: d.description,
     timing: d.timing,
     weight: d.weight,

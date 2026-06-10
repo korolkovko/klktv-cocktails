@@ -18,8 +18,11 @@ export default function KitchenCard({ dish, onClick }) {
         )}
         <div className="card-content">
           <div className="card-name">{dish.name}</div>
-          {dish.description && <div className="card-tagline">{dish.description}</div>}
+          {(dish.tagline || dish.description) && (
+            <div className="card-tagline">{dish.tagline || dish.description}</div>
+          )}
           <div className="card-flavors">
+            {dish.price && <span className="flavor-tag flavor-tag--price">{dish.price}</span>}
             {dish.weight && <span className="flavor-tag">{dish.weight} г</span>}
             {dish.timing && <span className="flavor-tag flavor-tag--abv">{dish.timing} мин</span>}
           </div>

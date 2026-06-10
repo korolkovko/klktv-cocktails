@@ -77,6 +77,8 @@ class KitchenDishWriteIn(BaseModel):
     category_slug: str
     name: str
     img: str | None = None
+    price: str | None = None
+    tagline: str | None = None
     description: str | None = None
     timing: str | None = None
     weight: str | None = None
@@ -606,7 +608,9 @@ def delete_kitchen_cat(slug: str, db: Session = Depends(get_db)):
 
 def _apply_dish(db: Session, obj: KitchenDish, data: KitchenDishWriteIn) -> None:
     cat = _resolve_kitchen_cat(db, data.category_slug)
-    obj.name = data.name; obj.img = data.img; obj.description = data.description
+    obj.name = data.name; obj.img = data.img
+    obj.price = data.price; obj.tagline = data.tagline
+    obj.description = data.description
     obj.timing = data.timing; obj.weight = data.weight
     obj.nutrition = data.nutrition; obj.serving = data.serving
     obj.interesting_facts = data.interesting_facts

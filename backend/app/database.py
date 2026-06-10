@@ -25,6 +25,8 @@ def get_db():
 _COLUMN_MIGRATIONS = [
     "ALTER TABLE zc_drinks ADD COLUMN IF NOT EXISTS is_carbonated BOOLEAN",
     "ALTER TABLE kitchen_dishes ADD COLUMN IF NOT EXISTS interesting_facts TEXT",
+    "ALTER TABLE kitchen_dishes ADD COLUMN IF NOT EXISTS price VARCHAR(32)",
+    "ALTER TABLE kitchen_dishes ADD COLUMN IF NOT EXISTS tagline TEXT",
     "ALTER TABLE spirit_entries ADD COLUMN IF NOT EXISTS brand TEXT",
     "ALTER TABLE spirit_entries ADD COLUMN IF NOT EXISTS country TEXT",
     "ALTER TABLE spirit_entries ADD COLUMN IF NOT EXISTS source_url TEXT",
