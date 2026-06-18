@@ -4,6 +4,7 @@ import { useContent } from '../data/ContentContext';
 import {
   TextField, TextArea, NumberField, SelectField, ParagraphsField, ImageField,
 } from './FormFields';
+import { useEditorClose } from './useEditorClose';
 
 export default function ZCEditor({ initial, onClose, onSaved }) {
   const { glassFilters } = useContent();

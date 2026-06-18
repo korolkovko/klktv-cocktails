@@ -4,6 +4,7 @@ import { useContent } from '../data/ContentContext';
 import {
   TextField, TextArea, SelectField, ParagraphsField, ImageField,
 } from './FormFields';
+import { useEditorClose } from './useEditorClose';
 
 export default function ZeroEditor({ initial, onClose, onSaved }) {
   const { glassFilters } = useContent();

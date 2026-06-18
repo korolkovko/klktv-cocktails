@@ -4,6 +4,7 @@ import { useContent } from '../data/ContentContext';
 import {
   TextField, TextArea, NumberField, SelectField, ChipsField,
 } from './FormFields';
+import { useEditorClose } from './useEditorClose';
 
 // Spirit options match the original ClassicsPage filter — could be derived
 // from the families/spirits in content, but this list is canonical labels

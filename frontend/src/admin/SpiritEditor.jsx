@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import { api } from '../auth/api';
 import { useContent } from '../data/ContentContext';
 import { TextField, TextArea, SelectField, ImageField } from './FormFields';
+import { useEditorClose } from './useEditorClose';
 
 export default function SpiritEditor({ initial, onClose, onSaved }) {
   const { spiritCategories } = useContent();
