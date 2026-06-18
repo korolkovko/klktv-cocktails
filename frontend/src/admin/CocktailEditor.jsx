@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { api } from '../auth/api';
 import { useContent } from '../data/ContentContext';
 import {
   TextField, TextArea, NumberField, SelectField, ChipsField, ParagraphsField, ImageField,
 } from './FormFields';
+import { useEditorClose } from './useEditorClose';
 
 const BADGES = [
   { value: 'premium', label: 'Премиум' },
@@ -51,19 +52,11 @@ export default function CocktailEditor({ initial, onClose, onSaved }) {
     [glassFilters]
   );
 
-  // Close on Escape / click outside
-  useEffect(() => {
-    document.body.style.overflow = 'hidden';
-    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => {
-      document.body.style.overflow = '';
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [onClose]);
+  // Close-with-confirm on Escape / click outside (dirty-aware)
+  const safeClose = useEditorClose(form, onClose);
 
   const onWrap = (e) => {
-    if (sheetRef.current && !sheetRef.current.contains(e.target)) onClose();
+    if (sheetRef.current && !sheetRef.current.contains(e.target)) safeClose();
   };
 
   const submit = async (e) => {
@@ -107,7 +100,7 @@ export default function CocktailEditor({ initial, onClose, onSaved }) {
   return (
     <div className="sheet-wrapper open" onClick={onWrap}>
       <div className="sheet-container">
-        <button className="sheet-close" onClick={onClose} aria-label="Закрыть">
+        <button className="sheet-close" onClick={safeClose} aria-label="Закрыть">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <path d="M18 6 6 18M6 6l12 12" />
           </svg>
@@ -169,7 +162,7 @@ export default function CocktailEditor({ initial, onClose, onSaved }) {
             {error && <div className="login-error">{error}</div>}
 
             <div className="admin-form-actions">
-              <button type="button" className="admin-btn" onClick={onClose} disabled={saving}>Отмена</button>
+              <button type="button" className="admin-btn" onClick={safeClose} disabled={saving}>Отмена</button>
               <button type="submit" className="login-submit" disabled={saving}>
                 {saving ? 'Сохраняю…' : (initial ? 'Сохранить' : 'Создать')}
               </button>
