@@ -1,10 +1,8 @@
-import { useImageColor } from '../hooks/useImageColor';
 import { resolveImageUrl } from '../auth/api';
 import CardLearnedBtn from './CardLearnedBtn';
 
 export default function KitchenCard({ dish, onClick }) {
   const imgUrl = resolveImageUrl(dish.img);
-  const bgColor = useImageColor(imgUrl);
   const hasImg = !!imgUrl;
 
   return (
@@ -12,8 +10,8 @@ export default function KitchenCard({ dish, onClick }) {
       <CardLearnedBtn kind="kitchen" slug={dish.id} />
       <div className="card-inner">
         {hasImg && (
-          <div className="card-thumb card-thumb--photo" style={{ background: bgColor || '#111' }}>
-            <img src={imgUrl} alt={dish.name} loading="lazy" />
+          <div className="card-thumb card-thumb--photo" style={{ background: '#161616' }}>
+            <img src={imgUrl} alt={dish.name} loading="lazy" decoding="async" />
           </div>
         )}
         <div className="card-content">

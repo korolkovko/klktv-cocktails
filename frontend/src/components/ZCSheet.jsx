@@ -1,5 +1,4 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { useImageColor } from '../hooks/useImageColor';
 import { resolveImageUrl } from '../auth/api';
 import LearnedToggle from './LearnedToggle';
 
@@ -19,7 +18,6 @@ function CaffeineBar({ level }) {
 
 export default function ZCSheet({ item, onClose }) {
   const imgUrl = resolveImageUrl(item?.img);
-  const bgColor = useImageColor(imgUrl);
   const sheetRef = useRef(null);
 
   useEffect(() => {
@@ -50,8 +48,8 @@ export default function ZCSheet({ item, onClose }) {
         </button>
         <div className="sheet" ref={sheetRef}>
           {imgUrl && (
-            <div className="sheet-hero" style={{ background: bgColor || '#111' }}>
-              <img src={imgUrl} alt={item.name} />
+            <div className="sheet-hero" style={{ background: '#161616' }}>
+              <img src={imgUrl} alt={item.name} decoding="async" />
             </div>
           )}
           <div className="sheet-body">

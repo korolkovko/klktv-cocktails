@@ -18,7 +18,8 @@ RUN uv pip install --system --no-cache \
     "bcrypt>=4.2.1" \
     "python-dotenv>=1.0.1" \
     "pydantic>=2.10.0" \
-    "python-multipart>=0.0.12"
+    "python-multipart>=0.0.12" \
+    "Pillow>=11.0.0"
 
 COPY . .
 

@@ -1,11 +1,9 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { useImageColor } from '../hooks/useImageColor';
 import { resolveImageUrl } from '../auth/api';
 import LearnedToggle from './LearnedToggle';
 
 export default function SpiritSheet({ entry, onClose }) {
   const imgUrl = resolveImageUrl(entry?.img);
-  const bgColor = useImageColor(imgUrl);
   const sheetRef = useRef(null);
 
   useEffect(() => {
@@ -36,8 +34,8 @@ export default function SpiritSheet({ entry, onClose }) {
         </button>
         <div className="sheet" ref={sheetRef}>
           {imgUrl && (
-            <div className="sheet-hero" style={{ background: bgColor || '#111' }}>
-              <img src={imgUrl} alt={entry.name} />
+            <div className="sheet-hero" style={{ background: '#161616' }}>
+              <img src={imgUrl} alt={entry.name} decoding="async" />
             </div>
           )}
           <div className="sheet-body">
