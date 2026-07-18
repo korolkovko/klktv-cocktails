@@ -1,0 +1,272 @@
+"""Transform + idempotent load: prod (SRC_DATABASE_URL) -> v2 (DEST_DATABASE_URL).
+
+Idempotency strategy
+---------------------
+- Lookups (glasses/spirits/tags/flavors/descriptors/badges/families/categories/
+  users/spirit_categories/kitchen_categories/timeline_entries) and slug-keyed
+  catalogs with stable source ids (classics/spirit_entries/kitchen_dishes) and
+  composite-PK rows (learning_progress) are natural-key upserts: `Session.merge`
+  by primary key reproduces identical rows on every run.
+- `drinks` has no stable source id of its own (it's a merge of three legacy
+  tables), so it is upserted by its unique `slug`: look the row up first, update
+  columns in place if found, otherwise insert a fresh row *without* setting
+  `id` (the DB assigns it). This is what makes re-running the ETL safe even
+  though ids are never chosen by this code.
+- Child rows that have no natural unique key of their own (`drink_details`,
+  `drink_tags`, `drink_flavors`, `classic_spirits`, `classic_descriptors`,
+  `classic_related_drinks`) are fully re-derived from source on every run, so
+  we delete the existing rows for the parents being (re)loaded and insert
+  fresh ones (ids DB-assigned for `drink_details`). This is safe because this
+  ETL is the sole writer to DEST during Phase 0.
+"""
+import re
+
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
+
+from app import models as m
+from migration.source import read_all
+from migration.parsers import (
+    parse_abv, parse_price, parse_weight_g, parse_timing, parse_nutrition,
+    parse_spirit_origin,
+)
+
+JUNK = {"ДОБАВЛЕНО ИЗ UI", "Тестовый", "Обновлённый", "test-tag", "test_tag"}
+
+
+def _slugnorm(s):
+    return re.sub(r"[^a-z0-9]", "", (s or "").lower())
+
+
+def _upsert_drink(existing_by_slug, s, slug, **fields):
+    """Idempotent upsert of a Drink keyed by slug.
+
+    Updates the existing row's columns in place if one exists for `slug`;
+    otherwise inserts a new row without assigning `id` (DB-assigned).
+    """
+    d = existing_by_slug.get(slug)
+    if d is None:
+        d = m.Drink(slug=slug, **fields)
+        s.add(d)
+        existing_by_slug[slug] = d
+    else:
+        for k, v in fields.items():
+            setattr(d, k, v)
+    return d
+
+
+def load(src_url, dest_url):
+    src = read_all(src_url)
+    engine = create_engine(dest_url)
+    stats = {}
+    try:
+        with Session(engine) as s:
+            # 1) lookups (natural key -> merge is idempotent)
+            for row in src["glasses"]:
+                s.merge(m.Glass(**{k: row[k] for k in ("id", "key", "label", "sort_order")}))
+            for row in src["spirits"]:
+                s.merge(m.Spirit(**{k: row[k] for k in ("id", "key", "label", "sort_order")}))
+            for row in src["tags"]:
+                if row["key"] in JUNK:
+                    continue
+                s.merge(m.Tag(id=row["id"], key=row["key"], label=row["key"].title()))
+            for row in src["flavors"]:
+                if row["label"] in JUNK:
+                    continue
+                s.merge(m.Flavor(id=row["id"], label=row["label"]))
+            for row in src["descriptors"]:
+                if row["label"] in JUNK:
+                    continue
+                s.merge(m.Descriptor(id=row["id"], label=row["label"]))
+            for row in src["badges"]:
+                s.merge(m.Badge(id=row["id"], key=row["key"], label=row["label"]))
+            for row in src["families"]:
+                s.merge(m.Family(**{k: row.get(k) for k in
+                        ("id", "key", "label", "sub", "color", "logic", "evolution", "tip", "sort_order")}))
+            for row in src["categories"]:
+                if row["key"] in ("zero", "zc"):
+                    continue
+                s.merge(m.Category(**{k: row[k] for k in ("id", "key", "label", "kind", "sort_order", "is_visible")}))
+            for row in src["users"]:
+                s.merge(m.User(**{k: row[k] for k in ("id", "username", "password_hash", "role", "name", "created_at")}))
+            for row in src["spirit_categories"]:
+                s.merge(m.SpiritCategory(**{k: row[k] for k in ("id", "slug", "label", "sort_order", "is_archived")}))
+            for row in src["kitchen_categories"]:
+                s.merge(m.KitchenCategory(**{k: row[k] for k in ("id", "slug", "label", "sort_order")}))
+            for row in src["timeline_entries"]:
+                s.merge(m.TimelineEntry(**{k: row[k] for k in ("id", "period", "description", "examples", "sort_order")}))
+            s.flush()
+
+            # 2) drinks: upsert by slug (idempotent; ids DB-assigned)
+            existing_by_slug = {d.slug: d for d in s.query(m.Drink).all()}
+            drink_slugs = {}  # normalized slug -> canonical slug already accounted for
+
+            for row in src["cocktails"]:
+                abv, is_alc = parse_abv(row.get("abv"))
+                _upsert_drink(
+                    existing_by_slug, s, row["slug"],
+                    name=row["name"], img=row.get("img"), subtitle=row.get("tagline"),
+                    is_alcoholic=is_alc, is_zero_culture=False, abv=abv, abv_raw=row.get("abv"),
+                    glass_id=row.get("glass_id"), badge_id=row.get("badge_id"),
+                    sort_order=row.get("sort_order", 0),
+                )
+                drink_slugs[_slugnorm(row["slug"])] = row["slug"]
+            s.flush()
+
+            # 3) zero_cocktails -> drinks (non-alc)
+            for row in src["zero_cocktails"]:
+                price_amt, _ = parse_price(row.get("price"))
+                _upsert_drink(
+                    existing_by_slug, s, row["slug"],
+                    name=row["name"], img=row.get("img"), subtitle=row.get("tagline"),
+                    is_alcoholic=False, is_zero_culture=False, abv=None, abv_raw=row.get("abv"),
+                    price_amount=price_amt, price_raw=row.get("price"),
+                    glass_id=row.get("glass_id"), sort_order=row.get("sort_order", 0),
+                )
+                drink_slugs[_slugnorm(row["slug"])] = row["slug"]
+            s.flush()
+
+            # 4) zc_drinks -> drinks (dedup Upcykle by normalized slug)
+            upcykle_merges = 0
+            for row in src["zc_drinks"]:
+                norm = _slugnorm(row["slug"])
+                price_amt, _ = parse_price(row.get("price"))
+                abv, _ = parse_abv(row.get("abv"))
+                if norm in drink_slugs:
+                    upcykle_merges += 1  # duplicate product; keep existing drink, details merged in step 6
+                    continue
+                _upsert_drink(
+                    existing_by_slug, s, row["slug"],
+                    name=row["name"], img=row.get("img"), subtitle=row.get("tagline"),
+                    is_alcoholic=bool(row.get("is_alcoholic")), is_zero_culture=True,
+                    abv=abv, abv_raw=row.get("abv"),
+                    price_amount=price_amt, price_raw=row.get("price"),
+                    caffeine_level=row.get("caffeine_level"), is_carbonated=row.get("is_carbonated"),
+                    glass_id=row.get("glass_id"), sort_order=row.get("sort_order", 0),
+                )
+                drink_slugs[norm] = row["slug"]
+            s.flush()
+            stats["upcykle_merges"] = upcykle_merges
+
+            # 5) resolve drink slug -> id map (rebuilt post-flush so DB-assigned ids resolve)
+            id_by_slug = {d.slug: d.id for d in s.query(m.Drink).all()}
+
+            # 6) details from all three legacy detail tables -> drink_details.
+            #    No natural unique key on drink_details: delete existing rows for
+            #    the drinks about to be (re)populated, then insert fresh (id
+            #    DB-assigned). Every run repopulates details for every drink in
+            #    id_by_slug, so this is a full re-derivation of the table.
+            all_drink_ids = list(id_by_slug.values())
+            if all_drink_ids:
+                s.query(m.DrinkDetail).filter(m.DrinkDetail.drink_id.in_(all_drink_ids)) \
+                    .delete(synchronize_session=False)
+
+            def _add_details(rows, parent_key, slug_by_parent):
+                for r in rows:
+                    slug = slug_by_parent.get(r[parent_key])
+                    did = id_by_slug.get(slug)
+                    if did is None:
+                        continue
+                    s.add(m.DrinkDetail(drink_id=did, label=r["label"], text=r["text"],
+                                         sort_order=r.get("sort_order", 0)))
+
+            ck_slug = {r["id"]: r["slug"] for r in src["cocktails"]}
+            z0_slug = {r["id"]: r["slug"] for r in src["zero_cocktails"]}
+            ck_norms = {_slugnorm(x) for x in ck_slug.values()}
+            zc_slug = {r["id"]: (r["slug"] if _slugnorm(r["slug"]) not in ck_norms else
+                       drink_slugs[_slugnorm(r["slug"])]) for r in src["zc_drinks"]}
+
+            _add_details(src["cocktail_details"], "cocktail_id", ck_slug)
+            _add_details(src["zero_cocktail_details"], "parent_id", z0_slug)
+            _add_details(src["zc_drink_details"], "parent_id", zc_slug)
+            s.flush()
+
+            # 7) drink M:N (tags/flavors) from cocktails only (zero/zc had none).
+            #    Same no-natural-key idempotency approach: delete rows for the
+            #    parents about to be reloaded, then insert fresh.
+            cocktail_drink_ids = [id_by_slug[slug] for slug in ck_slug.values() if slug in id_by_slug]
+            if cocktail_drink_ids:
+                s.query(m.DrinkTag).filter(m.DrinkTag.drink_id.in_(cocktail_drink_ids)) \
+                    .delete(synchronize_session=False)
+                s.query(m.DrinkFlavor).filter(m.DrinkFlavor.drink_id.in_(cocktail_drink_ids)) \
+                    .delete(synchronize_session=False)
+            for r in src["cocktail_tags"]:
+                did = id_by_slug.get(ck_slug.get(r["cocktail_id"]))
+                if did:
+                    s.add(m.DrinkTag(drink_id=did, tag_id=r["tag_id"], sort_order=r.get("sort_order", 0)))
+            for r in src["cocktail_flavors"]:
+                did = id_by_slug.get(ck_slug.get(r["cocktail_id"]))
+                if did:
+                    s.add(m.DrinkFlavor(drink_id=did, flavor_id=r["flavor_id"], sort_order=r.get("sort_order", 0)))
+            s.flush()
+
+            # 8) classics + links
+            for row in src["classics"]:
+                s.merge(m.Classic(**{k: row.get(k) for k in
+                        ("id", "slug", "name", "family_id", "year", "origin", "composition",
+                         "glass_id", "garnish", "history", "for_whom", "sort_order")}))
+            s.flush()
+
+            classic_ids = [row["id"] for row in src["classics"]]
+            if classic_ids:
+                s.query(m.ClassicSpirit).filter(m.ClassicSpirit.classic_id.in_(classic_ids)) \
+                    .delete(synchronize_session=False)
+                s.query(m.ClassicDescriptor).filter(m.ClassicDescriptor.classic_id.in_(classic_ids)) \
+                    .delete(synchronize_session=False)
+                s.query(m.ClassicRelatedDrink).filter(m.ClassicRelatedDrink.classic_id.in_(classic_ids)) \
+                    .delete(synchronize_session=False)
+            for r in src["classic_spirits"]:
+                s.add(m.ClassicSpirit(classic_id=r["classic_id"], spirit_id=r["spirit_id"], sort_order=r.get("sort_order", 0)))
+            for r in src["classic_descriptors"]:
+                s.add(m.ClassicDescriptor(classic_id=r["classic_id"], descriptor_id=r["descriptor_id"], sort_order=r.get("sort_order", 0)))
+            for r in src["classic_related_cocktails"]:
+                did = id_by_slug.get(ck_slug.get(r["cocktail_id"]))
+                if did:
+                    s.add(m.ClassicRelatedDrink(classic_id=r["classic_id"], drink_id=did, sort_order=r.get("sort_order", 0)))
+            s.flush()
+
+            # 9) spirit_entries (parsed; stable source id -> merge is idempotent)
+            for row in src["spirit_entries"]:
+                abv, _ = parse_abv(row.get("abv"))
+                amt, serving = parse_price(row.get("price"))
+                origin = parse_spirit_origin(row.get("brand"), row.get("country"), row.get("brand_country"))
+                s.merge(m.SpiritEntry(
+                    id=row["id"], slug=row["slug"], category_id=row["category_id"], name=row["name"],
+                    img=row.get("img"), abv=abv, abv_raw=row.get("abv"),
+                    price_amount=amt, serving_ml=serving, price_raw=row.get("price"),
+                    flavour=row.get("flavour"), brand=origin["brand"], country=origin["country"],
+                    description=origin["description"], source_url=origin["source_url"] or row.get("source_url"),
+                    features=row.get("features"), cocktail_pairings=row.get("cocktail_pairings"),
+                    fact=row.get("fact"), sort_order=row.get("sort_order", 0),
+                ))
+
+            # 10) kitchen_dishes (parsed; stable source id -> merge is idempotent)
+            for row in src["kitchen_dishes"]:
+                amt, _ = parse_price(row.get("price"))
+                lo, hi = parse_timing(row.get("timing"))
+                nutr = parse_nutrition(row.get("nutrition"))
+                s.merge(m.KitchenDish(
+                    id=row["id"], slug=row["slug"], category_id=row["category_id"], name=row["name"],
+                    img=row.get("img"), price_amount=amt, price_raw=row.get("price"),
+                    tagline=row.get("tagline"), description=row.get("description"),
+                    timing_min_low=lo, timing_min_high=hi, timing_raw=row.get("timing"),
+                    weight_g=parse_weight_g(row.get("weight")), weight_raw=row.get("weight"),
+                    nutrition_raw=row.get("nutrition"), serving=row.get("serving"),
+                    interesting_facts=row.get("interesting_facts"), sort_order=row.get("sort_order", 0),
+                    **nutr,
+                ))
+
+            # 11) progress (composite PK -> merge is idempotent)
+            for r in src["learning_progress"]:
+                s.merge(m.LearningProgress(user_id=r["user_id"], kind=r["kind"], slug=r["slug"], learned_at=r.get("learned_at")))
+
+            s.commit()
+
+            stats["drinks"] = s.query(m.Drink).count()
+            stats["classics"] = s.query(m.Classic).count()
+            stats["spirit_entries"] = s.query(m.SpiritEntry).count()
+            stats["kitchen_dishes"] = s.query(m.KitchenDish).count()
+            stats["learning_progress"] = s.query(m.LearningProgress).count()
+    finally:
+        engine.dispose()
+    return stats
