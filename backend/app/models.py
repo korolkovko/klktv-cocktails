@@ -1,18 +1,15 @@
 from datetime import datetime
+from decimal import Decimal
 from sqlalchemy import (
-    Boolean, Integer, String, Text, DateTime, ForeignKey, UniqueConstraint, func,
+    Boolean, Integer, Numeric, String, Text, DateTime, ForeignKey, func,
 )
 from sqlalchemy.orm import relationship, mapped_column, Mapped
 from app.database import Base
 
 
-# ────────────────────────────────────────────────────────────
-# Users
-# ────────────────────────────────────────────────────────────
-
+# ── Users ──
 class User(Base):
     __tablename__ = "users"
-
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     username: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
@@ -21,9 +18,14 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
-# ────────────────────────────────────────────────────────────
-# Lookup tables (id + key/label)
-# ────────────────────────────────────────────────────────────
+# ── Lookups ──
+class Glass(Base):
+    __tablename__ = "glasses"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    key: Mapped[str] = mapped_column(String(32), unique=True, nullable=False, index=True)
+    label: Mapped[str] = mapped_column(String(64), nullable=False)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
 
 class Spirit(Base):
     __tablename__ = "spirits"
@@ -33,30 +35,21 @@ class Spirit(Base):
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
 
 
-class Glass(Base):
-    __tablename__ = "glasses"
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    key: Mapped[str] = mapped_column(String(32), unique=True, nullable=False, index=True)
-    label: Mapped[str] = mapped_column(String(64), nullable=False)
-    sort_order: Mapped[int] = mapped_column(Integer, default=0)
-
-
 class Tag(Base):
-    """Author cocktail tags: gin, sour, sweet, bitter, blended, hot, premium, etc."""
     __tablename__ = "tags"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     key: Mapped[str] = mapped_column(String(32), unique=True, nullable=False, index=True)
+    label: Mapped[str | None] = mapped_column(String(64))  # added for consistency
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
 
 
 class Flavor(Base):
-    """Author cocktail flavor descriptors (Russian)."""
     __tablename__ = "flavors"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     label: Mapped[str] = mapped_column(String(128), unique=True, nullable=False, index=True)
 
 
 class Descriptor(Base):
-    """Classic cocktail descriptors (Russian): Кислый, Пряный, etc."""
     __tablename__ = "descriptors"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     label: Mapped[str] = mapped_column(String(128), unique=True, nullable=False, index=True)
@@ -67,15 +60,11 @@ class Badge(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     key: Mapped[str] = mapped_column(String(32), unique=True, nullable=False, index=True)
     label: Mapped[str] = mapped_column(String(64), nullable=False)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
 
-
-# ────────────────────────────────────────────────────────────
-# Classic families (Sour, Daisy, Negroni, etc.)
-# ────────────────────────────────────────────────────────────
 
 class Family(Base):
     __tablename__ = "families"
-
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     key: Mapped[str] = mapped_column(String(32), unique=True, nullable=False, index=True)
     label: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -85,76 +74,97 @@ class Family(Base):
     evolution: Mapped[str | None] = mapped_column(Text)
     tip: Mapped[str | None] = mapped_column(Text)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
-
     classics: Mapped[list["Classic"]] = relationship(back_populates="family")
 
 
-# ────────────────────────────────────────────────────────────
-# Cocktails (author menu)
-# ────────────────────────────────────────────────────────────
+class Category(Base):
+    __tablename__ = "categories"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    key: Mapped[str] = mapped_column(String(32), unique=True, nullable=False, index=True)
+    label: Mapped[str] = mapped_column(String(64), nullable=False)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)  # menu|classics|spirits|kitchen
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    is_visible: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
-class Cocktail(Base):
-    __tablename__ = "cocktails"
 
+# ── Drinks (author menu; absorbs cocktails + zero + zc) ──
+class Drink(Base):
+    __tablename__ = "drinks"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     slug: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(128), nullable=False)
     img: Mapped[str | None] = mapped_column(String(256))
-    abv: Mapped[str | None] = mapped_column(String(16))
-    tagline: Mapped[str | None] = mapped_column(Text)
+    subtitle: Mapped[str | None] = mapped_column(Text)
+    is_alcoholic: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    is_zero_culture: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    abv: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
+    abv_raw: Mapped[str | None] = mapped_column(String(32))
+    price_amount: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
+    price_currency: Mapped[str] = mapped_column(String(8), default="₽", nullable=False)
+    price_raw: Mapped[str | None] = mapped_column(String(64))
+    volume_ml: Mapped[int | None] = mapped_column(Integer)
+    caffeine_level: Mapped[int | None] = mapped_column(Integer)
+    is_carbonated: Mapped[bool | None] = mapped_column(Boolean)
     glass_id: Mapped[int | None] = mapped_column(ForeignKey("glasses.id", ondelete="SET NULL"))
-    glass_label_override: Mapped[str | None] = mapped_column(String(64))
     badge_id: Mapped[int | None] = mapped_column(ForeignKey("badges.id", ondelete="SET NULL"))
+    recipe: Mapped[str | None] = mapped_column(Text)
+    garnish: Mapped[str | None] = mapped_column(Text)
+    pitch: Mapped[str | None] = mapped_column(Text)
+    about: Mapped[str | None] = mapped_column(Text)
+    naming: Mapped[str | None] = mapped_column(Text)
+    faq: Mapped[str | None] = mapped_column(Text)
+    photo: Mapped[str | None] = mapped_column(String(256))
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-
     glass: Mapped["Glass | None"] = relationship()
     badge: Mapped["Badge | None"] = relationship()
-    tags: Mapped[list["CocktailTag"]] = relationship(back_populates="cocktail", cascade="all, delete-orphan", order_by="CocktailTag.sort_order")
-    flavors: Mapped[list["CocktailFlavor"]] = relationship(back_populates="cocktail", cascade="all, delete-orphan", order_by="CocktailFlavor.sort_order")
-    details: Mapped[list["CocktailDetail"]] = relationship(back_populates="cocktail", cascade="all, delete-orphan", order_by="CocktailDetail.sort_order")
+    tags: Mapped[list["DrinkTag"]] = relationship(back_populates="drink", cascade="all, delete-orphan", order_by="DrinkTag.sort_order")
+    flavors: Mapped[list["DrinkFlavor"]] = relationship(back_populates="drink", cascade="all, delete-orphan", order_by="DrinkFlavor.sort_order")
+    spirits: Mapped[list["DrinkSpirit"]] = relationship(back_populates="drink", cascade="all, delete-orphan", order_by="DrinkSpirit.sort_order")
+    details: Mapped[list["DrinkDetail"]] = relationship(back_populates="drink", cascade="all, delete-orphan", order_by="DrinkDetail.sort_order")
 
 
-class CocktailTag(Base):
-    __tablename__ = "cocktail_tags"
-    cocktail_id: Mapped[int] = mapped_column(ForeignKey("cocktails.id", ondelete="CASCADE"), primary_key=True)
+class DrinkTag(Base):
+    __tablename__ = "drink_tags"
+    drink_id: Mapped[int] = mapped_column(ForeignKey("drinks.id", ondelete="CASCADE"), primary_key=True)
     tag_id: Mapped[int] = mapped_column(ForeignKey("tags.id", ondelete="CASCADE"), primary_key=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
-
-    cocktail: Mapped["Cocktail"] = relationship(back_populates="tags")
+    drink: Mapped["Drink"] = relationship(back_populates="tags")
     tag: Mapped["Tag"] = relationship()
 
 
-class CocktailFlavor(Base):
-    __tablename__ = "cocktail_flavors"
-    cocktail_id: Mapped[int] = mapped_column(ForeignKey("cocktails.id", ondelete="CASCADE"), primary_key=True)
+class DrinkFlavor(Base):
+    __tablename__ = "drink_flavors"
+    drink_id: Mapped[int] = mapped_column(ForeignKey("drinks.id", ondelete="CASCADE"), primary_key=True)
     flavor_id: Mapped[int] = mapped_column(ForeignKey("flavors.id", ondelete="CASCADE"), primary_key=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
-
-    cocktail: Mapped["Cocktail"] = relationship(back_populates="flavors")
+    drink: Mapped["Drink"] = relationship(back_populates="flavors")
     flavor: Mapped["Flavor"] = relationship()
 
 
-class CocktailDetail(Base):
-    """Cocktail story sections: label + text, ordered."""
-    __tablename__ = "cocktail_details"
+class DrinkSpirit(Base):
+    __tablename__ = "drink_spirits"
+    drink_id: Mapped[int] = mapped_column(ForeignKey("drinks.id", ondelete="CASCADE"), primary_key=True)
+    spirit_id: Mapped[int] = mapped_column(ForeignKey("spirits.id", ondelete="CASCADE"), primary_key=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    drink: Mapped["Drink"] = relationship(back_populates="spirits")
+    spirit: Mapped["Spirit"] = relationship()
+
+
+class DrinkDetail(Base):
+    __tablename__ = "drink_details"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    cocktail_id: Mapped[int] = mapped_column(ForeignKey("cocktails.id", ondelete="CASCADE"), index=True)
+    drink_id: Mapped[int] = mapped_column(ForeignKey("drinks.id", ondelete="CASCADE"), index=True)
     label: Mapped[str] = mapped_column(String(128), nullable=False)
     text: Mapped[str] = mapped_column(Text, nullable=False)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    drink: Mapped["Drink"] = relationship(back_populates="details")
 
-    cocktail: Mapped["Cocktail"] = relationship(back_populates="details")
 
-
-# ────────────────────────────────────────────────────────────
-# Classics (educational)
-# ────────────────────────────────────────────────────────────
-
+# ── Classics ──
 class Classic(Base):
     __tablename__ = "classics"
-
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     slug: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(128), nullable=False)
@@ -163,19 +173,17 @@ class Classic(Base):
     origin: Mapped[str | None] = mapped_column(String(128))
     composition: Mapped[str | None] = mapped_column(Text)
     glass_id: Mapped[int | None] = mapped_column(ForeignKey("glasses.id", ondelete="SET NULL"))
-    glass_label_override: Mapped[str | None] = mapped_column(String(64))
     garnish: Mapped[str | None] = mapped_column(Text)
     history: Mapped[str | None] = mapped_column(Text)
     for_whom: Mapped[str | None] = mapped_column(Text)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-
     family: Mapped["Family"] = relationship(back_populates="classics")
     glass: Mapped["Glass | None"] = relationship()
     spirits: Mapped[list["ClassicSpirit"]] = relationship(back_populates="classic", cascade="all, delete-orphan", order_by="ClassicSpirit.sort_order")
     descriptors: Mapped[list["ClassicDescriptor"]] = relationship(back_populates="classic", cascade="all, delete-orphan", order_by="ClassicDescriptor.sort_order")
-    related_cocktails: Mapped[list["ClassicRelatedCocktail"]] = relationship(back_populates="classic", cascade="all, delete-orphan", order_by="ClassicRelatedCocktail.sort_order")
+    related_drinks: Mapped[list["ClassicRelatedDrink"]] = relationship(back_populates="classic", cascade="all, delete-orphan", order_by="ClassicRelatedDrink.sort_order")
 
 
 class ClassicSpirit(Base):
@@ -183,7 +191,6 @@ class ClassicSpirit(Base):
     classic_id: Mapped[int] = mapped_column(ForeignKey("classics.id", ondelete="CASCADE"), primary_key=True)
     spirit_id: Mapped[int] = mapped_column(ForeignKey("spirits.id", ondelete="CASCADE"), primary_key=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
-
     classic: Mapped["Classic"] = relationship(back_populates="spirits")
     spirit: Mapped["Spirit"] = relationship()
 
@@ -193,64 +200,20 @@ class ClassicDescriptor(Base):
     classic_id: Mapped[int] = mapped_column(ForeignKey("classics.id", ondelete="CASCADE"), primary_key=True)
     descriptor_id: Mapped[int] = mapped_column(ForeignKey("descriptors.id", ondelete="CASCADE"), primary_key=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
-
     classic: Mapped["Classic"] = relationship(back_populates="descriptors")
     descriptor: Mapped["Descriptor"] = relationship()
 
 
-class ClassicRelatedCocktail(Base):
-    __tablename__ = "classic_related_cocktails"
+class ClassicRelatedDrink(Base):
+    __tablename__ = "classic_related_drinks"
     classic_id: Mapped[int] = mapped_column(ForeignKey("classics.id", ondelete="CASCADE"), primary_key=True)
-    cocktail_id: Mapped[int] = mapped_column(ForeignKey("cocktails.id", ondelete="CASCADE"), primary_key=True)
+    drink_id: Mapped[int] = mapped_column(ForeignKey("drinks.id", ondelete="CASCADE"), primary_key=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
-
-    classic: Mapped["Classic"] = relationship(back_populates="related_cocktails")
-    cocktail: Mapped["Cocktail"] = relationship()
-
-
-# ────────────────────────────────────────────────────────────
-# Per-user learned classics progress (Stage B prep, table exists now)
-# ────────────────────────────────────────────────────────────
-
-class ClassicProgress(Base):
-    """Legacy table — superseded by LearningProgress (D-4.5).
-    Kept declared so SQLAlchemy doesn't try to drop it. New code uses
-    LearningProgress; existing rows are migrated at startup."""
-    __tablename__ = "classic_progress"
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
-    classic_id: Mapped[int] = mapped_column(ForeignKey("classics.id", ondelete="CASCADE"), primary_key=True)
-    learned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    classic: Mapped["Classic"] = relationship(back_populates="related_drinks")
+    drink: Mapped["Drink"] = relationship()
 
 
-class LearningProgress(Base):
-    """Generic per-user "learned" mark across all content kinds.
-    Slug-based (no FK to specific entity tables) — supports cocktails,
-    classics, kitchen, zero, zc, spirits, etc. without table-per-kind
-    duplication. `kind` is one of the category kinds used by the frontend."""
-    __tablename__ = "learning_progress"
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
-    kind: Mapped[str] = mapped_column(String(32), primary_key=True)
-    slug: Mapped[str] = mapped_column(String(80), primary_key=True)
-    learned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-
-
-# ────────────────────────────────────────────────────────────
-# Cocktail history timeline (educational static content)
-# ────────────────────────────────────────────────────────────
-
-class TimelineEntry(Base):
-    __tablename__ = "timeline_entries"
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    period: Mapped[str] = mapped_column(String(64), nullable=False)
-    description: Mapped[str] = mapped_column(Text, nullable=False)
-    examples: Mapped[str | None] = mapped_column(Text)
-    sort_order: Mapped[int] = mapped_column(Integer, default=0)
-
-
-# ────────────────────────────────────────────────────────────
-# Encyclopedia of spirits — own category grouping + specific bottles
-# ────────────────────────────────────────────────────────────
-
+# ── Spirits catalog ──
 class SpiritCategory(Base):
     __tablename__ = "spirit_categories"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -258,7 +221,6 @@ class SpiritCategory(Base):
     label: Mapped[str] = mapped_column(String(128), nullable=False)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     is_archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-
     entries: Mapped[list["SpiritEntry"]] = relationship(back_populates="category", order_by="SpiritEntry.sort_order")
 
 
@@ -269,12 +231,16 @@ class SpiritEntry(Base):
     category_id: Mapped[int] = mapped_column(ForeignKey("spirit_categories.id", ondelete="RESTRICT"), index=True)
     name: Mapped[str] = mapped_column(String(256), nullable=False)
     img: Mapped[str | None] = mapped_column(String(256))
-    abv: Mapped[str | None] = mapped_column(String(32))
-    price: Mapped[str | None] = mapped_column(String(64))
+    abv: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
+    abv_raw: Mapped[str | None] = mapped_column(String(32))
+    price_amount: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
+    price_currency: Mapped[str] = mapped_column(String(8), default="₽", nullable=False)
+    serving_ml: Mapped[int | None] = mapped_column(Integer)
+    price_raw: Mapped[str | None] = mapped_column(String(64))
     flavour: Mapped[str | None] = mapped_column(Text)
     brand: Mapped[str | None] = mapped_column(Text)
     country: Mapped[str | None] = mapped_column(Text)
-    brand_country: Mapped[str | None] = mapped_column(Text)        # raw notes that didn't fit
+    description: Mapped[str | None] = mapped_column(Text)
     source_url: Mapped[str | None] = mapped_column(Text)
     features: Mapped[str | None] = mapped_column(Text)
     cocktail_pairings: Mapped[str | None] = mapped_column(Text)
@@ -282,21 +248,16 @@ class SpiritEntry(Base):
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-
     category: Mapped["SpiritCategory"] = relationship(back_populates="entries")
 
 
-# ────────────────────────────────────────────────────────────
-# Kitchen — food menu, grouped by KitchenCategory
-# ────────────────────────────────────────────────────────────
-
+# ── Kitchen ──
 class KitchenCategory(Base):
     __tablename__ = "kitchen_categories"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     slug: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
     label: Mapped[str] = mapped_column(String(128), nullable=False)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
-
     dishes: Mapped[list["KitchenDish"]] = relationship(back_populates="category", order_by="KitchenDish.sort_order")
 
 
@@ -307,116 +268,44 @@ class KitchenDish(Base):
     category_id: Mapped[int] = mapped_column(ForeignKey("kitchen_categories.id", ondelete="RESTRICT"), index=True)
     name: Mapped[str] = mapped_column(String(256), nullable=False)
     img: Mapped[str | None] = mapped_column(String(256))
-    price: Mapped[str | None] = mapped_column(String(32))       # "450₽"
-    tagline: Mapped[str | None] = mapped_column(Text)            # short "for site" description
-    description: Mapped[str | None] = mapped_column(Text)        # composition / ingredients
-    timing: Mapped[str | None] = mapped_column(String(32))       # "10", "10-12", "12"
-    weight: Mapped[str | None] = mapped_column(String(64))       # "280", "320/50"
-    nutrition: Mapped[str | None] = mapped_column(Text)
+    price_amount: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
+    price_currency: Mapped[str] = mapped_column(String(8), default="₽", nullable=False)
+    price_raw: Mapped[str | None] = mapped_column(String(32))
+    tagline: Mapped[str | None] = mapped_column(Text)
+    description: Mapped[str | None] = mapped_column(Text)
+    timing_min_low: Mapped[int | None] = mapped_column(Integer)
+    timing_min_high: Mapped[int | None] = mapped_column(Integer)
+    timing_raw: Mapped[str | None] = mapped_column(String(32))
+    weight_g: Mapped[int | None] = mapped_column(Integer)
+    weight_raw: Mapped[str | None] = mapped_column(String(64))
+    kcal_portion: Mapped[Decimal | None] = mapped_column(Numeric(7, 2))
+    protein_g: Mapped[Decimal | None] = mapped_column(Numeric(7, 2))
+    fat_g: Mapped[Decimal | None] = mapped_column(Numeric(7, 2))
+    carb_g: Mapped[Decimal | None] = mapped_column(Numeric(7, 2))
+    kcal_100g: Mapped[Decimal | None] = mapped_column(Numeric(7, 2))
+    nutrition_raw: Mapped[str | None] = mapped_column(Text)
     serving: Mapped[str | None] = mapped_column(Text)
     interesting_facts: Mapped[str | None] = mapped_column(Text)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-
     category: Mapped["KitchenCategory"] = relationship(back_populates="dishes")
 
 
-# ────────────────────────────────────────────────────────────
-# Zero — non-alcoholic cocktails (their own category page)
-# ────────────────────────────────────────────────────────────
+# ── Progress (slug-keyed; rename-migration handled in CRUD layer, Phase 1) ──
+class LearningProgress(Base):
+    __tablename__ = "learning_progress"
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    kind: Mapped[str] = mapped_column(String(32), primary_key=True)
+    slug: Mapped[str] = mapped_column(String(80), primary_key=True)
+    learned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
-class ZeroCocktail(Base):
-    __tablename__ = "zero_cocktails"
 
+# ── Timeline (retained; not surfaced yet) ──
+class TimelineEntry(Base):
+    __tablename__ = "timeline_entries"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    slug: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
-    name: Mapped[str] = mapped_column(String(128), nullable=False)
-    img: Mapped[str | None] = mapped_column(String(256))
-    price: Mapped[str | None] = mapped_column(String(32))          # "430 ₽"
-    abv: Mapped[str | None] = mapped_column(String(32))            # "Non Alc"
-    glass_id: Mapped[int | None] = mapped_column(ForeignKey("glasses.id", ondelete="SET NULL"))
-    glass_label_override: Mapped[str | None] = mapped_column(String(64))
-    tagline: Mapped[str | None] = mapped_column(Text)
-    ingredients_text: Mapped[str | None] = mapped_column(Text)     # newline-separated list
+    period: Mapped[str] = mapped_column(String(64), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    examples: Mapped[str | None] = mapped_column(Text)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-
-    glass: Mapped["Glass | None"] = relationship()
-    details: Mapped[list["ZeroCocktailDetail"]] = relationship(back_populates="parent", cascade="all, delete-orphan", order_by="ZeroCocktailDetail.sort_order")
-
-
-class ZeroCocktailDetail(Base):
-    __tablename__ = "zero_cocktail_details"
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    parent_id: Mapped[int] = mapped_column(ForeignKey("zero_cocktails.id", ondelete="CASCADE"), index=True)
-    label: Mapped[str] = mapped_column(String(128), nullable=False)
-    text: Mapped[str] = mapped_column(Text, nullable=False)
-    sort_order: Mapped[int] = mapped_column(Integer, default=0)
-
-    parent: Mapped["ZeroCocktail"] = relationship(back_populates="details")
-
-
-# ────────────────────────────────────────────────────────────
-# Zero Culture — separate brand line (alc + non-alc mixed)
-# ────────────────────────────────────────────────────────────
-
-class ZCDrink(Base):
-    __tablename__ = "zc_drinks"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    slug: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
-    name: Mapped[str] = mapped_column(String(128), nullable=False)
-    img: Mapped[str | None] = mapped_column(String(256))
-    is_alcoholic: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    price: Mapped[str | None] = mapped_column(String(32))
-    abv: Mapped[str | None] = mapped_column(String(32))
-    glass_id: Mapped[int | None] = mapped_column(ForeignKey("glasses.id", ondelete="SET NULL"))
-    glass_label_override: Mapped[str | None] = mapped_column(String(64))
-    tagline: Mapped[str | None] = mapped_column(Text)
-    caffeine_level: Mapped[int | None] = mapped_column(Integer)    # 1..3, only for non-alc
-    is_carbonated: Mapped[bool | None] = mapped_column(Boolean)    # nullable; meaningful only for non-alc
-    sort_order: Mapped[int] = mapped_column(Integer, default=0)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-
-    glass: Mapped["Glass | None"] = relationship()
-    details: Mapped[list["ZCDrinkDetail"]] = relationship(back_populates="parent", cascade="all, delete-orphan", order_by="ZCDrinkDetail.sort_order")
-
-
-class ZCDrinkDetail(Base):
-    __tablename__ = "zc_drink_details"
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    parent_id: Mapped[int] = mapped_column(ForeignKey("zc_drinks.id", ondelete="CASCADE"), index=True)
-    label: Mapped[str] = mapped_column(String(128), nullable=False)
-    text: Mapped[str] = mapped_column(Text, nullable=False)
-    sort_order: Mapped[int] = mapped_column(Integer, default=0)
-
-    parent: Mapped["ZCDrink"] = relationship(back_populates="details")
-
-
-# ────────────────────────────────────────────────────────────
-# Navigation categories (the burger menu)
-# ────────────────────────────────────────────────────────────
-
-class Category(Base):
-    """Public categories shown in the burger menu.
-
-    `key` is the page identifier the frontend routes on (matches the
-    `page` state — e.g. "menu", "classics"). `kind` declares which
-    backend content type this category surfaces (used in D-3+ when
-    burger items dispatch to per-type list pages).
-
-    Admins can rename (`label`), reorder (`sort_order`) and hide
-    (`is_visible`) categories. The `key` itself is structural and not
-    editable from the UI.
-    """
-    __tablename__ = "categories"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    key: Mapped[str] = mapped_column(String(32), unique=True, nullable=False, index=True)
-    label: Mapped[str] = mapped_column(String(64), nullable=False)
-    kind: Mapped[str] = mapped_column(String(32), nullable=False)  # one of: menu, classics, spirits, kitchen, zero, zc
-    sort_order: Mapped[int] = mapped_column(Integer, default=0)
-    is_visible: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
