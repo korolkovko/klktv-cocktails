@@ -1,7 +1,11 @@
-from sqlalchemy import create_engine, func
+from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from app import models as m
 from migration.source import read_all
+
+
+def _has_digit(s):
+    return bool(s) and any(ch.isdigit() for ch in str(s))
 
 
 def verify(src_url, dest_url):
@@ -27,18 +31,27 @@ def verify(src_url, dest_url):
                    if p.kind in kind_sets and p.slug not in kind_sets[p.kind]]
         assert not orphans, f"orphan progress rows: {orphans}"
 
-        # attention: raw present but parse produced null
+        # attention: raw looks like it holds a value (has a digit) but parse produced null
         attention = []
         for d in s.query(m.Drink).all():
-            if d.abv_raw and d.is_alcoholic and d.abv is None:
+            if _has_digit(d.abv_raw) and d.abv is None:
                 attention.append(("drink.abv", d.slug, d.abv_raw))
+            if _has_digit(d.price_raw) and d.price_amount is None:
+                attention.append(("drink.price", d.slug, d.price_raw))
         for e in s.query(m.SpiritEntry).all():
-            if e.price_raw and e.price_amount is None:
-                attention.append(("spirit.price", e.slug, e.price_raw))
-            if e.abv_raw and e.abv is None:
+            if _has_digit(e.abv_raw) and e.abv is None:
                 attention.append(("spirit.abv", e.slug, e.abv_raw))
+            if _has_digit(e.price_raw) and e.price_amount is None:
+                attention.append(("spirit.price", e.slug, e.price_raw))
         for k in s.query(m.KitchenDish).all():
-            if k.nutrition_raw and k.kcal_portion is None:
+            if _has_digit(k.price_raw) and k.price_amount is None:
+                attention.append(("dish.price", k.slug, k.price_raw))
+            if _has_digit(k.timing_raw) and k.timing_min_low is None:
+                attention.append(("dish.timing", k.slug, k.timing_raw))
+            if _has_digit(k.weight_raw) and k.weight_g is None:
+                attention.append(("dish.weight", k.slug, k.weight_raw))
+            if k.nutrition_raw and (k.kcal_portion is None or k.protein_g is None
+                                     or k.fat_g is None or k.carb_g is None or k.kcal_100g is None):
                 attention.append(("dish.nutrition", k.slug, k.nutrition_raw[:40]))
 
         print(f"OK drinks={drinks} classics={s.query(m.Classic).count()} "
