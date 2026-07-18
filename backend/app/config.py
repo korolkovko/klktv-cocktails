@@ -11,3 +11,7 @@ COOKIE_SAMESITE = os.environ.get("COOKIE_SAMESITE", "none")  # "none" for cross-
 COOKIE_DOMAIN = os.environ.get("COOKIE_DOMAIN") or None
 
 ACCESS_TOKEN_EXPIRE_HOURS = int(os.environ.get("ACCESS_TOKEN_EXPIRE_HOURS", "24"))
+
+# Migration: dual-DB URLs for ETL (Prod read-only → v2 write-only)
+SRC_DATABASE_URL = os.environ.get("SRC_DATABASE_URL")
+DEST_DATABASE_URL = os.environ.get("DEST_DATABASE_URL")
