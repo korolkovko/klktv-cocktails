@@ -18,6 +18,21 @@ Idempotency strategy
   we delete the existing rows for the parents being (re)loaded and insert
   fresh ones (ids DB-assigned for `drink_details`). This is safe because this
   ETL is the sole writer to DEST during Phase 0.
+
+No-data-loss rescues
+---------------------
+Two source content columns have no destination column of their own and would
+otherwise be silently discarded:
+- `glass_label_override` (on `cocktails`/`zero_cocktails`/`zc_drinks`/
+  `classics`) was replaced in the v2 schema by the single `glass_id` fallback.
+  For drinks, a non-empty override is rescued as a synthetic
+  `DrinkDetail(label="Бокал", ...)` row, inserted through the same
+  delete-then-insert path as the rest of `drink_details` (so it stays stable
+  across re-runs). `classics` has no `drink_details`-equivalent table to
+  rescue into, so any non-empty override there is only counted and logged
+  loudly rather than silently dropped (prod currently has zero).
+- `zero_cocktails.ingredients_text` is rescued the same way, as a synthetic
+  `DrinkDetail(label="Ингредиенты", ...)` row.
 """
 import re
 
@@ -170,15 +185,49 @@ def load(src_url, dest_url):
                     s.add(m.DrinkDetail(drink_id=did, label=r["label"], text=r["text"],
                                          sort_order=r.get("sort_order", 0)))
 
+            def _rescue_field(rows, slug_by_parent, field, label, sort_order=999):
+                """Emit a synthetic DrinkDetail for a prod content column that
+                has no destination column of its own, so a non-empty value is
+                never silently discarded. `rows` are the parent table's own
+                rows (keyed by their own `id`), not a *_details child table.
+                Returns the number of rows rescued."""
+                count = 0
+                for r in rows:
+                    val = (r.get(field) or "").strip()
+                    if not val:
+                        continue
+                    did = id_by_slug.get(slug_by_parent.get(r["id"]))
+                    if did is None:
+                        continue
+                    s.add(m.DrinkDetail(drink_id=did, label=label, text=val, sort_order=sort_order))
+                    count += 1
+                return count
+
             ck_slug = {r["id"]: r["slug"] for r in src["cocktails"]}
             z0_slug = {r["id"]: r["slug"] for r in src["zero_cocktails"]}
-            ck_norms = {_slugnorm(x) for x in ck_slug.values()}
-            zc_slug = {r["id"]: (r["slug"] if _slugnorm(r["slug"]) not in ck_norms else
-                       drink_slugs[_slugnorm(r["slug"])]) for r in src["zc_drinks"]}
+            # zc rows deduped against the Upcykle merge (step 4) resolve
+            # against the full drink-slug universe (cocktails + zero_cocktails
+            # + non-dup zc), not just cocktails, so a future zero/zc slug
+            # collision can't silently drop detail rows the way a
+            # cocktails-only check would.
+            zc_slug = {r["id"]: drink_slugs.get(_slugnorm(r["slug"]), r["slug"]) for r in src["zc_drinks"]}
 
             _add_details(src["cocktail_details"], "cocktail_id", ck_slug)
             _add_details(src["zero_cocktail_details"], "parent_id", z0_slug)
             _add_details(src["zc_drink_details"], "parent_id", zc_slug)
+
+            # No-data-loss rescues (see module docstring): synthetic detail
+            # rows for prod columns with no destination column of their own.
+            # Inserted in the same delete-then-insert pass as the rest of
+            # drink_details, so re-runs stay idempotent.
+            glass_overrides = 0
+            glass_overrides += _rescue_field(src["cocktails"], ck_slug, "glass_label_override", "Бокал")
+            glass_overrides += _rescue_field(src["zero_cocktails"], z0_slug, "glass_label_override", "Бокал")
+            glass_overrides += _rescue_field(src["zc_drinks"], zc_slug, "glass_label_override", "Бокал")
+            stats["glass_overrides"] = glass_overrides
+
+            _rescue_field(src["zero_cocktails"], z0_slug, "ingredients_text", "Ингредиенты")
+
             s.flush()
 
             # 7) drink M:N (tags/flavors) from cocktails only (zero/zc had none).
@@ -206,6 +255,15 @@ def load(src_url, dest_url):
                         ("id", "slug", "name", "family_id", "year", "origin", "composition",
                          "glass_id", "garnish", "history", "for_whom", "sort_order")}))
             s.flush()
+
+            # classics has no destination place to rescue glass_label_override
+            # into (no classics-level details table), so a non-empty value
+            # can't be silently dropped: count it and log the affected slugs
+            # loudly instead. Prod currently has zero.
+            classic_glass_overrides = [row["slug"] for row in src["classics"]
+                                        if (row.get("glass_label_override") or "").strip()]
+            print(f"classics glass_label_override: {len(classic_glass_overrides)} non-empty"
+                  + (f", affected slugs: {classic_glass_overrides}" if classic_glass_overrides else ""))
 
             classic_ids = [row["id"] for row in src["classics"]]
             if classic_ids:
