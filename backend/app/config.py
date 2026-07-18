@@ -1,7 +1,17 @@
 import os
 
-SECRET_KEY = os.environ.get("SECRET_KEY", "klktv-cocktails-dev-secret-change-in-prod")
-DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/klktv_cocktails")
+
+def require_env(name: str) -> str:
+    val = os.environ.get(name)
+    if not val:
+        raise RuntimeError(f"{name} is required and must be set (no default in v2).")
+    return val
+
+
+SECRET_KEY = require_env("SECRET_KEY")
+DATABASE_URL = require_env("DATABASE_URL")
+
+DEBUG = os.environ.get("DEBUG", "false").lower() == "true"
 
 CORS_ORIGINS = [o.strip() for o in os.environ.get("CORS_ORIGINS", "http://localhost:5173").split(",") if o.strip()]
 
