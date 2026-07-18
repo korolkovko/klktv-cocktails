@@ -14,193 +14,158 @@ class UserResponse(BaseModel):
     role: str
 
 
-# ── Lookups ──────────────────────────────────────────────
+# ── Content bundle v2 output schemas (kit-shaped) ──────────
 
-class FilterOut(BaseModel):
-    key: str
+class DrinkOut(BaseModel):
+    id: str
+    name: str
+    logo: str | None = None
+    subtitle: str | None = None
+    price: int | None = None
+    volume: int | None = None
+    abv: float | None = None
+    spirit: str = ""
+    spirits: list[str] = []
+    glass: str = ""
+    descriptors: list[str] = []
+    badge: str | None = None
+    recipe: str | None = None
+    garnish: str | None = None
+    pitch: str | None = None
+    photo: str | None = None
+    about: str | None = None
+    naming: str | None = None
+    faq: str | None = None
+    # forward-compat (kit type doesn't read these yet; Phase 1b kit extension will)
+    isAlcoholic: bool = True
+    isZeroCulture: bool = False
+    caffeineLevel: int | None = None
+    isCarbonated: bool | None = None
+
+    model_config = ConfigDict(from_attributes=False)
+
+
+class OurAnswer(BaseModel):
     label: str
+    menuId: str | None = None
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=False)
 
 
-class CategoryOut(BaseModel):
-    key: str
-    label: str
-    kind: str
-    sort_order: int
-    is_visible: bool
+class ClassicOut(BaseModel):
+    id: str
+    name: str
+    year: str | None = None
+    city: str | None = None
+    family: str
+    spirit: str = ""
+    glass: str = ""
+    descriptors: list[str] = []
+    recipe: str | None = None
+    garnish: str | None = None
+    history: str | None = None
+    fits: str | None = None
+    ourAnswers: list[OurAnswer] = []
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=False)
 
 
 class FamilyOut(BaseModel):
-    key: str
-    label: str
-    sub: str | None
-    color: str | None
-    logic: str | None
-    evolution: str | None
-    tip: str | None
+    tint: str
+    code: str
+    title: str
+    logic: str | None = None
+    evolution: str | None = None
+    tip: str | None = None
+    total: int = 0
 
-    model_config = ConfigDict(from_attributes=True)
-
-
-class TimelineOut(BaseModel):
-    period: str
-    description: str
-    examples: str | None
-
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=False)
 
 
-# ── Cocktails ────────────────────────────────────────────
-
-class CocktailDetailOut(BaseModel):
-    label: str
-    text: str
-
-
-class CocktailBadgeOut(BaseModel):
-    key: str
-    label: str
-
-
-class CocktailOut(BaseModel):
-    id: str          # slug, matches the old JS `id`
+class SpiritEntryOut(BaseModel):
+    slug: str
+    categorySlug: str
     name: str
-    img: str | None
-    abv: str | None
-    glass: str | None
-    glass_tag: str | None
-    tagline: str | None
-    tags: list[str]
-    flavors: list[str]
-    details: list[CocktailDetailOut]
-    badge: CocktailBadgeOut | None
+    img: str | None = None
+    abv: float | None = None
+    country: str | None = None
+    flavour: str | None = None
+    brand: str | None = None
+    brandDetail: str | None = None
+    features: str | None = None
+    pairings: str | None = None
+    fact: str | None = None
+    sourceUrl: str | None = None
 
+    model_config = ConfigDict(from_attributes=False)
 
-# ── Classics ─────────────────────────────────────────────
-
-class ClassicOut(BaseModel):
-    id: str          # slug
-    name: str
-    family: str      # family key
-    year: int | None
-    origin: str | None
-    spirits: list[str]
-    composition: str | None
-    glass: str | None
-    glass_tag: str | None
-    garnish: str | None
-    descriptors: list[str]
-    history: str | None
-    for_whom: str | None
-    related_ours: list[str]   # cocktail slugs
-
-
-# ── Encyclopedia of spirits ──────────────────────────────
 
 class SpiritCategoryOut(BaseModel):
     slug: str
     label: str
-    sort_order: int
-    is_archived: bool
+    isArchived: bool = False
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=False)
 
 
-class SpiritEntryOut(BaseModel):
-    id: str           # slug
-    category_slug: str
+class DishNutritionOut(BaseModel):
+    kcal: int | None = None
+    protein: float | None = None
+    fat: float | None = None
+    carb: float | None = None
+
+    model_config = ConfigDict(from_attributes=False)
+
+
+class KitchenDishOut(BaseModel):
+    id: str
+    categorySlug: str
     name: str
-    img: str | None
-    abv: str | None
-    price: str | None
-    flavour: str | None
-    brand: str | None
-    country: str | None
-    brand_country: str | None      # additional notes (long descriptions)
-    source_url: str | None
-    features: str | None
-    cocktail_pairings: str | None
-    fact: str | None
+    subtitle: str | None = None
+    price: int | None = None
+    weight: int | None = None
+    timing: int | None = None
+    photo: str | None = None
+    description: str | None = None
+    serving: str | None = None
+    fact: str | None = None
+    nutrition: DishNutritionOut = DishNutritionOut()
 
+    model_config = ConfigDict(from_attributes=False)
 
-# ── Kitchen ──────────────────────────────────────────────
 
 class KitchenCategoryOut(BaseModel):
     slug: str
     label: str
-    sort_order: int
 
-    model_config = ConfigDict(from_attributes=True)
-
-
-class KitchenDishOut(BaseModel):
-    id: str          # slug
-    category_slug: str
-    name: str
-    img: str | None
-    price: str | None
-    tagline: str | None
-    description: str | None
-    timing: str | None
-    weight: str | None
-    nutrition: str | None
-    serving: str | None
-    interesting_facts: str | None
+    model_config = ConfigDict(from_attributes=False)
 
 
-# ── Zero (non-alcoholic) cocktails ───────────────────────
-
-class ZeroDetailOut(BaseModel):
+class SectionOut(BaseModel):
+    id: str
     label: str
-    text: str
+    total: int
+
+    model_config = ConfigDict(from_attributes=False)
 
 
-class ZeroCocktailOut(BaseModel):
-    id: str
-    name: str
-    img: str | None
-    price: str | None
-    abv: str | None
-    glass: str | None
-    glass_tag: str | None
-    tagline: str | None
-    ingredients: list[str]            # parsed from ingredients_text
-    details: list[ZeroDetailOut]
+class FiltersOut(BaseModel):
+    spirits: list[str]
+    glasses: list[str]
+    classicSpirits: list[str]
 
+    model_config = ConfigDict(from_attributes=False)
 
-# ── Zero Culture ─────────────────────────────────────────
-
-class ZCDrinkOut(BaseModel):
-    id: str
-    name: str
-    img: str | None
-    is_alcoholic: bool
-    price: str | None
-    abv: str | None
-    glass: str | None
-    glass_tag: str | None
-    tagline: str | None
-    caffeine_level: int | None
-    is_carbonated: bool | None
-    details: list[ZeroDetailOut]
-
-
-# ── Content bundle (single call returns everything for first page render) ──
 
 class ContentBundleOut(BaseModel):
-    categories: list[CategoryOut]
-    cocktails: list[CocktailOut]
+    sections: list[SectionOut]
+    drinks: list[DrinkOut]
     classics: list[ClassicOut]
     families: list[FamilyOut]
-    zero_cocktails: list[ZeroCocktailOut]
-    zc_drinks: list[ZCDrinkOut]
-    kitchen_categories: list[KitchenCategoryOut]
-    kitchen_dishes: list[KitchenDishOut]
-    spirit_categories: list[SpiritCategoryOut]
-    spirit_entries: list[SpiritEntryOut]
-    cocktail_spirit_filters: list[FilterOut]
-    cocktail_glass_filters: list[FilterOut]
-    timeline: list[TimelineOut]
+    spiritCategories: list[SpiritCategoryOut]
+    spirits: list[SpiritEntryOut]
+    kitchenCategories: list[KitchenCategoryOut]
+    kitchen: list[KitchenDishOut]
+    filters: FiltersOut
+
+    model_config = ConfigDict(from_attributes=False)
