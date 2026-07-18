@@ -30,6 +30,16 @@ def parse_abv(raw):
     return (val, True)
 
 
+def is_nonalc_marker(raw):
+    """True iff `raw` explicitly denotes non-alcoholic (matches the 'Non Alc'
+    marker) — distinct from blank/absent, which just means the ABV wasn't
+    filled in (unknown, not necessarily non-alcoholic). Used by callers that
+    want a "default to alcoholic unless proven otherwise" policy (e.g.
+    author cocktails), where `parse_abv`'s blanket `(None, False)` for blank
+    input would be wrong."""
+    return raw is not None and str(raw).strip() != "" and bool(_NONALC.search(str(raw)))
+
+
 _SERVING = re.compile(r"за\s*(\d+)(?:\s*мл)?", re.IGNORECASE | re.DOTALL)
 
 

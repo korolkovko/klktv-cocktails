@@ -100,7 +100,7 @@ without a prior load, in which case it checks whatever is already in DEST):
    genuinely unstructured text (raw is retained regardless — see next
    section) or fix the parser in `migration/parsers.py`.
 
-## Verified final run (2026-07-19, branch `v2`)
+## Verified final run (2026-07-19, branch `v2`, post final-review fixes)
 
 Both a first run and an immediate second run against the same DEST produced
 identical `LOAD:` stats and the identical verify output:
@@ -119,12 +119,14 @@ Spot-checks against DEST (read-only queries):
 
 | Check | Result | Expectation |
 |---|---|---|
-| `drinks` where `is_alcoholic=false` | 3 | ≥ 1 |
+| `drinks` where `is_alcoholic=false` | 2 | ≥ 1 (was 3 before the cocktail-default-alcoholic fix — see below) |
 | `drinks` where `is_zero_culture=true` | 1 | ≥ 1 |
 | `drinks.slug ilike '%upcykle%'` | exactly `upcyklecola` | exactly one row |
 | `drink_details.label in ('Бокал','Ингредиенты')` | drink 21 → `Бокал`, drink 25 → `Ингредиенты` | both rescued rows present |
 | `count(*) from drinks` | 26 | 26 |
 | alcoholic drink with null slug | 0 | 0 |
+
+`drinks.is_alcoholic=false` dropped from 3 to 2 after the fix below: `slug='undressednegroni'` (a `cocktails` row with a blank raw `abv`, previously mis-flagged non-alcoholic) is now `is_alcoholic=True`, `abv=None` (still unknown), `abv_raw=None` (unchanged).
 
 ## Notable transformations
 
@@ -149,12 +151,25 @@ Spot-checks against DEST (read-only queries):
   dropped. `classics.glass_label_override` has no equivalent details table
   to rescue into; the load logs a loud count of any non-empty values there
   (prod currently has zero).
-- **Test/junk filtering.** A small set of known test-data labels
-  (`ДОБАВЛЕНО ИЗ UI`, `Тестовый`, `Обновлённый`, `test-tag`, `test_tag`) is
-  excluded when loading `tags`, `flavors`, and `descriptors`, so leftover
-  QA artifacts from prod don't leak into v2. Also excludes the legacy
+- **Test/junk filtering.** A small exact-match set of known test-data labels
+  (`ДОБАВЛЕНО ИЗ UI`, `Тестовый`, `Обновлённый`, `test-tag`) is excluded
+  when loading `tags`, `flavors`, and `descriptors`, so leftover QA
+  artifacts from prod don't leak into v2. Also excludes the legacy
   `zero`/`zc` rows from `categories` (superseded by the unified `drinks`
-  flags).
+  flags). Content typos (`Габа.`, `Ирдандия`) are deliberately **not** in
+  this set — they're real content, not test junk, and are migrated as-is
+  for a later content-fix pass.
+- **`created_at` preserved, `updated_at` migration-managed.** For every
+  content row this ETL writes (`drinks`, `classics`, `spirit_entries`,
+  `kitchen_dishes`), `created_at` is carried over from the source row so it
+  keeps reflecting when the content was originally authored in prod, while
+  `updated_at` is left to the DB default/`onupdate` and so reflects
+  migration time rather than any original prod edit time.
+- **Cocktails default to alcoholic.** `cocktails` (author drinks) set
+  `is_alcoholic = True` unless the raw `abv` explicitly carries a "Non Alc"
+  marker — a blank/missing `abv` means unknown, not non-alcoholic.
+  `zero_cocktails` (always non-alcoholic) and `zc_drinks` (per-row
+  `is_alcoholic` column) are unaffected.
 - **`classic_progress` dropped.** This legacy table was a stale, strict
   subset of `learning_progress` (superseded, no longer written to in
   prod) and is not part of the v2 schema or this ETL's source table list;

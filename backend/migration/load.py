@@ -33,6 +33,27 @@ otherwise be silently discarded:
   loudly rather than silently dropped (prod currently has zero).
 - `zero_cocktails.ingredients_text` is rescued the same way, as a synthetic
   `DrinkDetail(label="Ингредиенты", ...)` row.
+
+`is_alcoholic` default for cocktails
+-------------------------------------
+`cocktails` are author drinks and are alcoholic by definition; a blank/
+missing raw `abv` only means the field wasn't filled in, not that the drink
+is non-alcoholic. So `is_alcoholic` for this source is `True` unless the raw
+abv explicitly carries the "Non Alc" marker (`parsers.is_nonalc_marker`);
+`abv` itself is still the parsed numeric (`None` when blank/unparseable) and
+`abv_raw` is preserved untouched either way. `zero_cocktails` (always
+non-alcoholic by construction) and `zc_drinks` (per-row `is_alcoholic`
+column) are unaffected by this and keep their existing derivation.
+
+Timestamps
+----------
+`created_at` is preserved from the source row for every content table this
+ETL writes (`drinks` via cocktails/zero_cocktails/zc_drinks, `classics`,
+`spirit_entries`, `kitchen_dishes`) — re-running never resets it, since the
+source value doesn't change. `updated_at` is left migration-managed
+(defaults to now / bumps on update) rather than carried over, since it
+doesn't have a well-defined single source across the three merged drink
+tables.
 """
 import re
 
@@ -43,10 +64,17 @@ from app import models as m
 from migration.source import read_all
 from migration.parsers import (
     parse_abv, parse_price, parse_weight_g, parse_timing, parse_nutrition,
-    parse_spirit_origin,
+    parse_spirit_origin, is_nonalc_marker,
 )
 
-JUNK = {"ДОБАВЛЕНО ИЗ UI", "Тестовый", "Обновлённый", "test-tag", "test_tag"}
+# Exact-match delete list for test/QA artifacts found in prod's
+# tags/flavors/descriptors lookup tables (see migration/README.md's
+# "Test/junk filtering" note). This is NOT a place to fix content typos —
+# `Габа.` (trailing period) and `Ирдандия` (misspelling of "Ирландия") are
+# real prod content, not test junk, and are intentionally left out of this
+# set; they're deliberately migrated as-is and left for a later content
+# pass rather than silently dropped here.
+JUNK = {"ДОБАВЛЕНО ИЗ UI", "Тестовый", "Обновлённый", "test-tag"}
 
 
 def _slugnorm(s):
@@ -117,13 +145,19 @@ def load(src_url, dest_url):
             drink_slugs = {}  # normalized slug -> canonical slug already accounted for
 
             for row in src["cocktails"]:
-                abv, is_alc = parse_abv(row.get("abv"))
+                abv, _ = parse_abv(row.get("abv"))
+                # Cocktails are author drinks: default to alcoholic. A blank/
+                # missing abv just means it wasn't filled in yet (abv stays
+                # unknown/None below) — it must NOT be read as non-alcoholic.
+                # Only an explicit "Non Alc" marker in the raw abv text
+                # flips this to False.
+                is_alc = not is_nonalc_marker(row.get("abv"))
                 _upsert_drink(
                     existing_by_slug, s, row["slug"],
                     name=row["name"], img=row.get("img"), subtitle=row.get("tagline"),
                     is_alcoholic=is_alc, is_zero_culture=False, abv=abv, abv_raw=row.get("abv"),
                     glass_id=row.get("glass_id"), badge_id=row.get("badge_id"),
-                    sort_order=row.get("sort_order", 0),
+                    sort_order=row.get("sort_order", 0), created_at=row["created_at"],
                 )
                 drink_slugs[_slugnorm(row["slug"])] = row["slug"]
             s.flush()
@@ -137,18 +171,26 @@ def load(src_url, dest_url):
                     is_alcoholic=False, is_zero_culture=False, abv=None, abv_raw=row.get("abv"),
                     price_amount=price_amt, price_raw=row.get("price"),
                     glass_id=row.get("glass_id"), sort_order=row.get("sort_order", 0),
+                    created_at=row["created_at"],
                 )
                 drink_slugs[_slugnorm(row["slug"])] = row["slug"]
             s.flush()
 
             # 4) zc_drinks -> drinks (dedup Upcykle by normalized slug)
             upcykle_merges = 0
+            # Forward-hardening for cutover: when a zc_drinks row is deduped
+            # (its own slug dropped in favor of an already-created drink),
+            # remember dropped-raw-slug -> kept-canonical-slug so any
+            # learning_progress row still pointing at the dropped slug can
+            # be remapped in step 11 instead of becoming orphan progress.
+            slug_remap = {}
             for row in src["zc_drinks"]:
                 norm = _slugnorm(row["slug"])
                 price_amt, _ = parse_price(row.get("price"))
                 abv, _ = parse_abv(row.get("abv"))
                 if norm in drink_slugs:
                     upcykle_merges += 1  # duplicate product; keep existing drink, details merged in step 6
+                    slug_remap[row["slug"]] = drink_slugs[norm]
                     continue
                 _upsert_drink(
                     existing_by_slug, s, row["slug"],
@@ -158,6 +200,7 @@ def load(src_url, dest_url):
                     price_amount=price_amt, price_raw=row.get("price"),
                     caffeine_level=row.get("caffeine_level"), is_carbonated=row.get("is_carbonated"),
                     glass_id=row.get("glass_id"), sort_order=row.get("sort_order", 0),
+                    created_at=row["created_at"],
                 )
                 drink_slugs[norm] = row["slug"]
             s.flush()
@@ -253,7 +296,8 @@ def load(src_url, dest_url):
             for row in src["classics"]:
                 s.merge(m.Classic(**{k: row.get(k) for k in
                         ("id", "slug", "name", "family_id", "year", "origin", "composition",
-                         "glass_id", "garnish", "history", "for_whom", "sort_order")}))
+                         "glass_id", "garnish", "history", "for_whom", "sort_order")},
+                        created_at=row["created_at"]))
             s.flush()
 
             # classics has no destination place to rescue glass_label_override
@@ -296,6 +340,7 @@ def load(src_url, dest_url):
                     description=origin["description"], source_url=origin["source_url"] or row.get("source_url"),
                     features=row.get("features"), cocktail_pairings=row.get("cocktail_pairings"),
                     fact=row.get("fact"), sort_order=row.get("sort_order", 0),
+                    created_at=row["created_at"],
                 ))
 
             # 10) kitchen_dishes (parsed; stable source id -> merge is idempotent)
@@ -311,12 +356,21 @@ def load(src_url, dest_url):
                     weight_g=parse_weight_g(row.get("weight")), weight_raw=row.get("weight"),
                     nutrition_raw=row.get("nutrition"), serving=row.get("serving"),
                     interesting_facts=row.get("interesting_facts"), sort_order=row.get("sort_order", 0),
+                    created_at=row["created_at"],
                     **nutr,
                 ))
 
             # 11) progress (composite PK -> merge is idempotent)
+            #     Cutover hardening: a "menu"-kind row whose slug is a
+            #     zc_drinks slug dropped by the Upcykle-style dedup in step
+            #     4 (see slug_remap) is rewritten to the kept drink slug
+            #     before insert, so a stray "learned" mark on the dropped
+            #     slug can't hard-fail verify.py's orphan-progress check.
             for r in src["learning_progress"]:
-                s.merge(m.LearningProgress(user_id=r["user_id"], kind=r["kind"], slug=r["slug"], learned_at=r.get("learned_at")))
+                slug = r["slug"]
+                if r["kind"] == "menu" and slug in slug_remap:
+                    slug = slug_remap[slug]
+                s.merge(m.LearningProgress(user_id=r["user_id"], kind=r["kind"], slug=slug, learned_at=r.get("learned_at")))
 
             s.commit()
 
