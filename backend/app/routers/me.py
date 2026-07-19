@@ -1,117 +1,43 @@
-"""Per-user state: learning progress across all content kinds.
-
-Slug-based polymorphic: one row = (user_id, kind, slug). Backward-compat
-with the old classics-only endpoints is preserved at the URL level.
-"""
-from collections import defaultdict
-
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
-
-from app.auth import get_current_user
 from app.database import get_db
-from app.models import (
-    Classic, Cocktail, KitchenDish, LearningProgress, SpiritEntry, User, ZCDrink, ZeroCocktail,
-)
+from app.auth import get_current_user
+from app import models as m
 
 router = APIRouter(prefix="/api/me", tags=["me"])
 
+KIND_MODELS = {"menu": m.Drink, "classics": m.Classic, "kitchen": m.KitchenDish, "spirits": m.SpiritEntry}
 
-# Allowed kinds → mapped to (Model, slug-attribute) for existence checks.
-KIND_MODELS = {
-    "menu":     Cocktail,
-    "classics": Classic,
-    "kitchen":  KitchenDish,
-    "zero":     ZeroCocktail,
-    "zc":       ZCDrink,
-    "spirits":  SpiritEntry,
-}
-
-
-def _validate_kind(kind: str) -> None:
-    if kind not in KIND_MODELS:
-        raise HTTPException(status_code=400, detail=f"Unknown kind {kind!r}")
-
-
-def _exists(db: Session, kind: str, slug: str) -> bool:
-    Model = KIND_MODELS[kind]
-    return db.query(Model).filter(Model.slug == slug).first() is not None
-
-
-# ── Modern API (per-kind progress) ─────────────────────────
 
 @router.get("/progress", response_model=dict[str, list[str]])
-def list_progress(
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """Returns a dict of slugs grouped by kind:
-       {classics: [...], menu: [...], kitchen: [...], zero: [...], zc: [...]}.
-    Empty kinds are still present (empty list)."""
-    rows = (
-        db.query(LearningProgress.kind, LearningProgress.slug)
-        .filter(LearningProgress.user_id == user.id)
-        .all()
-    )
-    out: dict[str, list[str]] = {k: [] for k in KIND_MODELS.keys()}
-    for kind, slug in rows:
-        out.setdefault(kind, []).append(slug)
+def get_progress(user=Depends(get_current_user), db: Session = Depends(get_db)):
+    out = {k: [] for k in KIND_MODELS}
+    rows = db.scalars(select(m.LearningProgress).where(m.LearningProgress.user_id == user.id)).all()
+    for r in rows:
+        if r.kind in out:
+            out[r.kind].append(r.slug)
     return out
 
 
+def _check(kind: str, slug: str, db: Session):
+    model = KIND_MODELS.get(kind)
+    if model is None:
+        raise HTTPException(status_code=400, detail="Unknown kind")
+    if db.scalar(select(model).where(model.slug == slug)) is None:
+        raise HTTPException(status_code=404, detail="Unknown slug")
+
+
 @router.post("/progress/{kind}/{slug}", status_code=status.HTTP_204_NO_CONTENT)
-def mark_learned(
-    kind: str, slug: str,
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    _validate_kind(kind)
-    if not _exists(db, kind, slug):
-        raise HTTPException(status_code=404, detail=f"{kind}/{slug} not found")
-    existing = (
-        db.query(LearningProgress)
-        .filter(
-            LearningProgress.user_id == user.id,
-            LearningProgress.kind == kind,
-            LearningProgress.slug == slug,
-        )
-        .first()
-    )
-    if not existing:
-        db.add(LearningProgress(user_id=user.id, kind=kind, slug=slug))
-        db.commit()
+def mark(kind: str, slug: str, user=Depends(get_current_user), db: Session = Depends(get_db)):
+    _check(kind, slug, db)
+    stmt = insert(m.LearningProgress).values(user_id=user.id, kind=kind, slug=slug)
+    stmt = stmt.on_conflict_do_nothing(index_elements=["user_id", "kind", "slug"])
+    db.execute(stmt); db.commit()
 
 
 @router.delete("/progress/{kind}/{slug}", status_code=status.HTTP_204_NO_CONTENT)
-def unmark_learned(
-    kind: str, slug: str,
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    _validate_kind(kind)
-    db.query(LearningProgress).filter(
-        LearningProgress.user_id == user.id,
-        LearningProgress.kind == kind,
-        LearningProgress.slug == slug,
-    ).delete()
+def unmark(kind: str, slug: str, user=Depends(get_current_user), db: Session = Depends(get_db)):
+    db.query(m.LearningProgress).filter_by(user_id=user.id, kind=kind, slug=slug).delete()
     db.commit()
-
-
-# ── Legacy classics-only endpoints (kept for backward compat) ──
-
-@router.post("/progress/{slug}", status_code=status.HTTP_204_NO_CONTENT, include_in_schema=False)
-def mark_learned_legacy(
-    slug: str,
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    return mark_learned("classics", slug, user, db)
-
-
-@router.delete("/progress/{slug}", status_code=status.HTTP_204_NO_CONTENT, include_in_schema=False)
-def unmark_learned_legacy(
-    slug: str,
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    return unmark_learned("classics", slug, user, db)
