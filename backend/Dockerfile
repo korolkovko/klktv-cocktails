@@ -9,17 +9,7 @@ COPY --from=ghcr.io/astral-sh/uv:0.5.11 /uv /uvx /bin/
 # same flat layout as the existing klktv-kb deploy. This avoids any PATH /
 # venv-activation issues at runtime.
 COPY pyproject.toml ./
-RUN uv pip install --system --no-cache \
-    "fastapi>=0.115.5" \
-    "uvicorn[standard]>=0.32.1" \
-    "sqlalchemy>=2.0.36" \
-    "psycopg2-binary>=2.9.10" \
-    "python-jose[cryptography]>=3.3.0" \
-    "bcrypt>=4.2.1" \
-    "python-dotenv>=1.0.1" \
-    "pydantic>=2.10.0" \
-    "python-multipart>=0.0.12" \
-    "Pillow>=11.0.0"
+RUN uv pip install --system --no-cache -e .
 
 COPY . .
 
