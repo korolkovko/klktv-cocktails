@@ -18,6 +18,11 @@ Idempotency strategy
   we delete the existing rows for the parents being (re)loaded and insert
   fresh ones (ids DB-assigned for `drink_details`). This is safe because this
   ETL is the sole writer to DEST during Phase 0.
+- Explicit-id upserts never touch Postgres' own id sequences, so `load()`
+  calls `_reset_sequences` once at the very end (after the final commit) to
+  set every integer-`id`-PK table's sequence to `MAX(id)`. This keeps
+  subsequent plain inserts (a new user signing up, admin CRUD, another
+  ETL re-run) from picking a colliding id. See `_reset_sequences` docstring.
 
 No-data-loss rescues
 ---------------------
@@ -57,7 +62,7 @@ tables.
 """
 import re
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 
 from app import models as m
@@ -96,6 +101,45 @@ def _upsert_drink(existing_by_slug, s, slug, **fields):
         for k, v in fields.items():
             setattr(d, k, v)
     return d
+
+
+def _reset_sequences(session):
+    """Advance every integer-`id`-PK table's Postgres sequence to MAX(id).
+
+    Most lookup/content tables above are loaded via `s.merge(Model(id=..., ...))`
+    with an explicit id carried over from prod. That never touches the
+    table's serial/identity sequence, so after a load the sequence can still
+    read 1 while MAX(id) is far higher — the next plain `INSERT` with no
+    explicit id (a new user signing up, Phase-2 admin CRUD, this ETL's own
+    `drinks`/`drink_details` inserts) then picks a colliding id and fails
+    with a duplicate-key error. Call this once, after the load's final
+    commit, so every re-run (cutover is a re-run) leaves sequences correct.
+
+    Tables are taken from SQLAlchemy metadata rather than a hardcoded name
+    list. Only tables whose primary key is a single column named `id` are
+    considered; composite-PK tables with no `id` column at all (drink_tags,
+    drink_flavors, drink_spirits, classic_spirits, classic_descriptors,
+    classic_related_drinks, learning_progress) don't match and are skipped
+    automatically. `pg_get_serial_sequence` returns NULL for an `id` column
+    that isn't backed by a sequence; that case is also skipped so `setval`
+    is never called with a NULL target. Idempotent: setting a sequence to
+    the same MAX(id) twice is harmless.
+    """
+    for table in m.Base.metadata.sorted_tables:
+        pk_cols = list(table.primary_key.columns)
+        if len(pk_cols) != 1 or pk_cols[0].name != "id":
+            continue
+        tbl = table.name  # from our own trusted model metadata, not user input
+        seq = session.execute(
+            text("SELECT pg_get_serial_sequence(:tbl, 'id')"), {"tbl": tbl}
+        ).scalar()
+        if seq is None:
+            continue  # id column has no backing sequence -- nothing to reset
+        session.execute(
+            text(f"SELECT setval(:seq, COALESCE((SELECT MAX(id) FROM {tbl}), 1))"),
+            {"seq": seq},
+        )
+    session.commit()
 
 
 def load(src_url, dest_url):
@@ -379,6 +423,12 @@ def load(src_url, dest_url):
             stats["spirit_entries"] = s.query(m.SpiritEntry).count()
             stats["kitchen_dishes"] = s.query(m.KitchenDish).count()
             stats["learning_progress"] = s.query(m.LearningProgress).count()
+
+            # Must run after the final commit above: advances every
+            # integer-id-PK table's sequence to MAX(id) so the next
+            # plain INSERT (no explicit id) doesn't collide with an id
+            # this ETL wrote explicitly. See docstring for details.
+            _reset_sequences(s)
     finally:
         engine.dispose()
     return stats
