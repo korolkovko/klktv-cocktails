@@ -1,240 +1,129 @@
-"""Read-only content API: cocktails, classics, families, timeline, filters."""
 from fastapi import APIRouter, Depends
+from sqlalchemy import select, func
 from sqlalchemy.orm import Session, selectinload
-
-from app.auth import get_current_user
 from app.database import get_db
-from app.models import (
-    Category, Classic, ClassicDescriptor, ClassicRelatedCocktail, ClassicSpirit,
-    Cocktail, CocktailFlavor, CocktailTag, Family, KitchenCategory, KitchenDish,
-    SpiritCategory, SpiritEntry,
-    TimelineEntry, ZCDrink, ZeroCocktail,
-)
-from app.schemas import (
-    CategoryOut, ClassicOut, CocktailBadgeOut, CocktailDetailOut, CocktailOut,
-    ContentBundleOut, FamilyOut, FilterOut, KitchenCategoryOut, KitchenDishOut,
-    SpiritCategoryOut, SpiritEntryOut,
-    TimelineOut, ZCDrinkOut, ZeroCocktailOut, ZeroDetailOut,
-)
+from app.auth import get_current_user
+from app import models as m
+from app.schemas import (DrinkOut, ClassicOut, FamilyOut, SpiritEntryOut, SpiritCategoryOut,
+    KitchenDishOut, KitchenCategoryOut, SectionOut, FiltersOut, ContentBundleOut, DishNutritionOut, OurAnswer)
 
-# Content is only available to authenticated users — the menu is closed.
 router = APIRouter(prefix="/api", tags=["content"], dependencies=[Depends(get_current_user)])
 
 
-# ── Hardcoded filter lists (canonical labels, shown in nav) ───────────
-# These mirror the previous JS spiritFilters/glassFilters arrays. Easier
-# to keep them here than to derive sort/labels from the DB-rows.
-COCKTAIL_SPIRIT_FILTERS = [
-    {"key": "all", "label": "Все"},
-    {"key": "gin", "label": "Джин"},
-    {"key": "vodka", "label": "Водка"},
-    {"key": "rum", "label": "Ром"},
-    {"key": "bourbon", "label": "Бурбон"},
-    {"key": "brandy", "label": "Бренди"},
-    {"key": "mezcal", "label": "Мескаль"},
-]
-COCKTAIL_GLASS_FILTERS = [
-    {"key": "all", "label": "Все"},
-    {"key": "oldfashioned", "label": "Олд Фэшн"},
-    {"key": "ponyglass", "label": "Пони Гласс"},
-    {"key": "collins", "label": "Коллинз"},
-    {"key": "rocks", "label": "Рокс"},
-    {"key": "metal", "label": "Металл"},
-    {"key": "wine", "label": "Винный"},
-    {"key": "piala", "label": "Пиала"},
-    {"key": "bottle", "label": "Бутылка"},
-]
+def _num(x):
+    return None if x is None else (int(x) if x == int(x) else float(x))
 
 
-def _serialize_cocktail(c: Cocktail) -> CocktailOut:
-    return CocktailOut(
-        id=c.slug,
-        name=c.name,
-        img=c.img,
-        abv=c.abv,
-        glass=(c.glass.label if c.glass else c.glass_label_override),
-        glass_tag=(c.glass.key if c.glass else None),
-        tagline=c.tagline,
-        tags=[t.tag.key for t in c.tags],
-        flavors=[f.flavor.label for f in c.flavors],
-        details=[CocktailDetailOut(label=d.label, text=d.text) for d in c.details],
-        badge=CocktailBadgeOut(key=c.badge.key, label=c.badge.label) if c.badge else None,
+def _serialize_drink(d: m.Drink) -> DrinkOut:
+    spirits = [ds.spirit.label for ds in d.spirits]
+    flavors = [df.flavor.label for df in d.flavors]
+    return DrinkOut(
+        id=d.slug, name=d.name, logo=d.img, subtitle=d.subtitle,
+        price=None if d.price_amount is None else int(d.price_amount),
+        volume=d.volume_ml, abv=None if d.abv is None else float(d.abv),
+        spirit=spirits[0] if spirits else "", spirits=spirits,
+        glass=d.glass.label if d.glass else "",
+        descriptors=[s.upper() for s in spirits] + [f.upper() for f in flavors],
+        badge=d.badge.key.upper() if d.badge else None,
+        recipe=d.recipe, garnish=d.garnish, pitch=d.pitch, photo=d.photo,
+        about=d.about, naming=d.naming, faq=d.faq,
+        isAlcoholic=d.is_alcoholic, isZeroCulture=d.is_zero_culture,
+        caffeineLevel=d.caffeine_level, isCarbonated=d.is_carbonated,
     )
 
 
-def _serialize_classic(c: Classic) -> ClassicOut:
+def _serialize_classic(c: m.Classic) -> ClassicOut:
     return ClassicOut(
-        id=c.slug,
-        name=c.name,
-        family=c.family.key,
-        year=c.year,
-        origin=c.origin,
-        spirits=[s.spirit.key for s in c.spirits],
-        composition=c.composition,
-        glass=(c.glass.label if c.glass else c.glass_label_override),
-        glass_tag=(c.glass.key if c.glass else None),
-        garnish=c.garnish,
-        descriptors=[d.descriptor.label for d in c.descriptors],
-        history=c.history,
-        for_whom=c.for_whom,
-        related_ours=[r.cocktail.slug for r in c.related_cocktails],
+        id=c.slug, name=c.name, year=None if c.year is None else str(c.year),
+        city=c.origin, family=c.family.key,
+        spirit=c.spirits[0].spirit.label if c.spirits else "",
+        glass=c.glass.label if c.glass else "",
+        descriptors=[cd.descriptor.label for cd in c.descriptors],
+        recipe=c.composition, garnish=c.garnish, history=c.history, fits=c.for_whom,
+        ourAnswers=[OurAnswer(label=r.drink.name, menuId=r.drink.slug) for r in c.related_drinks],
     )
 
 
-def _cocktails_query(db: Session) -> list[Cocktail]:
-    return (
-        db.query(Cocktail)
-        .options(
-            selectinload(Cocktail.glass),
-            selectinload(Cocktail.badge),
-            selectinload(Cocktail.tags).selectinload(CocktailTag.tag),
-            selectinload(Cocktail.flavors).selectinload(CocktailFlavor.flavor),
-            selectinload(Cocktail.details),
-        )
-        .order_by(Cocktail.sort_order, Cocktail.id)
-        .all()
+def _serialize_spirit(e: m.SpiritEntry, category_slug: str) -> SpiritEntryOut:
+    return SpiritEntryOut(
+        slug=e.slug, categorySlug=category_slug, name=e.name, img=e.img,
+        abv=None if e.abv is None else float(e.abv), country=e.country,
+        flavour=e.flavour, brand=e.brand, brandDetail=e.description,
+        features=e.features, pairings=e.cocktail_pairings, fact=e.fact, sourceUrl=e.source_url,
     )
 
 
-def _parse_ingredients(text: str | None) -> list[str]:
-    if not text:
-        return []
-    return [line.strip(" \t-•·*—–") for line in text.splitlines() if line.strip()]
-
-
-def _serialize_zero(c: ZeroCocktail) -> ZeroCocktailOut:
-    return ZeroCocktailOut(
-        id=c.slug, name=c.name, img=c.img,
-        price=c.price, abv=c.abv,
-        glass=(c.glass.label if c.glass else c.glass_label_override),
-        glass_tag=(c.glass.key if c.glass else None),
-        tagline=c.tagline,
-        ingredients=_parse_ingredients(c.ingredients_text),
-        details=[ZeroDetailOut(label=d.label, text=d.text) for d in c.details],
-    )
-
-
-def _serialize_zc(c: ZCDrink) -> ZCDrinkOut:
-    return ZCDrinkOut(
-        id=c.slug, name=c.name, img=c.img,
-        is_alcoholic=c.is_alcoholic,
-        price=c.price, abv=c.abv,
-        glass=(c.glass.label if c.glass else c.glass_label_override),
-        glass_tag=(c.glass.key if c.glass else None),
-        tagline=c.tagline,
-        caffeine_level=c.caffeine_level if not c.is_alcoholic else None,
-        is_carbonated=c.is_carbonated if not c.is_alcoholic else None,
-        details=[ZeroDetailOut(label=d.label, text=d.text) for d in c.details],
-    )
-
-
-def _classics_query(db: Session) -> list[Classic]:
-    return (
-        db.query(Classic)
-        .options(
-            selectinload(Classic.family),
-            selectinload(Classic.glass),
-            selectinload(Classic.spirits).selectinload(ClassicSpirit.spirit),
-            selectinload(Classic.descriptors).selectinload(ClassicDescriptor.descriptor),
-            selectinload(Classic.related_cocktails).selectinload(ClassicRelatedCocktail.cocktail),
-        )
-        .order_by(Classic.sort_order, Classic.id)
-        .all()
+def _serialize_dish(k: m.KitchenDish, category_slug: str) -> KitchenDishOut:
+    timing = None
+    if k.timing_min_low is not None and k.timing_min_high is not None:
+        timing = round((k.timing_min_low + k.timing_min_high) / 2)
+    elif k.timing_min_low is not None:
+        timing = k.timing_min_low
+    return KitchenDishOut(
+        id=k.slug, categorySlug=category_slug, name=k.name, subtitle=k.tagline,
+        price=None if k.price_amount is None else int(k.price_amount),
+        weight=k.weight_g, timing=timing, photo=k.img, description=k.description,
+        serving=k.serving, fact=k.interesting_facts,
+        nutrition=DishNutritionOut(
+            kcal=None if k.kcal_portion is None else round(float(k.kcal_portion)),
+            protein=_num(k.protein_g), fat=_num(k.fat_g), carb=_num(k.carb_g)),
     )
 
 
 @router.get("/content", response_model=ContentBundleOut)
-def get_content_bundle(db: Session = Depends(get_db)):
-    """Single endpoint that returns everything needed for the SPA's first
-    render. Avoids the N+1 of having each page fetch its own slice.
+def get_content(db: Session = Depends(get_db)):
+    drinks = db.scalars(select(m.Drink).options(
+        selectinload(m.Drink.spirits).selectinload(m.DrinkSpirit.spirit),
+        selectinload(m.Drink.flavors).selectinload(m.DrinkFlavor.flavor),
+        selectinload(m.Drink.glass), selectinload(m.Drink.badge),
+    ).order_by(m.Drink.sort_order, m.Drink.name)).all()
 
-    Categories are returned to all logged-in users (filtered by is_visible
-    in the frontend's burger render; admins also need invisible ones for
-    the editor — they can request /api/admin/categories for the full set).
-    """
-    categories = db.query(Category).order_by(Category.sort_order, Category.id).all()
-    families = db.query(Family).order_by(Family.sort_order, Family.id).all()
-    timeline = db.query(TimelineEntry).order_by(TimelineEntry.sort_order, TimelineEntry.id).all()
-    zero_rows = (
-        db.query(ZeroCocktail)
-        .options(selectinload(ZeroCocktail.glass), selectinload(ZeroCocktail.details))
-        .order_by(ZeroCocktail.sort_order, ZeroCocktail.id)
-        .all()
-    )
-    zc_rows = (
-        db.query(ZCDrink)
-        .options(selectinload(ZCDrink.glass), selectinload(ZCDrink.details))
-        .order_by(ZCDrink.sort_order, ZCDrink.id)
-        .all()
-    )
-    kitchen_cats = db.query(KitchenCategory).order_by(KitchenCategory.sort_order, KitchenCategory.id).all()
-    kitchen_dishes = (
-        db.query(KitchenDish)
-        .options(selectinload(KitchenDish.category))
-        .order_by(KitchenDish.sort_order, KitchenDish.id)
-        .all()
-    )
-    spirit_cats = db.query(SpiritCategory).order_by(SpiritCategory.sort_order, SpiritCategory.id).all()
-    spirit_entries = (
-        db.query(SpiritEntry)
-        .options(selectinload(SpiritEntry.category))
-        .order_by(SpiritEntry.sort_order, SpiritEntry.id)
-        .all()
-    )
+    classics = db.scalars(select(m.Classic).options(
+        selectinload(m.Classic.family), selectinload(m.Classic.glass),
+        selectinload(m.Classic.spirits).selectinload(m.ClassicSpirit.spirit),
+        selectinload(m.Classic.descriptors).selectinload(m.ClassicDescriptor.descriptor),
+        selectinload(m.Classic.related_drinks).selectinload(m.ClassicRelatedDrink.drink),
+    ).order_by(m.Classic.sort_order, m.Classic.name)).all()
+
+    families = db.scalars(select(m.Family).order_by(m.Family.sort_order)).all()
+    fam_counts = dict(db.execute(select(m.Classic.family_id, func.count()).group_by(m.Classic.family_id)).all())
+
+    spirit_cats = db.scalars(select(m.SpiritCategory).options(
+        selectinload(m.SpiritCategory.entries)).order_by(m.SpiritCategory.sort_order)).all()
+    kitchen_cats = db.scalars(select(m.KitchenCategory).options(
+        selectinload(m.KitchenCategory.dishes)).order_by(m.KitchenCategory.sort_order)).all()
+
+    # sections (catalog counts; learned omitted)
+    counts = {
+        "menu": db.scalar(select(func.count()).select_from(m.Drink)),
+        "classics": db.scalar(select(func.count()).select_from(m.Classic)),
+        "spirits": db.scalar(select(func.count()).select_from(m.SpiritEntry)),
+        "kitchen": db.scalar(select(func.count()).select_from(m.KitchenDish)),
+    }
+    cats = db.scalars(select(m.Category).where(m.Category.kind.in_(list(counts)),
+        m.Category.is_visible).order_by(m.Category.sort_order)).all()
+    sections = [SectionOut(id=c.key, label=c.label, total=counts.get(c.kind, 0)) for c in cats]
+
+    # filters (derived, deduped, order-preserving)
+    def _distinct(vals):
+        seen, out = set(), []
+        for v in vals:
+            if v and v not in seen:
+                seen.add(v); out.append(v)
+        return out
+    menu_spirits = _distinct(ds.spirit.label for d in drinks for ds in d.spirits)
+    menu_glasses = _distinct(d.glass.label for d in drinks if d.glass)
+    classic_spirits = _distinct(cs.spirit.label for c in classics for cs in c.spirits)
+
     return ContentBundleOut(
-        categories=[CategoryOut.model_validate(c) for c in categories],
-        cocktails=[_serialize_cocktail(c) for c in _cocktails_query(db)],
-        classics=[_serialize_classic(c) for c in _classics_query(db)],
-        families=[FamilyOut.model_validate(f) for f in families],
-        zero_cocktails=[_serialize_zero(z) for z in zero_rows],
-        zc_drinks=[_serialize_zc(z) for z in zc_rows],
-        kitchen_categories=[KitchenCategoryOut.model_validate(c) for c in kitchen_cats],
-        kitchen_dishes=[
-            KitchenDishOut(
-                id=d.slug, category_slug=d.category.slug,
-                name=d.name, img=d.img,
-                price=d.price, tagline=d.tagline,
-                description=d.description,
-                timing=d.timing, weight=d.weight,
-                nutrition=d.nutrition, serving=d.serving,
-                interesting_facts=d.interesting_facts,
-            )
-            for d in kitchen_dishes
-        ],
-        spirit_categories=[SpiritCategoryOut.model_validate(c) for c in spirit_cats],
-        spirit_entries=[
-            SpiritEntryOut(
-                id=s.slug, category_slug=s.category.slug,
-                name=s.name, img=s.img,
-                abv=s.abv, price=s.price,
-                flavour=s.flavour,
-                brand=s.brand, country=s.country,
-                brand_country=s.brand_country, source_url=s.source_url,
-                features=s.features, cocktail_pairings=s.cocktail_pairings,
-                fact=s.fact,
-            )
-            for s in spirit_entries
-        ],
-        cocktail_spirit_filters=[FilterOut(**f) for f in COCKTAIL_SPIRIT_FILTERS],
-        cocktail_glass_filters=[FilterOut(**f) for f in COCKTAIL_GLASS_FILTERS],
-        timeline=[
-            TimelineOut(period=t.period, description=t.description, examples=t.examples)
-            for t in timeline
-        ],
+        sections=sections,
+        drinks=[_serialize_drink(d) for d in drinks],
+        classics=[_serialize_classic(c) for c in classics],
+        families=[FamilyOut(tint=f.key, code=f.key.upper(), title=f.label, logic=f.logic,
+                            evolution=f.evolution, tip=f.tip, total=fam_counts.get(f.id, 0)) for f in families],
+        spiritCategories=[SpiritCategoryOut(slug=sc.slug, label=sc.label, isArchived=sc.is_archived) for sc in spirit_cats],
+        spirits=[_serialize_spirit(e, sc.slug) for sc in spirit_cats for e in sc.entries],
+        kitchenCategories=[KitchenCategoryOut(slug=kc.slug, label=kc.label) for kc in kitchen_cats],
+        kitchen=[_serialize_dish(dish, kc.slug) for kc in kitchen_cats for dish in kc.dishes],
+        filters=FiltersOut(spirits=menu_spirits, glasses=menu_glasses, classicSpirits=classic_spirits),
     )
-
-
-@router.get("/cocktails", response_model=list[CocktailOut])
-def list_cocktails(db: Session = Depends(get_db)):
-    return [_serialize_cocktail(c) for c in _cocktails_query(db)]
-
-
-@router.get("/classics", response_model=list[ClassicOut])
-def list_classics(db: Session = Depends(get_db)):
-    return [_serialize_classic(c) for c in _classics_query(db)]
-
-
-@router.get("/families", response_model=list[FamilyOut])
-def list_families(db: Session = Depends(get_db)):
-    families = db.query(Family).order_by(Family.sort_order, Family.id).all()
-    return [FamilyOut.model_validate(f) for f in families]
