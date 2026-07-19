@@ -28,10 +28,9 @@ def verify_password(plain: str, hashed: str) -> bool:
     return bcrypt.checkpw(plain.encode(), hashed.encode())
 
 
-def create_access_token(user_id: int, role: str) -> str:
+def create_access_token(user_id: int) -> str:
     payload = {
         "sub": str(user_id),
-        "role": role,
         "exp": datetime.now(timezone.utc) + timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS),
     }
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
@@ -62,6 +61,8 @@ def clear_auth_cookie(response: Response) -> None:
         key=COOKIE_NAME,
         domain=COOKIE_DOMAIN,
         path="/",
+        secure=COOKIE_SECURE,
+        samesite=COOKIE_SAMESITE,
     )
 
 
@@ -74,7 +75,11 @@ def get_current_user(
     payload = decode_token(session_token)
     if not payload:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid session")
-    user = db.get(User, int(payload["sub"]))
+    try:
+        user_id = int(payload["sub"])
+    except (KeyError, ValueError, TypeError):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid session")
+    user = db.get(User, user_id)
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
     return user
