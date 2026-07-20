@@ -451,18 +451,38 @@ export function SpiritsView({
   onOpen: (s: Spirit, category: string, deck: { s: Spirit; cat: string }[]) => void
   onOpenProgress: () => void
 }) {
-  const { SPIRIT_GROUPS, RETIRED_COUNT, SPIRIT_CATEGORIES, SECTIONS } = useContent()
+  const { SPIRIT_GROUPS, SPIRIT_GROUPS_ARCHIVED, RETIRED_COUNT, SPIRIT_CATEGORIES, SECTIONS } = useContent()
   const [q, setQ] = React.useState("")
   const [tab, setTab] = React.useState<"active" | "retired">("active")
   const [cat, setCat] = React.useState("Все")
   const spirits = SECTIONS.find((s) => s.id === "spirits")!
   const ql = q.trim().toLowerCase()
 
-  const groups = SPIRIT_GROUPS.filter((g) => cat === "Все" || cap(g.category) === cat)
+  // «Выведенные» — та же группировка/деталь, что и «В карте», но по
+  // SPIRIT_GROUPS_ARCHIVED (Task 3). Пилюли категорий у архива свои —
+  // SPIRIT_CATEGORIES строится только из неархивных spiritCategories
+  // (blueprint §B), так что архивные ярлыки в нём не встречаются.
+  const archivedCategories = React.useMemo(
+    () => ["Все", ...SPIRIT_GROUPS_ARCHIVED.map((g) => g.category)],
+    [SPIRIT_GROUPS_ARCHIVED],
+  )
+  const sourceGroups = tab === "active" ? SPIRIT_GROUPS : SPIRIT_GROUPS_ARCHIVED
+  const categoryOptions = tab === "active" ? SPIRIT_CATEGORIES : archivedCategories
+
+  const groups = sourceGroups
+    .filter((g) => cat === "Все" || cap(g.category) === cat)
     .map((g) => ({ ...g, items: ql === "" ? g.items : g.items.filter((s) => s.name.toLowerCase().includes(ql)) }))
     .filter((g) => g.items.length > 0)
   // сквозная колода в порядке видимых групп (deck.item несёт свою категорию)
   const flatDeck = groups.flatMap((g) => g.items.map((s) => ({ s, cat: g.category })))
+
+  // при переключении таба сбрасываем пилюлю категории — иначе выбранная
+  // активная категория не найдётся среди архивных (и наоборот), и список
+  // молча окажется пустым
+  const selectTab = (next: "active" | "retired") => {
+    setTab(next)
+    setCat("Все")
+  }
 
   // прогресс-строка живая: сводка − статик + динамик (как в menu/classics)
   const flat = SPIRIT_GROUPS.flatMap((g) => g.items.map((s) => ({ key: `${g.category}:${s.name}`, learned: s.learned })))
@@ -480,14 +500,14 @@ export function SpiritsView({
         <div className="flex shrink-0 overflow-hidden rounded-md border border-border text-[13px] font-semibold max-md:w-full">
           <button
             type="button"
-            onClick={() => setTab("active")}
+            onClick={() => selectTab("active")}
             className={cn("flex cursor-pointer items-center justify-center px-3.5 py-[7px] max-md:min-h-11 max-md:flex-1", tab === "active" && "bg-primary text-primary-foreground")}
           >
             В карте
           </button>
           <button
             type="button"
-            onClick={() => setTab("retired")}
+            onClick={() => selectTab("retired")}
             className={cn("flex cursor-pointer items-center justify-center gap-1.5 border-l border-border px-3.5 py-[7px] max-md:min-h-11 max-md:flex-1", tab === "retired" && "bg-primary text-primary-foreground")}
           >
             Выведенные
@@ -497,44 +517,40 @@ export function SpiritsView({
           </button>
         </div>
         <div className="min-w-0 flex-1">
-          <FilterRow axis="" options={SPIRIT_CATEGORIES} active={cat} onChange={setCat} />
+          <FilterRow axis="" options={categoryOptions} active={cat} onChange={setCat} />
         </div>
       </div>
       <ProgressStrip learned={stripLearned} total={spirits.total} onOpen={onOpenProgress} />
 
-      {tab === "retired" ? (
-        <div className="py-10 text-center text-[13px] text-[#52525B]">
-          Выведенные из карты — {RETIRED_COUNT} позиций. Архив в проде.
-        </div>
-      ) : (
-        <div className="flex flex-col gap-4" data-testid="cg-spirits-groups">
-          {groups.map((g) => (
-            <div key={g.category} className="flex flex-col gap-1">
-              <span className="px-1 font-mono text-[9.5px] font-bold tracking-[0.08em] text-[#A1A1AA]">
-                {g.category} · {g.total}
-              </span>
-              {/* сетка: desktop 2 колонки / mobile 1; 1px-разделители — gap-px на подложке */}
-              <div className="grid grid-cols-1 gap-px overflow-hidden rounded-[10px] border border-border bg-[#EDEDE8] md:grid-cols-2 max-md:-mx-4 max-md:rounded-none max-md:border-x-0">
-                {g.items.map((s) => {
-                  const key = `${g.category}:${s.name}`
-                  return (
-                    <SpiritRow
-                      key={s.name}
-                      s={s}
-                      on={learnedKeys.has(key)}
-                      onToggle={() => onToggle(key)}
-                      onOpen={() => onOpen(s, g.category, flatDeck)}
-                    />
-                  )
-                })}
-              </div>
+      <div className="flex flex-col gap-4" data-testid="cg-spirits-groups">
+        {groups.map((g) => (
+          <div key={g.category} className="flex flex-col gap-1">
+            <span className="px-1 font-mono text-[9.5px] font-bold tracking-[0.08em] text-[#A1A1AA]">
+              {g.category} · {g.total}
+            </span>
+            {/* сетка: desktop 2 колонки / mobile 1; 1px-разделители — gap-px на подложке */}
+            <div className="grid grid-cols-1 gap-px overflow-hidden rounded-[10px] border border-border bg-[#EDEDE8] md:grid-cols-2 max-md:-mx-4 max-md:rounded-none max-md:border-x-0">
+              {g.items.map((s) => {
+                const key = `${g.category}:${s.name}`
+                return (
+                  <SpiritRow
+                    key={s.name}
+                    s={s}
+                    on={learnedKeys.has(key)}
+                    onToggle={() => onToggle(key)}
+                    onOpen={() => onOpen(s, g.category, flatDeck)}
+                  />
+                )
+              })}
             </div>
-          ))}
-          {groups.length === 0 && (
-            <div className="py-10 text-center text-[13px] text-[#52525B]">Такого спирита нет.</div>
-          )}
-        </div>
-      )}
+          </div>
+        ))}
+        {groups.length === 0 && (
+          <div className="py-10 text-center text-[13px] text-[#52525B]">
+            {tab === "active" ? "Такого спирита нет." : "Выведенных спиритов нет."}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
