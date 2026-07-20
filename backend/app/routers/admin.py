@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.auth import require_editor
 from app.database import get_db
 from app import models as m
-from app.schemas_admin import DrinkAdminOut, DrinkWriteIn
+from app.schemas_admin import DrinkAdminOut, DrinkWriteIn, ClassicAdminOut, ClassicWriteIn
 
 # migration.parsers are pure functions (no I/O) — safe to import into the app.
 from migration.parsers import parse_abv, parse_price
@@ -88,6 +88,18 @@ def _get_or_create_descriptor(db: Session, label: str) -> m.Descriptor:
     if not obj:
         obj = m.Descriptor(label=label)
         db.add(obj); db.flush()
+    return obj
+
+
+def _get_family_or_400(db: Session, key: str) -> m.Family:
+    # Families are managed by their own editor screen — not get-or-created
+    # here, unlike glasses/spirits/tags/flavors/descriptors above.
+    key = key.strip()
+    if not key:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Family key must not be blank")
+    obj = db.scalar(select(m.Family).where(m.Family.key == key))
+    if not obj:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=f"unknown family: {key}")
     return obj
 
 
@@ -214,6 +226,119 @@ def delete_drink(slug: str, db: Session = Depends(get_db)):
     db.query(m.ClassicRelatedDrink).filter(m.ClassicRelatedDrink.drink_id == obj.id).delete(synchronize_session=False)
     db.query(m.LearningProgress).filter(
         m.LearningProgress.kind == "menu", m.LearningProgress.slug == slug
+    ).delete(synchronize_session=False)
+    db.delete(obj)
+    db.commit()
+
+
+# ── Classics ──────────────────────────────────────────────
+
+_CLASSIC_OPTIONS = (
+    selectinload(m.Classic.family),
+    selectinload(m.Classic.glass),
+    selectinload(m.Classic.spirits).selectinload(m.ClassicSpirit.spirit),
+    selectinload(m.Classic.descriptors).selectinload(m.ClassicDescriptor.descriptor),
+    selectinload(m.Classic.related_drinks).selectinload(m.ClassicRelatedDrink.drink),
+)
+
+
+def _to_classic_admin_out(obj: m.Classic) -> ClassicAdminOut:
+    return ClassicAdminOut(
+        id=obj.id, slug=obj.slug, name=obj.name,
+        family=obj.family.key,
+        year=obj.year, origin=obj.origin, composition=obj.composition,
+        glass=obj.glass.key if obj.glass else None,
+        garnish=obj.garnish, history=obj.history, for_whom=obj.for_whom,
+        sort_order=obj.sort_order,
+        spirits=[cs.spirit.key for cs in obj.spirits],
+        descriptors=[cd.descriptor.label for cd in obj.descriptors],
+        related_drinks=[cr.drink.slug for cr in obj.related_drinks],
+    )
+
+
+def _apply_classic(db: Session, obj: m.Classic, data: ClassicWriteIn) -> None:
+    fam = _get_family_or_400(db, data.family)
+    obj.name = data.name; obj.family_id = fam.id
+    obj.year = data.year; obj.origin = data.origin; obj.composition = data.composition
+    obj.garnish = data.garnish; obj.history = data.history; obj.for_whom = data.for_whom
+    obj.sort_order = data.sort_order
+    g = _get_or_create_glass(db, data.glass) if data.glass else None
+    obj.glass_id = g.id if g else None
+    db.flush()
+    # rebuild relations (delete-then-insert), mirroring the ETL
+    for tbl in (m.ClassicSpirit, m.ClassicDescriptor, m.ClassicRelatedDrink):
+        db.query(tbl).filter(tbl.classic_id == obj.id).delete(synchronize_session=False)
+    for i, key in enumerate(data.spirits):
+        sp = _get_or_create_spirit(db, key)
+        db.add(m.ClassicSpirit(classic_id=obj.id, spirit_id=sp.id, sort_order=i))
+    for i, label in enumerate(data.descriptors):
+        de = _get_or_create_descriptor(db, label)
+        db.add(m.ClassicDescriptor(classic_id=obj.id, descriptor_id=de.id, sort_order=i))
+    i = 0
+    for slug in data.related_drinks:
+        # A classic can reference drinks that don't (yet) exist in this DB —
+        # skip unknown slugs silently rather than 400ing the whole write.
+        drink = db.scalar(select(m.Drink).where(m.Drink.slug == slug))
+        if not drink:
+            continue
+        db.add(m.ClassicRelatedDrink(classic_id=obj.id, drink_id=drink.id, sort_order=i))
+        i += 1
+
+
+def _get_classic_or_404(db: Session, slug: str) -> m.Classic:
+    obj = db.scalar(select(m.Classic).options(*_CLASSIC_OPTIONS).where(m.Classic.slug == slug))
+    if not obj:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Classic not found")
+    return obj
+
+
+@router.get("/classics", response_model=list[ClassicAdminOut])
+def list_classics(db: Session = Depends(get_db)):
+    rows = db.scalars(
+        select(m.Classic).options(*_CLASSIC_OPTIONS).order_by(m.Classic.sort_order, m.Classic.name)
+    ).all()
+    return [_to_classic_admin_out(c) for c in rows]
+
+
+@router.get("/classics/{slug}", response_model=ClassicAdminOut)
+def get_classic(slug: str, db: Session = Depends(get_db)):
+    obj = _get_classic_or_404(db, slug)
+    return _to_classic_admin_out(obj)
+
+
+@router.post("/classics", status_code=status.HTTP_201_CREATED, response_model=ClassicAdminOut)
+def create_classic(data: ClassicWriteIn, db: Session = Depends(get_db)):
+    if db.scalar(select(m.Classic).where(m.Classic.slug == data.slug)):
+        raise HTTPException(status.HTTP_409_CONFLICT, detail="Classic with this slug already exists")
+    obj = m.Classic(slug=data.slug)
+    db.add(obj)
+    _apply_classic(db, obj, data)
+    db.commit()
+    return _to_classic_admin_out(_get_classic_or_404(db, obj.slug))
+
+
+@router.patch("/classics/{slug}", response_model=ClassicAdminOut)
+def update_classic(slug: str, data: ClassicWriteIn, db: Session = Depends(get_db)):
+    obj = db.scalar(select(m.Classic).where(m.Classic.slug == slug))
+    if not obj:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Classic not found")
+    if data.slug != slug and db.scalar(select(m.Classic).where(m.Classic.slug == data.slug)):
+        raise HTTPException(status.HTTP_409_CONFLICT, detail="New slug already in use")
+    obj.slug = data.slug
+    _apply_classic(db, obj, data)
+    db.commit()
+    return _to_classic_admin_out(_get_classic_or_404(db, obj.slug))
+
+
+@router.delete("/classics/{slug}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_classic(slug: str, db: Session = Depends(get_db)):
+    obj = db.scalar(select(m.Classic).where(m.Classic.slug == slug))
+    if not obj:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Classic not found")
+    for tbl in (m.ClassicSpirit, m.ClassicDescriptor, m.ClassicRelatedDrink):
+        db.query(tbl).filter(tbl.classic_id == obj.id).delete(synchronize_session=False)
+    db.query(m.LearningProgress).filter(
+        m.LearningProgress.kind == "classics", m.LearningProgress.slug == slug
     ).delete(synchronize_session=False)
     db.delete(obj)
     db.commit()

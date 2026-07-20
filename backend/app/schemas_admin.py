@@ -47,3 +47,26 @@ class DrinkAdminOut(DrinkWriteIn):
     id: int
     abv: float | None = None        # parsed
     price_amount: float | None = None
+
+
+# ── Classics ─────────────────────────────────────────────────
+
+class ClassicWriteIn(BaseModel):
+    slug: str = Field(min_length=1, max_length=64)
+    name: str = Field(max_length=128)
+    family: str                     # family key (must exist; not get-or-created)
+    year: int | None = None
+    origin: str | None = Field(default=None, max_length=128)
+    composition: str | None = None  # classics.composition is Text — unbounded, no cap
+    glass: str | None = None        # glass key (get-or-create)
+    garnish: str | None = None      # classics.garnish is Text — unbounded, no cap
+    history: str | None = None      # classics.history is Text — unbounded, no cap
+    for_whom: str | None = None     # classics.for_whom is Text — unbounded, no cap
+    sort_order: int = 0
+    spirits: list[str] = []         # spirit keys
+    descriptors: list[str] = []     # descriptor labels
+    related_drinks: list[str] = []  # drink slugs (unknown ones are skipped)
+
+
+class ClassicAdminOut(ClassicWriteIn):
+    id: int
