@@ -182,7 +182,7 @@ export function TeamView() {
           {SECTION_COLS.map((c) => (
             <span key={c.key} className="text-right">{c.label}</span>
           ))}
-          <span className="text-right">ПОСЛ. ВХОД</span>
+          <span className="text-right">ПОСЛ. ВИЗИТ</span>
           <span className="text-right">АКТИВНОСТЬ</span>
         </div>
         {rows.map((s) => (
@@ -206,8 +206,8 @@ export function TeamView() {
                 </span>
               )
             })}
-            <span className={cn("text-right font-mono text-[11px]", s.lastLoginAlarm ? "text-[#A1A1AA]" : "text-[#71717A]")}>
-              {s.lastLogin}
+            <span className={cn("text-right font-mono text-[11px]", s.lastVisitAlarm ? "text-[#A1A1AA]" : "text-[#71717A]")}>
+              {s.lastVisit}
             </span>
             <span className={cn("text-right font-mono text-[11px]", s.activityAlarm ? "font-bold text-loss-foreground" : "text-[#71717A]")}>
               {s.activity}
@@ -226,7 +226,7 @@ export function TeamView() {
        </div>
       </div>
       <div className="font-mono text-[10px] text-[#A1A1AA] max-md:hidden">
-        КОЛОНКИ РАЗДЕЛОВ — % · ПОСЛ. ВХОД — ПО ЛОГИНУ · АКТИВНОСТЬ — ПО ПОСЛЕДНЕЙ ОТМЕТКЕ «ЗНАЮ»
+        КОЛОНКИ РАЗДЕЛОВ — % · ПОСЛ. ВИЗИТ — ПО ЗАХОДУ В ПРИЛОЖЕНИЕ · АКТИВНОСТЬ — ПО ПОСЛЕДНЕЙ ОТМЕТКЕ «ЗНАЮ»
       </div>
 
       {/* mobile-карточки */}
@@ -251,11 +251,11 @@ export function TeamView() {
                 {s.weak ? `СЛАБОЕ: ${s.weak}` : s.strongNote}
               </span>
             </div>
-            {/* обе метрики видны на мобиле: последний вход + последняя активность */}
+            {/* обе метрики видны на мобиле: последний визит + последняя активность */}
             <div className="grid grid-cols-2 gap-2 border-t border-divider pt-2">
               <span className="flex flex-col gap-0.5">
-                <span className="font-mono text-[8px] tracking-[0.06em] text-[#A1A1AA]">ПОСЛ. ВХОД</span>
-                <span className="font-mono text-[10px] text-foreground">{s.lastLoginLong}</span>
+                <span className="font-mono text-[8px] tracking-[0.06em] text-[#A1A1AA]">ПОСЛ. ВИЗИТ</span>
+                <span className="font-mono text-[10px] text-foreground">{s.lastVisitLong}</span>
               </span>
               <span className="flex flex-col gap-0.5 text-right">
                 <span className="font-mono text-[8px] tracking-[0.06em] text-[#A1A1AA]">АКТИВНОСТЬ</span>

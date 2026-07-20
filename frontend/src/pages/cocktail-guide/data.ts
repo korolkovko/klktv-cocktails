@@ -206,11 +206,12 @@ export interface Staff {
   activity: string
   lastSeen: string
   activityAlarm?: boolean
-  /** ПОСЛЕДНИЙ ВХОД — по last_login_at (пишется при логине). lastLogin —
-   *  короткая (desktop-колонка «ПОСЛ. ВХОД»), lastLoginLong — полная (mobile). */
-  lastLogin: string
-  lastLoginLong: string
-  lastLoginAlarm?: boolean
+  /** ПОСЛЕДНИЙ ВИЗИТ — по last_seen_at (обновляется на каждом запросе с
+   *  валидной сессией). lastVisit — короткая (desktop-колонка «ПОСЛ. ВИЗИТ»),
+   *  lastVisitLong — полная (mobile). */
+  lastVisit: string
+  lastVisitLong: string
+  lastVisitAlarm?: boolean
   /** слабейший раздел (mobile-карточка) */
   weak?: string
   strongNote?: string

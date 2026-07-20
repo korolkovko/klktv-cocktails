@@ -1,6 +1,5 @@
 import time
 from collections import defaultdict
-from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
@@ -60,10 +59,9 @@ def login(req: LoginRequest, request: Request, response: Response, db: Session =
         )
 
     _clear_failures(key)
-    # запоминаем момент входа (колонка last_login_at) — питает «Последний вход»
-    # в командном прогрессе; отдельно от «последней активности» (max learned_at)
-    user.last_login_at = datetime.now(timezone.utc)
-    db.commit()
+    # «последний визит» (last_seen_at) обновляется в get_current_user на каждом
+    # авторизованном запросе — сразу после логина фронт дёргает /content и т.п.,
+    # так что отдельная запись здесь не нужна.
     token = create_access_token(user.id)
     set_auth_cookie(response, token)
     return UserResponse(username=user.username, name=user.name, role=user.role)

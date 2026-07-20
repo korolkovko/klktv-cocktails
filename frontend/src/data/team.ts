@@ -15,7 +15,7 @@ interface TeamMemberOut {
   role: string
   learned: Record<string, number>
   lastActiveAt: string | null
-  lastLoginAt: string | null
+  lastSeenAt: string | null
 }
 interface TeamOut {
   totals: Record<string, number>
@@ -61,7 +61,7 @@ export function adaptTeam(out: TeamOut, now: number): TeamData {
     const learnedTotal = KINDS.reduce((sum, k) => sum + (m.learned[k] ?? 0), 0)
     const overall = pct(learnedTotal, positions)
     const learn = relTime(m.lastActiveAt, now, "НЕ ОТМЕЧАЛ") // последняя отметка «знаю»
-    const login = relTime(m.lastLoginAt, now, "НЕ ВХОДИЛ")   // последний вход
+    const visit = relTime(m.lastSeenAt, now, "НЕ ЗАХОДИЛ")   // последний визит (last_seen_at)
     const name = m.name?.trim() || m.username
     // слабейший раздел (mobile-карточка); всё на 100% → strongNote вместо weak
     const minKind = KINDS.reduce((lo, k) => (sections[k] < sections[lo] ? k : lo), KINDS[0])
@@ -75,9 +75,9 @@ export function adaptTeam(out: TeamOut, now: number): TeamData {
       activity: learn.short,
       lastSeen: learn.long,
       activityAlarm: learn.alarm,
-      lastLogin: login.short,
-      lastLoginLong: login.long,
-      lastLoginAlarm: login.alarm,
+      lastVisit: visit.short,
+      lastVisitLong: visit.long,
+      lastVisitAlarm: visit.alarm,
       weak: allDone ? undefined : `${SECTION_LABEL[minKind]} ${sections[minKind]}%`,
       strongNote: allDone ? "ВСЁ ВЫУЧЕНО ✓" : undefined,
       admin: m.role === "admin",

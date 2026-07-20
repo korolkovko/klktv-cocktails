@@ -82,6 +82,13 @@ def get_current_user(
     user = db.get(User, user_id)
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    # «последний визит»: обновляем на каждом валидном запросе, но троттлим до
+    # раз в 5 минут — страница делает несколько запросов, писать в БД на каждый
+    # не нужно (точность до 5 мин для «N дней назад» несущественна).
+    now = datetime.now(timezone.utc)
+    if user.last_seen_at is None or (now - user.last_seen_at) > timedelta(minutes=5):
+        user.last_seen_at = now
+        db.commit()
     return user
 
 
