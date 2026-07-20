@@ -82,6 +82,17 @@ describe("adminApi", () => {
     )
   })
 
+  it("reorderCategories(keys) issues POST /api/admin/categories/reorder with a JSON body", async () => {
+    fetchMock.mockResolvedValue(jsonResponse([{ key: "menu", sort_order: 0 }]))
+    await adminApi.reorderCategories(["menu", "classics", "spirits", "kitchen"])
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe(`${BASE}/api/admin/categories/reorder`)
+    expect(init.method).toBe("POST")
+    expect(JSON.parse(init.body as string)).toEqual({
+      keys: ["menu", "classics", "spirits", "kitchen"],
+    })
+  })
+
   it("uploadImage(file) posts multipart/form-data to /api/admin/uploads/image", async () => {
     fetchMock.mockResolvedValue(
       jsonResponse({ url: "/static/img/x-abc123.webp", filename: "x-abc123.webp", size: 456 }, 201)

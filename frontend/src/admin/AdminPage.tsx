@@ -7,13 +7,19 @@ import { adminApi, type AdminEntity } from "./api"
 import { EntityList, type EntityColumn } from "./components/EntityList"
 import { EditorShell } from "./components/EditorShell"
 import { DrinkEditor } from "./editors/DrinkEditor"
+import { ClassicEditor } from "./editors/ClassicEditor"
+import { SpiritEditor, SpiritCategoriesPanel } from "./editors/SpiritEditor"
+import { KitchenEditor, KitchenCategoriesPanel } from "./editors/KitchenEditor"
+import { FamilyEditor } from "./editors/FamilyEditor"
+import { CategoriesTab } from "./editors/CategoriesTab"
 
-// Task 7 shell: tab bar + EntityList wired to adminApi.list per tab, and a
-// placeholder editor (real per-entity editors land in Tasks 8-10). The
-// "drinks" (Авторские) tab now uses the real `DrinkEditor` (Task 8) — it's
-// self-contained (owns its own EditorShell), so it's mounted directly
-// instead of going through the placeholder's EditorShell wrapper below.
-// Every other tab still shows the placeholder until Task 9 lands.
+// Task 7 shell: tab bar + EntityList wired to adminApi.list per tab. Tasks
+// 8-9 replaced the placeholder editor with real self-contained editors for
+// every tab (each owns its own EditorShell, so it's mounted directly instead
+// of going through a shared EditorShell wrapper — see DrinkEditor.tsx's
+// header comment for the pattern). "categories" (Разделы) is the one
+// exception: it's a fixed set with no create/delete, so its whole tab body
+// (list + inline edit + reorder) is `<CategoriesTab>`, not EntityList+modal.
 //
 // Row shape varies per entity (DrinkAdminOut/ClassicAdminOut/…, see
 // backend/app/schemas_admin.py) — not yet typed here since Task 7 only
@@ -27,9 +33,11 @@ interface TabConfig {
   keyField: string
   adminOnly?: boolean
   // `categories` is a fixed set — the backend only exposes GET/PATCH/reorder
-  // for it (no POST/DELETE, see backend/app/routers/admin.py), so this tab
-  // must not offer New/Delete anywhere (list actions or the edit modal)
-  // until Task 9's CategoriesTab adds real reorder/visibility editing.
+  // for it (no POST/DELETE, see backend/app/routers/admin.py). Its tab body
+  // is `<CategoriesTab>` (Task 9), not EntityList+modal, so this flag is
+  // inert for it now; kept in case another read-only-except-edit entity
+  // shows up (e.g. "users" still uses the plain EntityList+placeholder path
+  // below and could set it too).
   noCreateDelete?: boolean
   columns: EntityColumn<Row>[]
 }
@@ -220,15 +228,23 @@ export default function AdminPage() {
           </div>
         )}
 
-        <EntityList
-          items={items}
-          columns={tab.columns}
-          getKey={getKey}
-          loading={loading}
-          onNew={tab.noCreateDelete ? undefined : () => setEditing({ mode: "new" })}
-          onEdit={(row) => setEditing({ mode: "edit", row })}
-          onDelete={tab.noCreateDelete ? undefined : handleDelete}
-        />
+        {tab.id === "categories" ? (
+          <CategoriesTab />
+        ) : (
+          <>
+            {tab.id === "spirits" && <SpiritCategoriesPanel />}
+            {tab.id === "kitchen" && <KitchenCategoriesPanel />}
+            <EntityList
+              items={items}
+              columns={tab.columns}
+              getKey={getKey}
+              loading={loading}
+              onNew={tab.noCreateDelete ? undefined : () => setEditing({ mode: "new" })}
+              onEdit={(row) => setEditing({ mode: "edit", row })}
+              onDelete={tab.noCreateDelete ? undefined : handleDelete}
+            />
+          </>
+        )}
       </div>
 
       {editing && tab.id === "drinks" && (
@@ -242,17 +258,57 @@ export default function AdminPage() {
         />
       )}
 
-      {editing && tab.id !== "drinks" && (
+      {editing && tab.id === "classics" && (
+        <ClassicEditor
+          slug={editing.mode === "edit" ? getKey(editing.row) : null}
+          onSaved={() => {
+            setEditing(null)
+            void load(tab.entity)
+          }}
+          onClose={() => setEditing(null)}
+        />
+      )}
+
+      {editing && tab.id === "spirits" && (
+        <SpiritEditor
+          slug={editing.mode === "edit" ? getKey(editing.row) : null}
+          onSaved={() => {
+            setEditing(null)
+            void load(tab.entity)
+          }}
+          onClose={() => setEditing(null)}
+        />
+      )}
+
+      {editing && tab.id === "kitchen" && (
+        <KitchenEditor
+          slug={editing.mode === "edit" ? getKey(editing.row) : null}
+          onSaved={() => {
+            setEditing(null)
+            void load(tab.entity)
+          }}
+          onClose={() => setEditing(null)}
+        />
+      )}
+
+      {editing && tab.id === "families" && (
+        <FamilyEditor
+          fkey={editing.mode === "edit" ? getKey(editing.row) : null}
+          onSaved={() => {
+            setEditing(null)
+            void load(tab.entity)
+          }}
+          onClose={() => setEditing(null)}
+        />
+      )}
+
+      {editing && tab.id === "users" && (
         <EditorShell
           title={editing.mode === "new" ? `Новый: ${tab.label}` : `Редактирование: ${tab.label}`}
           onClose={() => setEditing(null)}
           onSave={() => setEditing(null)}
           saveDisabled
-          onDelete={
-            editing.mode === "edit" && !tab.noCreateDelete
-              ? () => handleDelete(editing.row)
-              : undefined
-          }
+          onDelete={editing.mode === "edit" ? () => handleDelete(editing.row) : undefined}
         >
           <p className="text-sm text-gray-500">
             Редактор «{tab.label}» появится в следующей задаче. Общие примитивы (поля форм,

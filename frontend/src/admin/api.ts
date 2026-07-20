@@ -50,6 +50,13 @@ export const adminApi = {
 
   remove: (entity: AdminEntity, key: string): Promise<void> => api.del<void>(pathFor(entity, key)),
 
+  // One-off custom action outside the (entity, key) REST shape above —
+  // POST /api/admin/categories/reorder assigns sort_order = index within
+  // `keys` for every category, see backend/app/routers/admin.py's
+  // `reorder_categories` + CategoryReorderIn.
+  reorderCategories: <T = unknown>(keys: string[]): Promise<T[]> =>
+    api.post<T[]>("/api/admin/categories/reorder", { keys }),
+
   uploadImage: async (file: File): Promise<UploadImageResult> => {
     const form = new FormData()
     form.append("file", file)
