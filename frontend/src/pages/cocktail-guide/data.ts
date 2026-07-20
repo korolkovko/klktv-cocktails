@@ -7,9 +7,11 @@
 // live-прогресс функции ниже — им теперь передаётся каталог явным параметром
 // (`LiveCatalog`), а не через module-scope константы (те исчезли).
 //
-// TEAM/TEAM_STATS/TEAM_AVG_SECTIONS/KITCHEN_LEARNED — НЕ трогаем в этой
-// задаче: для командного прогресса нет бэкенд-эндпоинта вообще (см. blueprint
-// §F/§E.10); удаление/скрытие «Команда»-таба — отдельная задача.
+// TEAM/TEAM_STATS/TEAM_AVG_SECTIONS/KITCHEN_LEARNED — для командного
+// прогресса нет бэкенд-эндпоинта вообще (см. blueprint §F/§E.10). Task 9
+// убрал «Команда»-таб и TeamView из рендера (page.tsx всегда показывает
+// личный «Мой»); эти демо-константы и TeamView остаются нетронутыми в
+// data.ts/team-view.tsx как мёртвый код на случай, если бэкенд появится.
 
 export type TintName =
   | "sour" | "daisy" | "mary" | "negroni" | "martini"

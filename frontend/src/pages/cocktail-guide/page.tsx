@@ -2,7 +2,6 @@ import * as React from "react"
 
 import { PageFrame } from "@/components/kollektiv/page-frame"
 import { useIsMobile } from "@/lib/use-media-query"
-import { cn } from "@/lib/utils"
 import { useContent } from "@/data/ContentContext"
 import { useProgress } from "@/data/ProgressContext"
 import type { User } from "@/auth/AuthContext"
@@ -14,7 +13,7 @@ import {
   type Route,
 } from "./shell"
 import { MenuView, ClassicsView, SpiritsView, KitchenView, ProgressView } from "./views"
-import { TeamView, FamiliesPanel } from "./team-view"
+import { FamiliesPanel } from "./team-view"
 import { CocktailDetail, ClassicDetail, SpiritDetail, DishDetail } from "./detail-sheet"
 import { totalLearnedLive, type Classic, type Cocktail, type Dish, type SectionId, type Spirit } from "./data"
 
@@ -22,7 +21,8 @@ import { totalLearnedLive, type Classic, type Cocktail, type Dish, type SectionI
 // Одно приложение с разделами (роутинг в стейте): Меню (media-card §45),
 // Классика (семейства = taxonomy tints §45, теория; «Все» — группировка),
 // Спириты (группы + деталь-флеш-карточка), Кухня (блюда курсами + КБЖУ),
-// Прогресс (§44 learning), Команда (ADMIN-таблица).
+// Прогресс (§44 learning, личный — «Команда» убрана в Task 9: нет бэкенд-
+// эндпоинта для командного прогресса, цифры были фиктивными, blueprint §E.10).
 // Навигация — гибрид §45: desktop-табы / mobile bottom-nav §07 + разделы-sheet.
 // learned «знаю/не знаю» §44 — локальный стейт (в проде — эндпоинт).
 // Пропсы продукта: defaultRoute / route+onRouteChange (controlled), user +
@@ -151,13 +151,12 @@ export default function CocktailGuidePage({
       case "kitchen":
         return <KitchenView learnedIds={learned} onToggle={toggleKitchen} onOpen={openDish} onOpenProgress={openProgress} />
       case "progress":
-        return null // прогресс рендерит ProgressWithTeam (вкладки Мой/Команда)
+        return null // прогресс рендерит ProgressWithTeam (личный «Мой»)
       default:
         return null
     }
   })()
 
-  // Прогресс на десктопе показывает вкладку «Команда» (3s ADMIN) рядом с «Мой»
   return (
     <>
       <PageFrame
@@ -262,40 +261,23 @@ export default function CocktailGuidePage({
   )
 }
 
-/** Прогресс: «Мой» (личный §44) / «Команда» (3s ADMIN) — таб-переключатель */
+/** Прогресс: только личный «Мой» (§44) — вкладка «Команда» убрана в Task 9:
+ *  нет бэкенд-эндпоинта для командного прогресса, цифры были фиктивной демо-
+ *  данными (blueprint §E.10). Имя `ProgressWithTeam` сохранено как есть —
+ *  переименование продукт-owned файла вне скоупа этой задачи. */
 function ProgressWithTeam({ learnedIds, onOpenSection }: { learnedIds: Set<string>; onOpenSection: (id: SectionId) => void }) {
   const { SECTIONS, TOTAL_POSITIONS } = useContent()
-  const [tab, setTab] = React.useState<"my" | "team">("my")
   return (
     <div className="flex flex-col gap-3.5">
       <div className="flex items-center justify-between gap-3.5">
         <div className="flex items-center gap-3.5 max-md:w-full">
-        <span className="text-[22px] font-bold max-md:hidden">Прогресс</span>
-        <div className="flex overflow-hidden rounded-md border border-border text-[13px] font-semibold max-md:w-full">
-          <button
-            type="button"
-            onClick={() => setTab("my")}
-            className={cn("px-3.5 py-[7px] max-md:min-h-11 max-md:flex-1", tab === "my" ? "bg-primary text-primary-foreground" : "cursor-pointer")}
-          >
-            Мой
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab("team")}
-            className={cn("inline-flex items-center justify-center gap-1.5 border-l border-border px-3.5 py-[7px] max-md:min-h-11 max-md:flex-1", tab === "team" ? "bg-primary text-primary-foreground" : "cursor-pointer")}
-          >
-            Команда
-            <span className={cn("rounded-[4px] px-1.5 py-px font-mono text-[8.5px] font-bold", tab === "team" ? "bg-card text-foreground" : "bg-muted")}>
-              ADMIN
-            </span>
-          </button>
-        </div>
+          <span className="text-[22px] font-bold max-md:hidden">Прогресс</span>
         </div>
         <span className="font-mono text-[11px] text-[#71717A] max-md:hidden">
           {TOTAL_POSITIONS} ПОЗИЦИЙ В БАЗЕ · {SECTIONS.length} РАЗДЕЛОВ
         </span>
       </div>
-      {tab === "my" ? <ProgressView learnedIds={learnedIds} onOpenSection={onOpenSection} /> : <TeamView />}
+      <ProgressView learnedIds={learnedIds} onOpenSection={onOpenSection} />
     </div>
   )
 }
