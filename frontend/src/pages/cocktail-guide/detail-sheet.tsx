@@ -7,7 +7,8 @@ import { TintMarker } from "@/components/kollektiv/tint-marker"
 import { useIsMobile } from "@/lib/use-media-query"
 import { cn } from "@/lib/utils"
 
-import { FAMILIES, type Classic, type Cocktail, type Dish, type DishNutrition, type Spirit } from "./data"
+import { type Classic, type Cocktail, type Dish, type DishNutrition, type Spirit } from "./data"
+import { useContent } from "@/data/ContentContext"
 
 // 3p Деталь позиции v2 (R25) — РЕЖИМ ФЛЕШ-КАРТОЧЕК (главная механика обучения).
 // Desktop: центр-модалка погружения 840px (§30 INK-рамка + сдвиг-тень 4px,
@@ -401,6 +402,7 @@ export interface ClassicDetailProps {
 }
 
 export function ClassicDetail({ classic, open, onOpenChange, learned, onLearnedChange, nav, onCrossLink }: ClassicDetailProps) {
+  const { FAMILIES } = useContent()
   if (!classic) return null
   const c = classic
   const fam = FAMILIES.find((f) => f.tint === c.family)

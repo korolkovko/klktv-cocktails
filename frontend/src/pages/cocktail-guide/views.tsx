@@ -10,19 +10,6 @@ import { TintMarker } from "@/components/kollektiv/tint-marker"
 import { cn } from "@/lib/utils"
 
 import {
-  CLASSIC_SPIRITS,
-  CLASSICS,
-  DISHES,
-  FAMILIES,
-  GLASS_FILTERS,
-  KITCHEN_CATEGORIES,
-  MENU,
-  RETIRED_COUNT,
-  SECTIONS,
-  SPIRIT_CATEGORIES,
-  SPIRIT_FILTERS,
-  SPIRIT_GROUPS,
-  TOTAL_POSITIONS,
   familyLearnedLive,
   sectionLearnedLive,
   totalLearnedLive,
@@ -33,6 +20,7 @@ import {
   type SectionId,
   type Spirit,
 } from "./data"
+import { useContent } from "@/data/ContentContext"
 
 const pct = (l: number, t: number) => (t > 0 ? Math.round((l / t) * 100) : 0)
 
@@ -131,6 +119,7 @@ export function MenuView({
   onOpen: (c: Cocktail, deck: Cocktail[]) => void
   onOpenProgress: () => void
 }) {
+  const { MENU, SPIRIT_FILTERS, GLASS_FILTERS, SECTIONS } = useContent()
   const [q, setQ] = React.useState("")
   const [spirit, setSpirit] = React.useState("Все")
   const [glass, setGlass] = React.useState("Все")
@@ -243,8 +232,9 @@ function FamilyTheory({ fam, shown, total, learnedInFamily, hideTip }: { fam: Fa
  *  разворачивает полную FamilyTheory; счёт «5/6 ✓» — сводка каталога (fam.learned/
  *  fam.total, как счётчики разделов; в проде — прогресс семейства с бэка) */
 function FamilyGroupHeader({ fam, open, onToggle, learnedIds }: { fam: Family; open: boolean; onToggle: () => void; learnedIds: Set<string> }) {
+  const content = useContent()
   // счёт «5/6 ✓» — LIVE (R27, закрывает P2-2 ревью R26): тогл классики двигает
-  const count = `${familyLearnedLive(fam.tint, learnedIds)}/${fam.total} ✓`
+  const count = `${familyLearnedLive(fam.tint, content, learnedIds)}/${fam.total} ✓`
   return (
     <div className="flex cursor-pointer flex-col gap-[3px] px-0.5" onClick={onToggle}>
       {/* desktop */}
@@ -288,6 +278,7 @@ export function ClassicsView({
   onOpen: (c: Classic, deck: Classic[]) => void
   onOpenProgress: () => void
 }) {
+  const { CLASSICS, FAMILIES, CLASSIC_SPIRITS, SECTIONS } = useContent()
   const [q, setQ] = React.useState("")
   const [family, setFamily] = React.useState("Все")
   const [spirit, setSpirit] = React.useState("Все")
@@ -449,6 +440,7 @@ export function SpiritsView({
   onOpen: (s: Spirit, category: string, deck: { s: Spirit; cat: string }[]) => void
   onOpenProgress: () => void
 }) {
+  const { SPIRIT_GROUPS, RETIRED_COUNT, SPIRIT_CATEGORIES, SECTIONS } = useContent()
   const [q, setQ] = React.useState("")
   const [tab, setTab] = React.useState<"active" | "retired">("active")
   const [cat, setCat] = React.useState("Все")
@@ -568,6 +560,7 @@ export function KitchenView({
   onOpen: (d: Dish, deck: Dish[]) => void
   onOpenProgress: () => void
 }) {
+  const { DISHES, KITCHEN_CATEGORIES, SECTIONS } = useContent()
   const [q, setQ] = React.useState("")
   const kitchen = SECTIONS.find((s) => s.id === "kitchen")!
   const ql = q.trim().toLowerCase()
@@ -663,6 +656,8 @@ function ProgressBar({ pct }: { pct: number }) {
 
 /** Карточка «КЛАССИКА · ПО СЕМЕЙСТВАМ» (правый рейл desktop + может звать в раздел) */
 function FamiliesRailCard({ learnedIds, onOpen }: { learnedIds: Set<string>; onOpen: () => void }) {
+  const content = useContent()
+  const { FAMILIES } = content
   return (
     <div className="flex flex-col gap-2 rounded-[10px] border border-border bg-card p-3.5">
       <div className="flex items-baseline justify-between">
@@ -672,7 +667,7 @@ function FamiliesRailCard({ learnedIds, onOpen }: { learnedIds: Set<string>; onO
         </button>
       </div>
       <ProgressLevels
-        levels={FAMILIES.slice(0, 6).map((f) => ({ name: f.code, tint: f.tint, learned: familyLearnedLive(f.tint, learnedIds), total: f.total }))}
+        levels={FAMILIES.slice(0, 6).map((f) => ({ name: f.code, tint: f.tint, learned: familyLearnedLive(f.tint, content, learnedIds), total: f.total }))}
       />
       <div className="text-center font-mono text-[9px] tracking-[0.06em] text-[#A1A1AA]">
         ··· {FAMILIES.slice(6).map((f) => f.code).join(" · ")} ···
@@ -688,9 +683,11 @@ export function ProgressView({
   learnedIds: Set<string>
   onOpenSection: (id: SectionId) => void
 }) {
-  const total = totalLearnedLive(learnedIds)
+  const content = useContent()
+  const { SECTIONS, TOTAL_POSITIONS } = content
+  const total = totalLearnedLive(content, learnedIds)
   const cards = SECTIONS.map((s) => {
-    const live = sectionLearnedLive(s.id, learnedIds)
+    const live = sectionLearnedLive(s.id, content, learnedIds)
     return { s, live, p: pct(live, s.total) }
   })
 

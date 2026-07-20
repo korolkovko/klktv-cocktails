@@ -5,9 +5,6 @@ import { ProgressLevels } from "@/components/kollektiv/progress-levels"
 import { cn } from "@/lib/utils"
 
 import {
-  CLASSICS,
-  CLASSICS_TOTAL,
-  FAMILIES,
   TEAM,
   TEAM_AVG_SECTIONS,
   TEAM_STATS,
@@ -16,6 +13,7 @@ import {
   type Classic,
   type Staff,
 } from "./data"
+import { useContent } from "@/data/ContentContext"
 
 const pct = (l: number, t: number) => (t > 0 ? Math.round((l / t) * 100) : 0)
 
@@ -33,11 +31,13 @@ export function FamiliesPanel({
   /** тап по строке списка → закрыть панель и открыть деталь классики (колода «Все») */
   onOpenClassic: (c: Classic) => void
 }) {
+  const content = useContent()
+  const { FAMILIES, CLASSICS, CLASSICS_TOTAL } = content
   const [tab, setTab] = React.useState<"known" | "unknown">("known")
   const shown = FAMILIES.slice(0, 6)
   const rest = FAMILIES.slice(6).map((f) => f.code)
   // LIVE (R27): всё из learnedIds, статики убраны
-  const learned = classicsLearnedLive(learnedIds)
+  const learned = classicsLearnedLive(content, learnedIds)
   const known = CLASSICS.filter((c) => learnedIds.has(c.id))
   const unknown = CLASSICS.filter((c) => !learnedIds.has(c.id))
   const list = tab === "known" ? known : unknown
@@ -60,7 +60,7 @@ export function FamiliesPanel({
           </div>
           <div className="border-t border-divider" />
           <span className="font-mono text-[9.5px] font-bold tracking-[0.08em] text-[#A1A1AA]">ПО СЕМЕЙСТВАМ</span>
-          <ProgressLevels levels={shown.map((f) => ({ name: f.code, tint: f.tint, learned: familyLearnedLive(f.tint, learnedIds), total: f.total }))} />
+          <ProgressLevels levels={shown.map((f) => ({ name: f.code, tint: f.tint, learned: familyLearnedLive(f.tint, content, learnedIds), total: f.total }))} />
           <div className="text-center font-mono text-[9px] tracking-[0.06em] text-[#A1A1AA]">
             ··· {rest.join(" · ")} ···
           </div>

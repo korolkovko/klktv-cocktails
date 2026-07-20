@@ -3,6 +3,9 @@ import * as React from "react"
 import { PageFrame } from "@/components/kollektiv/page-frame"
 import { useIsMobile } from "@/lib/use-media-query"
 import { cn } from "@/lib/utils"
+import { useContent } from "@/data/ContentContext"
+import { useProgress } from "@/data/ProgressContext"
+import type { User } from "@/auth/AuthContext"
 
 import {
   CocktailBottomNav,
@@ -13,7 +16,7 @@ import {
 import { MenuView, ClassicsView, SpiritsView, KitchenView, ProgressView } from "./views"
 import { TeamView, FamiliesPanel } from "./team-view"
 import { CocktailDetail, ClassicDetail, SpiritDetail, DishDetail } from "./detail-sheet"
-import { CLASSICS, DISHES, FAMILIES, MENU, SECTIONS, SPIRIT_GROUPS, TOTAL_POSITIONS, type Classic, type Cocktail, type Dish, type SectionId, type Spirit } from "./data"
+import { totalLearnedLive, type Classic, type Cocktail, type Dish, type SectionId, type Spirit } from "./data"
 
 // БЛОК-ОБРАЗЕЦ «Cocktail Guide» — справочник коктейлей целиком (Pages 3n–3t).
 // Одно приложение с разделами (роутинг в стейте): Меню (media-card §45),
@@ -22,17 +25,8 @@ import { CLASSICS, DISHES, FAMILIES, MENU, SECTIONS, SPIRIT_GROUPS, TOTAL_POSITI
 // Прогресс (§44 learning), Команда (ADMIN-таблица).
 // Навигация — гибрид §45: desktop-табы / mobile bottom-nav §07 + разделы-sheet.
 // learned «знаю/не знаю» §44 — локальный стейт (в проде — эндпоинт).
-// Пропсы продукта: defaultRoute / route+onRouteChange (controlled), onSignOut.
-
-// начальный learned из данных (в проде — с бэка)
-const initialLearned = () => {
-  const set = new Set<string>()
-  MENU.forEach((c) => c.learned && set.add(c.id))
-  CLASSICS.forEach((c) => c.learned && set.add(c.id))
-  SPIRIT_GROUPS.forEach((g) => g.items.forEach((s) => s.learned && set.add(`${g.category}:${s.name}`)))
-  DISHES.forEach((d) => d.learned && set.add(d.id))
-  return set
-}
+// Пропсы продукта: defaultRoute / route+onRouteChange (controlled), user +
+// onSignOut (Task 4: реальные из AuthContext, threaded из App.tsx).
 
 // позиция/размер контиг. группы вокруг index (колода упорядочена по группам) —
 // счётчик листалки «ДЖИН · 2 OF 6» (R26.1). labels[i] = метка группы элемента i.
@@ -50,13 +44,16 @@ export interface CocktailGuideProps {
   route?: Route
   defaultRoute?: Route
   onRouteChange?: (r: Route) => void
-  onSignOut?: () => void
+  user: User
+  onSignOut: () => void
 }
 
 export default function CocktailGuidePage({
   route: routeProp,
   defaultRoute = "menu",
   onRouteChange,
+  user,
+  onSignOut,
 }: CocktailGuideProps) {
   const [uncontrolled, setUncontrolled] = React.useState<Route>(defaultRoute)
   const route = routeProp ?? uncontrolled
@@ -66,13 +63,20 @@ export default function CocktailGuidePage({
   }
   const isMobile = useIsMobile()
 
-  const [learned, setLearned] = React.useState<Set<string>>(initialLearned)
-  const toggle = (id: string) =>
-    setLearned((prev) => {
-      const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
-      return next
-    })
+  const content = useContent()
+  const { MENU, CLASSICS, FAMILIES } = content
+  const { learned, toggle } = useProgress()
+  // live-бейдж прогресса (blueprint §E.9) — считаем один раз, threaded в
+  // desktop-шапку (косвенно через SectionsSheet) и оба mobile-инстанса
+  const total = totalLearnedLive(content, learned)
+
+  // kind-specific обёртки вокруг единого persistence-core в ProgressContext
+  // (blueprint §C) — у каждого view/detail-sheet свой вызов, без угадывания
+  // kind по голому id
+  const toggleMenu = (id: string) => toggle("menu", id, id)
+  const toggleClassic = (id: string) => toggle("classics", id, id)
+  const toggleKitchen = (id: string) => toggle("kitchen", id, id)
+  const toggleSpirit = (key: string) => toggle("spirits", content.spiritKeys.keyToSlug.get(key)!, key)
 
   // деталь-шиты — режим флеш-карточек: колода = отфильтрованный список раздела,
   // индекс листается ←/→/свайпом; -1 = закрыто
@@ -127,7 +131,7 @@ export default function CocktailGuidePage({
         return (
           <MenuView
             learnedIds={learned}
-            onToggle={toggle}
+            onToggle={toggleMenu}
             onOpen={openCocktail}
             onOpenProgress={openProgress}
           />
@@ -136,22 +140,22 @@ export default function CocktailGuidePage({
         return (
           <ClassicsView
             learnedIds={learned}
-            onToggle={toggle}
+            onToggle={toggleClassic}
             onOpen={openClassic}
             // desktop — на страницу Прогресс (семейства в рейле); mobile — панель
             onOpenProgress={() => (isMobile ? setFamiliesOpen(true) : navigate("progress"))}
           />
         )
       case "spirits":
-        return <SpiritsView learnedKeys={learned} onToggle={toggle} onOpen={openSpirit} onOpenProgress={openProgress} />
+        return <SpiritsView learnedKeys={learned} onToggle={toggleSpirit} onOpen={openSpirit} onOpenProgress={openProgress} />
       case "kitchen":
-        return <KitchenView learnedIds={learned} onToggle={toggle} onOpen={openDish} onOpenProgress={openProgress} />
+        return <KitchenView learnedIds={learned} onToggle={toggleKitchen} onOpen={openDish} onOpenProgress={openProgress} />
       case "progress":
         return null // прогресс рендерит ProgressWithTeam (вкладки Мой/Команда)
       case "zero":
       case "zc":
         // Безалко/ZC — заглушка на паттерне спиритов (в этот раунд не входят)
-        return <SpiritsView learnedKeys={learned} onToggle={toggle} onOpen={openSpirit} onOpenProgress={openProgress} />
+        return <SpiritsView learnedKeys={learned} onToggle={toggleSpirit} onOpen={openSpirit} onOpenProgress={openProgress} />
       default:
         return null
     }
@@ -163,8 +167,8 @@ export default function CocktailGuidePage({
       <PageFrame
         header={
           <>
-            <CocktailDesktopHeader route={route} onNavigate={navigate} />
-            <CocktailMobileHeader route={route} onNavigate={navigate} />
+            <CocktailDesktopHeader route={route} onNavigate={navigate} user={user} onSignOut={onSignOut} />
+            <CocktailMobileHeader route={route} onNavigate={navigate} user={user} onSignOut={onSignOut} total={total} />
           </>
         }
         contentClassName="flex-col gap-4 p-6 pb-24 max-md:gap-3 max-md:px-4 max-md:py-4 max-md:pb-24"
@@ -177,7 +181,7 @@ export default function CocktailGuidePage({
       </PageFrame>
 
       <div className="fixed inset-x-0 bottom-0 z-40 md:hidden">
-        <CocktailBottomNav route={route} onNavigate={navigate} />
+        <CocktailBottomNav route={route} onNavigate={navigate} user={user} onSignOut={onSignOut} total={total} />
       </div>
 
       <CocktailDetail
@@ -185,7 +189,7 @@ export default function CocktailGuidePage({
         open={cocktailIdx >= 0}
         onOpenChange={(o) => !o && setCocktailIdx(-1)}
         learned={cocktail ? learned.has(cocktail.id) : false}
-        onLearnedChange={() => cocktail && toggle(cocktail.id)}
+        onLearnedChange={() => cocktail && toggleMenu(cocktail.id)}
         nav={{
           index: cocktailIdx,
           of: cocktailDeck.length,
@@ -200,7 +204,7 @@ export default function CocktailGuidePage({
         open={classicIdx >= 0}
         onOpenChange={(o) => !o && setClassicIdx(-1)}
         learned={classic ? learned.has(classic.id) : false}
-        onLearnedChange={() => classic && toggle(classic.id)}
+        onLearnedChange={() => classic && toggleClassic(classic.id)}
         nav={{
           index: classicIdx,
           of: classicDeck.length,
@@ -225,7 +229,7 @@ export default function CocktailGuidePage({
         open={spiritIdx >= 0}
         onOpenChange={(o) => !o && setSpiritIdx(-1)}
         learned={spirit ? learned.has(spiritKey) : false}
-        onLearnedChange={() => spirit && toggle(spiritKey)}
+        onLearnedChange={() => spirit && toggleSpirit(spiritKey)}
         nav={{
           index: spiritIdx,
           of: spiritDeck.length,
@@ -241,7 +245,7 @@ export default function CocktailGuidePage({
         open={dishIdx >= 0}
         onOpenChange={(o) => !o && setDishIdx(-1)}
         learned={dish ? learned.has(dish.id) : false}
-        onLearnedChange={() => dish && toggle(dish.id)}
+        onLearnedChange={() => dish && toggleKitchen(dish.id)}
         nav={{
           index: dishIdx,
           of: dishDeck.length,
@@ -264,6 +268,7 @@ export default function CocktailGuidePage({
 
 /** Прогресс: «Мой» (личный §44) / «Команда» (3s ADMIN) — таб-переключатель */
 function ProgressWithTeam({ learnedIds, onOpenSection }: { learnedIds: Set<string>; onOpenSection: (id: SectionId) => void }) {
+  const { SECTIONS, TOTAL_POSITIONS } = useContent()
   const [tab, setTab] = React.useState<"my" | "team">("my")
   return (
     <div className="flex flex-col gap-3.5">

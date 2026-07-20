@@ -4,13 +4,19 @@ import { Book, LayoutGrid, Martini, Menu, Utensils, X } from "lucide-react"
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer"
 import { BottomNav } from "@/components/kollektiv/bottom-nav"
 import { cn } from "@/lib/utils"
+import { useContent } from "@/data/ContentContext"
+import type { User } from "@/auth/AuthContext"
 
-import { SECTIONS, TOTAL_LEARNED, TOTAL_POSITIONS, type SectionId } from "./data"
+import { type SectionId } from "./data"
 
 // Каркас справочника (§45 гибрид навигации): desktop — табы в шапке; mobile —
 // bottom-nav §07 из 4 ячеек (Меню · Классика · Прогресс · Разделы) + шапка
 // с бургером. «Разделы» открывает §42-sheet с хвостом категорий, прогрессом,
 // админ-пунктами по ролям и юзером. Футер прежнего сайта упразднён — всё в sheet.
+// Task 4: SECTIONS/TOTAL_POSITIONS приезжают через useContent(); user/onSignOut
+// — реальные (из AuthContext), threaded из page.tsx; sheet-бейдж прогресса —
+// live total, посчитанный один раз в page.tsx (totalLearnedLive), а не
+// удалённая статическая TOTAL_LEARNED (blueprint §E.9).
 
 const pct = (l: number, t: number) => (t > 0 ? Math.round((l / t) * 100) : 0)
 
@@ -49,15 +55,28 @@ function Wordmark({ size = 17 }: { size?: number }) {
   )
 }
 
+/** «МК» из «Майкл» / «nkorolkov» из юзернейма без имени — 2 буквы для аватар-чипа */
+function userInitials(user: User) {
+  const base = (user.name?.trim() || user.username).trim()
+  const parts = base.split(/\s+/).filter(Boolean)
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase()
+  return base.slice(0, 2).toUpperCase()
+}
+
 /* ---------- desktop шапка ---------- */
 
 export function CocktailDesktopHeader({
   route,
   onNavigate,
+  user,
+  onSignOut,
 }: {
   route: Route
   onNavigate: (r: Route) => void
+  user: User
+  onSignOut: () => void
 }) {
+  const [menuOpen, setMenuOpen] = React.useState(false)
   return (
     <div className="flex items-center justify-between border-b border-border bg-card px-6 py-3.5 max-md:hidden">
       <div className="flex items-center gap-6">
@@ -78,9 +97,42 @@ export function CocktailDesktopHeader({
           ))}
         </nav>
       </div>
-      <span className="flex size-[30px] items-center justify-center rounded-full border border-border bg-primary font-mono text-[10px] font-bold text-primary-foreground">
-        МК
-      </span>
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setMenuOpen((v) => !v)}
+          aria-label="Меню пользователя"
+          className="flex size-[30px] cursor-pointer items-center justify-center rounded-full border border-border bg-primary font-mono text-[10px] font-bold text-primary-foreground"
+        >
+          {userInitials(user)}
+        </button>
+        {menuOpen && (
+          <>
+            <button
+              type="button"
+              aria-label="Закрыть меню"
+              className="fixed inset-0 z-40 cursor-default"
+              onClick={() => setMenuOpen(false)}
+            />
+            <div className="absolute top-[calc(100%+8px)] right-0 z-50 w-48 rounded-[10px] border border-border bg-card p-1.5 shadow-overlay">
+              <div className="px-2.5 py-2 text-[13px] font-semibold">
+                {user.name ?? user.username} <span className="text-[#71717A]">· {user.role}</span>
+              </div>
+              <div className="mx-1 border-t border-divider" />
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false)
+                  onSignOut()
+                }}
+                className="mt-1 flex min-h-9 w-full cursor-pointer items-center rounded-md px-2.5 font-mono text-[10px] font-bold tracking-[0.06em] text-[#52525B] hover:bg-muted"
+              >
+                ВЫЙТИ ↪
+              </button>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   )
 }
@@ -90,11 +142,18 @@ export function CocktailDesktopHeader({
 export function CocktailMobileHeader({
   route,
   onNavigate,
+  user,
+  onSignOut,
+  total,
 }: {
   route: Route
   onNavigate: (r: Route) => void
+  user: User
+  onSignOut: () => void
+  total: number
 }) {
   const [open, setOpen] = React.useState(false)
+  const { SECTIONS } = useContent()
   const label =
     route === "progress" ? "Прогресс" : SECTIONS.find((s) => s.id === route)?.label ?? "Авторские"
   return (
@@ -119,6 +178,9 @@ export function CocktailMobileHeader({
           setOpen(false)
           onNavigate(r)
         }}
+        user={user}
+        onSignOut={onSignOut}
+        total={total}
       />
     </div>
   )
@@ -131,13 +193,20 @@ export function SectionsSheet({
   onOpenChange,
   route,
   onNavigate,
+  user,
+  onSignOut,
+  total,
 }: {
   open: boolean
   onOpenChange: (v: boolean) => void
   route: Route
   onNavigate: (r: Route) => void
+  user: User
+  onSignOut: () => void
+  total: number
 }) {
-  const totalPct = pct(TOTAL_LEARNED, TOTAL_POSITIONS)
+  const { SECTIONS, TOTAL_POSITIONS } = useContent()
+  const totalPct = pct(total, TOTAL_POSITIONS)
   const row = "flex min-h-12 items-center justify-between rounded-[10px] px-3 cursor-pointer"
   const count = "font-mono text-[10px] font-bold"
   return (
@@ -196,14 +265,15 @@ export function SectionsSheet({
           <div className="mt-1.5 flex items-center justify-between border-t border-border px-2.5 pt-3">
             <span className="inline-flex items-center gap-2.5">
               <span className="flex size-[30px] items-center justify-center rounded-full border border-border bg-muted font-mono text-[10px] font-bold">
-                МК
+                {userInitials(user)}
               </span>
               <span className="text-[13px] font-semibold">
-                Майкл · <span className="text-[#71717A]">admin</span>
+                {user.name ?? user.username} · <span className="text-[#71717A]">{user.role}</span>
               </span>
             </span>
             <button
               type="button"
+              onClick={onSignOut}
               className="cursor-pointer font-mono text-[10px] font-bold tracking-[0.06em] text-[#52525B] underline underline-offset-[3px]"
             >
               ВЫЙТИ ↪
@@ -220,9 +290,15 @@ export function SectionsSheet({
 export function CocktailBottomNav({
   route,
   onNavigate,
+  user,
+  onSignOut,
+  total,
 }: {
   route: Route
   onNavigate: (r: Route) => void
+  user: User
+  onSignOut: () => void
+  total: number
 }) {
   const [sheetOpen, setSheetOpen] = React.useState(false)
   // «Разделы» активна, если открыт раздел вне трёх primary
@@ -252,6 +328,9 @@ export function CocktailBottomNav({
           setSheetOpen(false)
           onNavigate(r)
         }}
+        user={user}
+        onSignOut={onSignOut}
+        total={total}
       />
     </>
   )
