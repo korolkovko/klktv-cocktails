@@ -66,9 +66,16 @@ describe("formatLastSeen", () => {
   })
 })
 
-// Core rule from the task-10 brief: a blank password field means "keep
-// current password" — the PATCH body must omit `password` entirely, not
-// send an empty string. A non-blank field means "reset", and must be sent.
+// Core rules from the task-10 brief:
+// - a blank password field means "keep current password" — the PATCH body
+//   must omit `password` entirely, not send an empty string. A non-blank
+//   field means "reset", and must be sent (trimmed).
+// - `name` must always be sent as a string, never `null` — UserUpdateIn is a
+//   PARTIAL-update schema (admin_users.py's `update_user` only applies
+//   `name` under `if data.name is not None:`), so a literal `null` reads as
+//   "not supplied" and a clear silently no-ops. Sending `""` passes that
+//   guard, and the backend's own assignment (`obj.name = data.name or None`)
+//   normalises it to NULL — so `""` is what actually persists the clear.
 describe("toUpdateBody password handling", () => {
   const baseForm = { username: "editor1", name: "Editor One", role: "editor" as const, password: "" }
 
@@ -83,14 +90,26 @@ describe("toUpdateBody password handling", () => {
     expect("password" in body).toBe(false)
   })
 
-  it("includes password when the reset field is non-blank", () => {
-    const body = toUpdateBody({ ...baseForm, password: "newpass1" })
+  it("includes a trimmed password when the reset field is non-blank", () => {
+    const body = toUpdateBody({ ...baseForm, password: "  newpass1  " })
     expect(body.password).toBe("newpass1")
   })
+})
 
-  it("collapses a blank name to null, mirroring the other editors", () => {
+describe("toUpdateBody name handling (clearing must persist)", () => {
+  const baseForm = { username: "editor1", name: "Editor One", role: "editor" as const, password: "" }
+
+  it("sends a filled name as-is", () => {
+    const body = toUpdateBody(baseForm)
+    expect(body.name).toBe("Editor One")
+    expect("name" in body).toBe(true)
+  })
+
+  it("sends a blank name as an empty string, not null, so the clear persists", () => {
     const body = toUpdateBody({ ...baseForm, name: "  " })
-    expect(body.name).toBeNull()
+    expect(body.name).toBe("")
+    expect(body.name).not.toBeNull()
+    expect("name" in body).toBe(true)
   })
 })
 
@@ -100,6 +119,11 @@ describe("toCreateBody", () => {
     expect(body.username).toBe("kolya")
     expect(body.name).toBeNull()
     expect(body.role).toBe("admin")
+    expect(body.password).toBe("secret1")
+  })
+
+  it("trims a padded password", () => {
+    const body = toCreateBody({ username: "kolya", name: "", role: "admin", password: "  secret1  " })
     expect(body.password).toBe("secret1")
   })
 })

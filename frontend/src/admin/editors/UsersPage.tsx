@@ -97,20 +97,28 @@ function fromRow(row: UserOut): UserForm {
 export function toCreateBody(form: UserForm): UserCreateIn {
   return {
     username: form.username.trim().toLowerCase(),
-    password: form.password,
+    password: form.password.trim(),
     role: form.role,
     name: form.name.trim() || null,
   }
 }
 
-// Exported so UsersPage.test.tsx can assert the edit body's core rule
-// (task-10 brief): a blank password field means "keep current password" —
-// omit the key entirely rather than sending an empty string (the backend's
-// `if data.password:` would treat "" the same as omitted, but omitting is
-// the honest signal of intent and keeps the payload minimal).
+// Exported so UsersPage.test.tsx can assert the edit body's core rules
+// (task-10 brief):
+// - a blank password field means "keep current password" — omit the key
+//   entirely rather than sending an empty string (the backend's
+//   `if data.password:` would treat "" the same as omitted, but omitting is
+//   the honest signal of intent and keeps the payload minimal).
+// - `name` must always be sent as a string (never `null`), even when blank.
+//   UserUpdateIn is a PARTIAL-update schema: admin_users.py's `update_user`
+//   only applies `name` under `if data.name is not None:`, so a literal
+//   `null` reads as "field not supplied" and a clear silently no-ops. `""`
+//   passes that guard, and the backend's own assignment
+//   (`obj.name = data.name or None`) normalises the empty string to NULL in
+//   the DB — so sending `""` is what actually clears the name.
 export function toUpdateBody(form: UserForm): UserUpdateIn {
-  const body: UserUpdateIn = { role: form.role, name: form.name.trim() || null }
-  if (form.password.trim()) body.password = form.password
+  const body: UserUpdateIn = { role: form.role, name: form.name.trim() }
+  if (form.password.trim()) body.password = form.password.trim()
   return body
 }
 
