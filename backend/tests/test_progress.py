@@ -19,3 +19,10 @@ def test_unknown_kind_400():
     with TestClient(app) as client:
         login_client(client)
         assert client.post("/api/me/progress/bogus/x").status_code == 400
+
+
+def test_unknown_slug_404():
+    with TestClient(app) as client:
+        login_client(client)
+        r = client.post("/api/me/progress/classics/definitely-not-a-real-slug")
+        assert r.status_code == 404

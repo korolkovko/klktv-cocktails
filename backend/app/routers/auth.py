@@ -17,30 +17,48 @@ from app.schemas import LoginRequest, UserResponse
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
-_ATTEMPTS: dict[str, list[float]] = defaultdict(list)
+# Keyed on (ip, username) and incremented ONLY on failed credential checks, so
+# a burst of legitimate logins from the same venue NAT (shared IP) never
+# trips the limiter — only repeated bad-password/username attempts for the
+# same account from the same IP do.
+_FAILED_ATTEMPTS: dict[tuple[str, str], list[float]] = defaultdict(list)
 _WINDOW_S = 60
 _MAX_ATTEMPTS = 5
 
 
-def _rate_limit(request: Request) -> None:
-    ip = request.client.host if request.client else "unknown"
+def _is_rate_limited(key: tuple[str, str]) -> bool:
     now = time.time()
-    hits = [t for t in _ATTEMPTS[ip] if now - t < _WINDOW_S]
-    if len(hits) >= _MAX_ATTEMPTS:
-        raise HTTPException(status_code=429, detail="Too many attempts, try again later")
-    hits.append(now)
-    _ATTEMPTS[ip] = hits
+    hits = [t for t in _FAILED_ATTEMPTS[key] if now - t < _WINDOW_S]
+    _FAILED_ATTEMPTS[key] = hits
+    return len(hits) >= _MAX_ATTEMPTS
+
+
+def _record_failure(key: tuple[str, str]) -> None:
+    _FAILED_ATTEMPTS[key].append(time.time())
+
+
+def _clear_failures(key: tuple[str, str]) -> None:
+    _FAILED_ATTEMPTS.pop(key, None)
 
 
 @router.post("/login", response_model=UserResponse)
 def login(req: LoginRequest, request: Request, response: Response, db: Session = Depends(get_db)):
-    _rate_limit(request)
-    user = db.query(User).filter(User.username == req.username.lower().strip()).first()
+    ip = request.client.host if request.client else "unknown"
+    username = req.username.lower().strip()
+    key = (ip, username)
+
+    if _is_rate_limited(key):
+        raise HTTPException(status_code=429, detail="Too many attempts, try again later")
+
+    user = db.query(User).filter(User.username == username).first()
     if not user or not verify_password(req.password, user.password_hash):
+        _record_failure(key)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Неверный логин или пароль",
         )
+
+    _clear_failures(key)
     token = create_access_token(user.id)
     set_auth_cookie(response, token)
     return UserResponse(username=user.username, name=user.name, role=user.role)

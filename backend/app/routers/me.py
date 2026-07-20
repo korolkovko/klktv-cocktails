@@ -39,5 +39,10 @@ def mark(kind: str, slug: str, user=Depends(get_current_user), db: Session = Dep
 
 @router.delete("/progress/{kind}/{slug}", status_code=status.HTTP_204_NO_CONTENT)
 def unmark(kind: str, slug: str, user=Depends(get_current_user), db: Session = Depends(get_db)):
+    if kind not in KIND_MODELS:
+        raise HTTPException(status_code=400, detail="Unknown kind")
+    # No slug-existence check here (unlike POST): deleting a progress row for
+    # a valid kind whose row is absent (already unmarked, or slug never
+    # existed) is idempotent and returns 204, matching the docstring/tests.
     db.query(m.LearningProgress).filter_by(user_id=user.id, kind=kind, slug=slug).delete()
     db.commit()

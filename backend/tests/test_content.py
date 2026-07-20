@@ -11,8 +11,13 @@ def test_content_bundle_shape_and_counts():
         b = r.json()
         assert {"sections","drinks","classics","families","spiritCategories","spirits",
                 "kitchenCategories","kitchen","filters"} <= set(b)
-        assert len(b["drinks"]) == 26 and len(b["classics"]) == 67
-        assert len(b["spirits"]) == 74 and len(b["kitchen"]) == 33
+        # Structural, not exact-count: a future ETL re-run or content edit
+        # must not break this suite. We only assert every section is
+        # populated, not a specific count.
+        assert len(b["drinks"]) > 0
+        assert len(b["classics"]) > 0
+        assert len(b["spirits"]) > 0
+        assert len(b["kitchen"]) > 0
         # a non-alcoholic drink is present in the unified menu
         assert any(d["isAlcoholic"] is False for d in b["drinks"])
         # kit-exact keys

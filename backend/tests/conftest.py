@@ -12,6 +12,7 @@ os.environ.setdefault("COOKIE_SAMESITE", "lax")
 os.environ.setdefault("UPLOAD_DIR", tempfile.mkdtemp(prefix="klktv-test-uploads-"))
 
 import pytest
+from sqlalchemy.exc import IntegrityError
 from app.database import SessionLocal
 from app.models import User
 from app.auth import hash_password
@@ -22,12 +23,24 @@ SMOKE_PASS = "smoke-pass-12345"
 
 @pytest.fixture(autouse=True, scope="session")
 def _smoke_user():
+    # Race-safe get-or-create: two concurrent test runs (or a leftover row
+    # from a prior run that crashed before teardown) can both see "no
+    # existing user" and both attempt the insert. Rely on the DB's unique
+    # constraint on username to arbitrate — whoever loses the race just
+    # rolls back and re-queries the row the winner created, rather than
+    # raising and failing collection.
+    created = False
     with SessionLocal() as db:
         existing = db.query(User).filter_by(username=SMOKE_USER).first()
-        created = existing is None
-        if created:
+        if existing is None:
             db.add(User(username=SMOKE_USER, password_hash=hash_password(SMOKE_PASS), role="reader", name="Smoke"))
-            db.commit()
+            try:
+                db.commit()
+                created = True
+            except IntegrityError:
+                db.rollback()
+                existing = db.query(User).filter_by(username=SMOKE_USER).first()
+                assert existing is not None, "insert failed but no existing row found on retry"
     yield
     if created:
         with SessionLocal() as db:

@@ -19,7 +19,7 @@ def _serialize_drink(d: m.Drink) -> DrinkOut:
     flavors = [df.flavor.label for df in d.flavors]
     return DrinkOut(
         id=d.slug, name=d.name, logo=d.img, subtitle=d.subtitle,
-        price=None if d.price_amount is None else int(d.price_amount),
+        price=_num(d.price_amount),
         volume=d.volume_ml, abv=None if d.abv is None else float(d.abv),
         spirit=spirits[0] if spirits else "", spirits=spirits,
         glass=d.glass.label if d.glass else "",
@@ -61,7 +61,7 @@ def _serialize_dish(k: m.KitchenDish, category_slug: str) -> KitchenDishOut:
         timing = k.timing_min_low
     return KitchenDishOut(
         id=k.slug, categorySlug=category_slug, name=k.name, subtitle=k.tagline,
-        price=None if k.price_amount is None else int(k.price_amount),
+        price=_num(k.price_amount),
         weight=k.weight_g, timing=timing, photo=k.img, description=k.description,
         serving=k.serving, fact=k.interesting_facts,
         nutrition=DishNutritionOut(
