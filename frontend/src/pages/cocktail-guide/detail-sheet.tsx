@@ -242,7 +242,7 @@ function MobileDeckBar({ nav, learned, onLearnedChange }: { nav: DeckNav; learne
 /** Desktop подвал-листалка: ← имя · counter · имя → (learned-CTA — в колонке) */
 function DesktopDeckBar({ nav }: { nav: DeckNav }) {
   return (
-    <div className="flex items-center justify-between border-t border-border bg-[#FBFBF9] px-[22px] py-2.5">
+    <div className="flex shrink-0 items-center justify-between border-t border-border bg-[#FBFBF9] px-[22px] py-2.5">
       <button
         type="button"
         onClick={nav.onPrev}
@@ -855,12 +855,14 @@ function DetailShellFull({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="block w-[840px] gap-0 overflow-hidden rounded-2xl border-border bg-card p-0 shadow-overlay sm:max-w-[840px]"
+        className="flex max-h-[90dvh] w-[840px] flex-col gap-0 overflow-hidden rounded-2xl border-border bg-card p-0 shadow-overlay sm:max-w-[840px]"
         data-testid="cg-detail-modal"
       >
         <DialogTitle className="sr-only">{title}</DialogTitle>
-        <div className="flex items-center gap-4 border-b border-border px-[22px] py-[18px]">{desktopHeader}</div>
-        <div key={nav.index} className="grid animate-in grid-cols-[280px_1fr] fade-in-0 duration-[120ms]">
+        <div className="flex shrink-0 items-center gap-4 border-b border-border px-[22px] py-[18px]">{desktopHeader}</div>
+        {/* длинный контент (напр. Апсайкл Кола) скроллится в середине; шапка и
+            подвал-листалка закреплены — иначе модалка вылезала за верх/низ экрана */}
+        <div key={nav.index} className="grid min-h-0 flex-1 animate-in grid-cols-[280px_1fr] overflow-y-auto fade-in-0 duration-[120ms]">
           <div className="flex flex-col gap-3.5 border-r border-divider px-[22px] py-[18px]">{desktopLeft}</div>
           <div className="flex flex-col gap-3.5 px-[22px] py-[18px]">{desktopRight}</div>
         </div>
