@@ -6,11 +6,14 @@ import { cn } from "@/lib/utils"
 import { adminApi, type AdminEntity } from "./api"
 import { EntityList, type EntityColumn } from "./components/EntityList"
 import { EditorShell } from "./components/EditorShell"
+import { DrinkEditor } from "./editors/DrinkEditor"
 
 // Task 7 shell: tab bar + EntityList wired to adminApi.list per tab, and a
-// placeholder editor (real per-entity editors land in Tasks 8-10 and will
-// replace the placeholder body below with DrinkEditor/ClassicEditor/etc.,
-// dropped in via the same `editing` state + EditorShell chrome).
+// placeholder editor (real per-entity editors land in Tasks 8-10). The
+// "drinks" (Авторские) tab now uses the real `DrinkEditor` (Task 8) — it's
+// self-contained (owns its own EditorShell), so it's mounted directly
+// instead of going through the placeholder's EditorShell wrapper below.
+// Every other tab still shows the placeholder until Task 9 lands.
 //
 // Row shape varies per entity (DrinkAdminOut/ClassicAdminOut/…, see
 // backend/app/schemas_admin.py) — not yet typed here since Task 7 only
@@ -40,6 +43,15 @@ const TABS: TabConfig[] = [
     columns: [
       { key: "name", label: "Название" },
       { key: "slug", label: "Слаг" },
+      {
+        key: "is_alcoholic",
+        label: "Алк/ZC",
+        render: (item) => {
+          const alc = item.is_alcoholic ? "алк" : "безалк"
+          const zc = item.is_zero_culture ? " · zero" : ""
+          return `${alc}${zc}`
+        },
+      },
       { key: "price_raw", label: "Цена" },
     ],
   },
@@ -219,7 +231,18 @@ export default function AdminPage() {
         />
       </div>
 
-      {editing && (
+      {editing && tab.id === "drinks" && (
+        <DrinkEditor
+          slug={editing.mode === "edit" ? getKey(editing.row) : null}
+          onSaved={() => {
+            setEditing(null)
+            void load(tab.entity)
+          }}
+          onClose={() => setEditing(null)}
+        />
+      )}
+
+      {editing && tab.id !== "drinks" && (
         <EditorShell
           title={editing.mode === "new" ? `Новый: ${tab.label}` : `Редактирование: ${tab.label}`}
           onClose={() => setEditing(null)}
