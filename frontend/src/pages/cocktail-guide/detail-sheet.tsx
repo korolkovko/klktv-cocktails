@@ -83,6 +83,39 @@ const GlassGarnish = ({ glass, garnish }: { glass?: string; garnish?: string }) 
     </div>
   ) : null
 
+/** Кофеин-метр (3 точки, закрашены до caffeineLevel) + индикатор газации —
+ *  §E.5, парность старому ZC-детейлу (frontend_v1_reference/src/components/
+ *  ZCSheet.jsx: CaffeineBar + `.zc-carbo`). Каждое поле — своя опциональная
+ *  секция (рендерится только если заполнено); алкогольный коктейль (оба поля
+ *  null) не показывает ничего. */
+const NonAlcIndicators = ({ caffeineLevel, isCarbonated }: { caffeineLevel: number | null; isCarbonated: boolean | null }) =>
+  caffeineLevel != null || isCarbonated != null ? (
+    <div className="grid grid-cols-2 gap-3">
+      {caffeineLevel != null && (
+        <div className="flex flex-col gap-1">
+          <Label>КОФЕИН</Label>
+          <div className="flex items-center gap-2">
+            <div className="flex gap-1">
+              {[1, 2, 3].map((n) => (
+                <span
+                  key={n}
+                  className={cn("h-2.5 w-2.5 rounded-full border border-border", n <= caffeineLevel ? "bg-foreground" : "bg-transparent")}
+                />
+              ))}
+            </div>
+            <span className="font-mono text-[11px] text-[#71717A]">{caffeineLevel}/3</span>
+          </div>
+        </div>
+      )}
+      {isCarbonated != null && (
+        <div className="flex flex-col gap-1">
+          <Label>ГАЗАЦИЯ</Label>
+          <span className="text-[13px]">{isCarbonated ? "◉ Газированный" : "◯ Без газа"}</span>
+        </div>
+      )}
+    </div>
+  ) : null
+
 /** Фото напитка/блюда 4:3 R16 INK-рамка — только если задано (нет фото → нет
  *  блока, без пустых плейсхолдеров юзеру, R25) */
 const Photo = ({ src, alt }: { src?: string; alt: string }) =>
@@ -323,6 +356,7 @@ export function CocktailDetail({ cocktail, open, onOpenChange, learned, onLearne
       </div>
       <Photo src={c.photo} alt={c.name} />
       <FlavorChips spirits={spirits} descriptors={c.descriptors} />
+      <NonAlcIndicators caffeineLevel={c.caffeineLevel} isCarbonated={c.isCarbonated} />
       <div className="border-t border-divider" />
       <Section title="СОСТАВ">{c.recipe}</Section>
       <GlassGarnish glass={c.glass} garnish={c.garnish} />
@@ -356,6 +390,7 @@ export function CocktailDetail({ cocktail, open, onOpenChange, learned, onLearne
         <FlavorChips spirits={spirits} descriptors={c.descriptors} />
       </div>
       <GlassGarnish glass={c.glass} garnish={c.garnish} />
+      <NonAlcIndicators caffeineLevel={c.caffeineLevel} isCarbonated={c.isCarbonated} />
       {c.photo && <Photo src={c.photo} alt={c.name} />}
       <div className="mt-auto">
         <LearnedToggle variant="cta" learned={learned} onChange={onLearnedChange} />
