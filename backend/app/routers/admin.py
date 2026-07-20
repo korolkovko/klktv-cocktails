@@ -27,6 +27,8 @@ router = APIRouter(prefix="/api/admin", tags=["admin"], dependencies=[Depends(re
 
 def _get_or_create_glass(db: Session, key: str) -> m.Glass:
     key = key.strip()
+    if not key:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Glass key must not be blank")
     obj = db.scalar(select(m.Glass).where(m.Glass.key == key))
     if not obj:
         obj = m.Glass(key=key, label=key.title())
@@ -36,6 +38,8 @@ def _get_or_create_glass(db: Session, key: str) -> m.Glass:
 
 def _get_or_create_badge(db: Session, key: str) -> m.Badge:
     key = key.strip()
+    if not key:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Badge key must not be blank")
     obj = db.scalar(select(m.Badge).where(m.Badge.key == key))
     if not obj:
         obj = m.Badge(key=key, label=key.title())
@@ -45,6 +49,8 @@ def _get_or_create_badge(db: Session, key: str) -> m.Badge:
 
 def _get_or_create_spirit(db: Session, key: str) -> m.Spirit:
     key = key.strip()
+    if not key:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Spirit key must not be blank")
     obj = db.scalar(select(m.Spirit).where(m.Spirit.key == key))
     if not obj:
         obj = m.Spirit(key=key, label=key.title())
@@ -54,6 +60,8 @@ def _get_or_create_spirit(db: Session, key: str) -> m.Spirit:
 
 def _get_or_create_tag(db: Session, key: str) -> m.Tag:
     key = key.strip()
+    if not key:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Tag key must not be blank")
     obj = db.scalar(select(m.Tag).where(m.Tag.key == key))
     if not obj:
         obj = m.Tag(key=key, label=key.title())
@@ -63,6 +71,8 @@ def _get_or_create_tag(db: Session, key: str) -> m.Tag:
 
 def _get_or_create_flavor(db: Session, label: str) -> m.Flavor:
     label = label.strip()
+    if not label:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Flavor label must not be blank")
     obj = db.scalar(select(m.Flavor).where(m.Flavor.label == label))
     if not obj:
         obj = m.Flavor(label=label)
@@ -72,6 +82,8 @@ def _get_or_create_flavor(db: Session, label: str) -> m.Flavor:
 
 def _get_or_create_descriptor(db: Session, label: str) -> m.Descriptor:
     label = label.strip()
+    if not label:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Descriptor label must not be blank")
     obj = db.scalar(select(m.Descriptor).where(m.Descriptor.label == label))
     if not obj:
         obj = m.Descriptor(label=label)

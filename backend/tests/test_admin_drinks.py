@@ -34,3 +34,33 @@ def test_create_drink_duplicate_slug_conflicts(editor_client):
 
 def test_drinks_require_editor(reader_client):
     assert reader_client.get("/api/admin/drinks").status_code == 403
+
+
+def test_blank_tag_key_rejected_and_not_persisted(editor_client):
+    from app.database import SessionLocal
+    from app.models import Tag, Flavor
+
+    payload = {
+        "slug": "test-blank-tag", "name": "Blank Tag Test",
+        "is_alcoholic": True, "is_zero_culture": False,
+        "tags": ["   "],
+    }
+    try:
+        r = editor_client.post("/api/admin/drinks", json=payload)
+        assert r.status_code == 400, r.text
+        assert editor_client.get("/api/admin/drinks/test-blank-tag").status_code == 404
+
+        # Same guard applies on PATCH against an existing drink, and blank
+        # flavors must be rejected too — neither should leave a row behind.
+        p = {**payload, "tags": ["gin"]}
+        assert editor_client.post("/api/admin/drinks", json=p).status_code == 201
+        r = editor_client.patch(
+            "/api/admin/drinks/test-blank-tag",
+            json={**p, "flavors": ["  "]},
+        )
+        assert r.status_code == 400, r.text
+    finally:
+        editor_client.delete("/api/admin/drinks/test-blank-tag")
+        with SessionLocal() as db:
+            assert db.query(Tag).filter_by(key="").first() is None
+            assert db.query(Flavor).filter_by(label="").first() is None

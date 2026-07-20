@@ -15,14 +15,14 @@ class DrinkDetailIn(BaseModel):
 
 
 class DrinkWriteIn(BaseModel):
-    slug: str = Field(min_length=1, max_length=128)
-    name: str
-    img: str | None = None
-    photo: str | None = None
-    subtitle: str | None = None
-    abv_raw: str | None = None
-    price_raw: str | None = None
-    price_currency: str = "₽"
+    slug: str = Field(min_length=1, max_length=64)
+    name: str = Field(max_length=128)
+    img: str | None = Field(default=None, max_length=256)
+    photo: str | None = Field(default=None, max_length=256)
+    subtitle: str | None = None     # drinks.subtitle is Text — unbounded, no cap
+    abv_raw: str | None = Field(default=None, max_length=32)
+    price_raw: str | None = Field(default=None, max_length=64)
+    price_currency: str = Field(default="₽", max_length=8)
     volume_ml: int | None = None
     glass: str | None = None        # glass key (get-or-create)
     badge: str | None = None        # badge key (get-or-create)
