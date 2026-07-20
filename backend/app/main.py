@@ -12,7 +12,7 @@ load_dotenv()
 
 from app.config import CORS_ORIGINS, DEBUG  # noqa: E402
 from app.database import SessionLocal  # noqa: E402
-from app.routers import auth, content, me, team  # noqa: E402
+from app.routers import auth, content, me, team, uploads  # noqa: E402
 
 UPLOAD_DIR = Path(os.environ.get("UPLOAD_DIR", "/app/uploads"))
 
@@ -43,6 +43,7 @@ app.include_router(auth.router)
 app.include_router(content.router)
 app.include_router(me.router)
 app.include_router(team.router)
+app.include_router(uploads.router)
 
 # Serve uploaded images at /static/img/<filename>
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
