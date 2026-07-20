@@ -12,7 +12,7 @@ load_dotenv()
 
 from app.config import CORS_ORIGINS, DEBUG  # noqa: E402
 from app.database import SessionLocal  # noqa: E402
-from app.routers import admin, auth, content, me, team, uploads  # noqa: E402
+from app.routers import admin, admin_users, auth, content, me, team, uploads  # noqa: E402
 
 UPLOAD_DIR = Path(os.environ.get("UPLOAD_DIR", "/app/uploads"))
 
@@ -40,6 +40,7 @@ app.add_middleware(
 )
 
 app.include_router(admin.router)
+app.include_router(admin_users.router)
 app.include_router(auth.router)
 app.include_router(content.router)
 app.include_router(me.router)

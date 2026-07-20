@@ -151,3 +151,43 @@ class KitchenDishAdminOut(KitchenDishWriteIn):
     timing_min_low: int | None = None
     timing_min_high: int | None = None
     weight_g: int | None = None
+
+
+# ── Families ─────────────────────────────────────────────────
+
+class FamilyWriteIn(BaseModel):
+    key: str = Field(min_length=1, max_length=32)
+    label: str = Field(max_length=64)
+    sub: str | None = Field(default=None, max_length=128)
+    color: str | None = Field(default=None, max_length=16)
+    logic: str | None = None       # families.logic is Text — unbounded, no cap
+    evolution: str | None = None   # Text
+    tip: str | None = None         # Text
+    sort_order: int = 0
+
+
+class FamilyAdminOut(FamilyWriteIn):
+    id: int
+
+
+# ── Categories / sections ─────────────────────────────────────
+# Fixed set (seeded via migration) — no create/delete here, just
+# relabel/show-hide/reorder from the admin "Разделы" tab.
+
+class CategoryAdminOut(BaseModel):
+    id: int
+    key: str
+    label: str
+    kind: str
+    sort_order: int
+    is_visible: bool
+
+
+class CategoryPatchIn(BaseModel):
+    label: str | None = Field(default=None, max_length=64)
+    is_visible: bool | None = None
+    sort_order: int | None = None
+
+
+class CategoryReorderIn(BaseModel):
+    keys: list[str]

@@ -28,6 +28,7 @@ class UserOut(BaseModel):
     name: str | None
     role: str
     created_at: datetime
+    last_seen_at: datetime | None = None  # read-only; set only by get_current_user's throttled touch
 
     model_config = ConfigDict(from_attributes=True)
 

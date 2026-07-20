@@ -19,6 +19,8 @@ from app.schemas_admin import (
     DrinkAdminOut, DrinkWriteIn, ClassicAdminOut, ClassicWriteIn,
     SpiritCategoryAdminOut, SpiritCategoryWriteIn, SpiritEntryAdminOut, SpiritEntryWriteIn,
     KitchenCategoryAdminOut, KitchenCategoryWriteIn, KitchenDishAdminOut, KitchenDishWriteIn,
+    FamilyAdminOut, FamilyWriteIn,
+    CategoryAdminOut, CategoryPatchIn, CategoryReorderIn,
 )
 
 # migration.parsers are pure functions (no I/O) — safe to import into the app.
@@ -720,3 +722,130 @@ def delete_kitchen_dish(slug: str, db: Session = Depends(get_db)):
     ).delete(synchronize_session=False)
     db.delete(obj)
     db.commit()
+
+
+# ── Families ──────────────────────────────────────────────
+# No M:N relations (unlike drinks/classics) — a flat CRUD, natural key `key`.
+# Deletion is blocked while classics still reference the family (its FK is
+# ondelete=RESTRICT and non-nullable), mirroring the spirit/kitchen category
+# delete guards above.
+
+def _to_family_admin_out(obj: m.Family) -> FamilyAdminOut:
+    return FamilyAdminOut(
+        id=obj.id, key=obj.key, label=obj.label, sub=obj.sub, color=obj.color,
+        logic=obj.logic, evolution=obj.evolution, tip=obj.tip, sort_order=obj.sort_order,
+    )
+
+
+def _apply_family(obj: m.Family, data: FamilyWriteIn) -> None:
+    obj.label = data.label; obj.sub = data.sub; obj.color = data.color
+    obj.logic = data.logic; obj.evolution = data.evolution; obj.tip = data.tip
+    obj.sort_order = data.sort_order
+
+
+def _get_family_or_404(db: Session, key: str) -> m.Family:
+    obj = db.scalar(select(m.Family).where(m.Family.key == key))
+    if not obj:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Family not found")
+    return obj
+
+
+@router.get("/families", response_model=list[FamilyAdminOut])
+def list_families(db: Session = Depends(get_db)):
+    rows = db.scalars(select(m.Family).order_by(m.Family.sort_order, m.Family.label)).all()
+    return [_to_family_admin_out(f) for f in rows]
+
+
+@router.get("/families/{key}", response_model=FamilyAdminOut)
+def get_family(key: str, db: Session = Depends(get_db)):
+    return _to_family_admin_out(_get_family_or_404(db, key))
+
+
+@router.post("/families", status_code=status.HTTP_201_CREATED, response_model=FamilyAdminOut)
+def create_family(data: FamilyWriteIn, db: Session = Depends(get_db)):
+    if db.scalar(select(m.Family).where(m.Family.key == data.key)):
+        raise HTTPException(status.HTTP_409_CONFLICT, detail="Family with this key already exists")
+    obj = m.Family(key=data.key)
+    db.add(obj)
+    _apply_family(obj, data)
+    db.commit()
+    return _to_family_admin_out(_get_family_or_404(db, obj.key))
+
+
+@router.patch("/families/{key}", response_model=FamilyAdminOut)
+def update_family(key: str, data: FamilyWriteIn, db: Session = Depends(get_db)):
+    obj = _get_family_or_404(db, key)
+    if data.key != key and db.scalar(select(m.Family).where(m.Family.key == data.key)):
+        raise HTTPException(status.HTTP_409_CONFLICT, detail="New key already in use")
+    obj.key = data.key
+    _apply_family(obj, data)
+    db.commit()
+    return _to_family_admin_out(_get_family_or_404(db, obj.key))
+
+
+@router.delete("/families/{key}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_family(key: str, db: Session = Depends(get_db)):
+    obj = _get_family_or_404(db, key)
+    classic_count = db.scalar(
+        select(func.count()).select_from(m.Classic).where(m.Classic.family_id == obj.id)
+    )
+    if classic_count:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail=f"Family '{key}' still has {classic_count} classic"
+                   f"{'' if classic_count == 1 else 's'} — move or delete them first",
+        )
+    db.delete(obj)
+    db.commit()
+
+
+# ── Categories / sections ─────────────────────────────────
+# Fixed set seeded by the migration (menu|classics|spirits|kitchen sections) —
+# no create/delete, just relabel/show-hide/reorder from the "Разделы" tab.
+
+def _to_category_admin_out(obj: m.Category) -> CategoryAdminOut:
+    return CategoryAdminOut(
+        id=obj.id, key=obj.key, label=obj.label, kind=obj.kind,
+        sort_order=obj.sort_order, is_visible=obj.is_visible,
+    )
+
+
+def _get_category_or_404(db: Session, key: str) -> m.Category:
+    obj = db.scalar(select(m.Category).where(m.Category.key == key))
+    if not obj:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Category not found")
+    return obj
+
+
+@router.get("/categories", response_model=list[CategoryAdminOut])
+def list_categories(db: Session = Depends(get_db)):
+    rows = db.scalars(select(m.Category).order_by(m.Category.sort_order, m.Category.label)).all()
+    return [_to_category_admin_out(c) for c in rows]
+
+
+@router.patch("/categories/{key}", response_model=CategoryAdminOut)
+def update_category(key: str, data: CategoryPatchIn, db: Session = Depends(get_db)):
+    obj = _get_category_or_404(db, key)
+    if data.label is not None:
+        obj.label = data.label
+    if data.is_visible is not None:
+        obj.is_visible = data.is_visible
+    if data.sort_order is not None:
+        obj.sort_order = data.sort_order
+    db.commit()
+    return _to_category_admin_out(obj)
+
+
+@router.post("/categories/reorder", response_model=list[CategoryAdminOut])
+def reorder_categories(data: CategoryReorderIn, db: Session = Depends(get_db)):
+    rows = {c.key: c for c in db.scalars(select(m.Category)).all()}
+    unknown = [key for key in data.keys if key not in rows]
+    if unknown:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=f"unknown category keys: {', '.join(unknown)}")
+    for i, key in enumerate(data.keys):
+        rows[key].sort_order = i
+    db.commit()
+    return [
+        _to_category_admin_out(c)
+        for c in db.scalars(select(m.Category).order_by(m.Category.sort_order, m.Category.label)).all()
+    ]

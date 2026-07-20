@@ -33,6 +33,8 @@ EDITOR_USER = "smoke_editor"
 EDITOR_PASS = "editor-pass-12345"
 READER_USER = "smoke_reader2"
 READER_PASS = "reader-pass-12345"
+ADMIN_USER = "smoke_admin"
+ADMIN_PASS = "admin-pass-12345"
 
 
 def _get_or_create_user(username: str, password: str, role: str, name: str) -> bool:
@@ -104,6 +106,14 @@ def _reader_user():
         _delete_user(READER_USER)
 
 
+@pytest.fixture(autouse=True, scope="session")
+def _admin_user():
+    created = _get_or_create_user(ADMIN_USER, ADMIN_PASS, "admin", "Smoke Admin")
+    yield
+    if created:
+        _delete_user(ADMIN_USER)
+
+
 def login_client(client, username: str = SMOKE_USER, password: str = SMOKE_PASS):
     r = client.post("/api/auth/login", json={"username": username, "password": password})
     assert r.status_code == 200, r.text
@@ -122,3 +132,10 @@ def reader_client():
     """TestClient authenticated as a `reader`-role user."""
     with TestClient(app) as client:
         yield login_client(client, READER_USER, READER_PASS)
+
+
+@pytest.fixture
+def admin_client():
+    """TestClient authenticated as an `admin`-role user."""
+    with TestClient(app) as client:
+        yield login_client(client, ADMIN_USER, ADMIN_PASS)
