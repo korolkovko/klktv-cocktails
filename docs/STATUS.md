@@ -17,9 +17,16 @@ Rebuild of the bar's closed (login-only) drinks & food guide. Old prod is live a
 - **Images** (commit `5a9b90c`): added `resolveImageUrl` (`frontend/src/lib/img.ts`; `/static/*`→backend origin, `/logos/*` & http as-is). Restored 24 drink logos from git (`main:frontend/public/logos` → `frontend/public/logos`). Downloaded 27 kitchen `/static/img` photos from `https://cocktails.klktv.tech/static/img/<f>` (public) into local `/tmp/klktv-uploads` — **EPHEMERAL**; permanent home = the deferred media-unification. Spirits & cocktail-photos have no images by design.
 - **Missing cocktail detail** (commit `fa61c1d`): author-drink prose (О коктейле/Отсылки/Про название/Про этикетку/…) lived ONLY in `drink_details` (45 rows / 25 drinks); structured `about`/`naming`/`recipe` columns are empty. Backend now serializes `DrinkOut.details`; detail-sheet renders each block as a section. Meta/card no longer show "0 ₽ · 0 МЛ" (author drinks have no price/volume in prod).
 
-## NEXT TASK (after compact) — FULL DATA-PARITY AUDIT
+## DONE (2026-07-20 session) — DATA-PARITY AUDIT + TEAM VIEW + BUG FIXES (commit `7431913`)
 
-Owner's explicit next step: prove **nothing** was lost old→new. Field-by-field compare **SRC prod DB + what the old frontend rendered** (`docs/audit/details/frontend-inventory.md`) vs **new DEST DB + `/api/content` + what the kit UI shows**, for every content type + lookups + progress + users + timeline. The `drink_details` miss proves silent losses exist — hunt for more (dropped columns, unmapped fields, content stranded in `*_raw`/detail tables, format/rounding losses, anything the old UI showed that the new one doesn't). Good fit for parallel comparison subagents (one per content type) → discrepancy list → fix each. Prod DB is READ-ONLY.
+- **Full data-parity audit** (5 parallel domain auditors) — reports in `docs/audit/parity/` (+ `SUMMARY.md`). Row-integrity clean; all losses were serialization/rendering. **All 8 HIGH findings fixed** and the ETL was re-run to DEST (DrinkSpirit populated, deterministic merged menu order). Key fixes: empty Авторские spirit filter (DrinkSpirit from spirit tags), false "0% ABV", spirit price + per-100g kcal now served, dish "0 ₽/0 МИН" omitted, classics search matches descriptors+origin, kitchen/dish order tiebreak. Deferred MED/LOW items are listed in `SUMMARY.md` (families.color, badge "250ml", subtitle fallback, etc.) — documented, not silent.
+- **Team progress view — visible to EVERYONE** (was kit-scoped admin; owner's request). New `GET /api/team` aggregate endpoint (auth-only) + `frontend/src/data/team.ts` adapter + `TeamView` wired to real data (4 v2 sections) + new "Команда" tab. Owner chose the full kit dashboard (incl. red "отстают <30%").
+- **Spirit-card bugs:** SourceLink double-protocol href + long-URL overflow fixed. Photo resilience verified (spirit bottle + cocktail photo render without breaking; live end-to-end smoke test).
+- Backend 39 tests + frontend 10 tests green. **Note:** ETL verify.py asserts DEST progress count == prod's; it now trips on the +1 dev-test row (v2tester) — expected, not a data issue.
+
+## NEXT TASK — media unification, then Phase 2
+
+The parity audit is done. Remaining, in order: (1) **media unification** (see below — owner wants all media stored the same way; kitchen photos still only in `/tmp`), (2) the deferred MED/LOW parity items in `docs/audit/parity/SUMMARY.md` if the owner wants them, (3) **Phase 2** (admin/uploads/user-mgmt on the kit, then final ETL + cutover).
 
 ## Deferred / operational
 
