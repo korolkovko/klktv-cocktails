@@ -174,8 +174,15 @@ def load(src_url, dest_url):
                 if row["key"] in ("zero", "zc"):
                     continue
                 s.merge(m.Category(**{k: row[k] for k in ("id", "key", "label", "kind", "sort_order", "is_visible")}))
+            # last_login_at is a v2-only column (prod has no login history), so a
+            # plain merge from source would null it out on every re-run — preserve
+            # whatever DEST already recorded.
+            existing_logins = {u.id: u.last_login_at for u in s.query(m.User).all()}
             for row in src["users"]:
-                s.merge(m.User(**{k: row[k] for k in ("id", "username", "password_hash", "role", "name", "created_at")}))
+                s.merge(m.User(
+                    **{k: row[k] for k in ("id", "username", "password_hash", "role", "name", "created_at")},
+                    last_login_at=existing_logins.get(row["id"]),
+                ))
             for row in src["spirit_categories"]:
                 s.merge(m.SpiritCategory(**{k: row[k] for k in ("id", "slug", "label", "sort_order", "is_archived")}))
             for row in src["kitchen_categories"]:

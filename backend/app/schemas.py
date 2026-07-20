@@ -28,6 +28,7 @@ class TeamMemberOut(BaseModel):
     role: str
     learned: dict[str, int]
     lastActiveAt: datetime | None = None
+    lastLoginAt: datetime | None = None
 
 
 class TeamOut(BaseModel):

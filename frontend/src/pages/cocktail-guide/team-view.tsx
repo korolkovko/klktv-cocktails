@@ -118,8 +118,8 @@ const SECTION_COLS: { key: keyof Staff["sections"]; label: string }[] = [
   { key: "kitchen", label: "КУХНЯ" },
 ]
 
-// staff 1fr · overall 200 · 4 раздела · активность 110
-const GRID = "1fr 200px 84px 84px 72px 72px 110px"
+// staff 1fr · overall 176 · 4 раздела · посл.вход 96 · активность 96
+const GRID = "1fr 176px 76px 76px 66px 66px 96px 96px"
 
 // R27.1: подстроки-списки имён капятся до 2 + «+N» (масштаб на 12 человек;
 // чип НЕ переносится). all → спец-слово (ВСЯ КОМАНДА ✓), пусто → emptyWord.
@@ -173,14 +173,16 @@ export function TeamView() {
         />
       </div>
 
-      {/* desktop-таблица */}
-      <div className="overflow-hidden rounded-[10px] border border-border bg-card max-md:hidden">
+      {/* desktop-таблица (overflow-x-auto: 2 колонки времени делают её широкой) */}
+      <div className="overflow-x-auto rounded-[10px] border border-border bg-card max-md:hidden">
+       <div className="min-w-[900px]">
         <div className="grid items-center gap-x-2 bg-primary px-3.5 py-2 font-mono text-[10px] tracking-[0.06em] text-primary-foreground" style={{ gridTemplateColumns: GRID }}>
           <span>STAFF</span>
           <span>OVERALL ▲</span>
           {SECTION_COLS.map((c) => (
             <span key={c.key} className="text-right">{c.label}</span>
           ))}
+          <span className="text-right">ПОСЛ. ВХОД</span>
           <span className="text-right">АКТИВНОСТЬ</span>
         </div>
         {rows.map((s) => (
@@ -204,6 +206,9 @@ export function TeamView() {
                 </span>
               )
             })}
+            <span className={cn("text-right font-mono text-[11px]", s.lastLoginAlarm ? "text-[#A1A1AA]" : "text-[#71717A]")}>
+              {s.lastLogin}
+            </span>
             <span className={cn("text-right font-mono text-[11px]", s.activityAlarm ? "font-bold text-loss-foreground" : "text-[#71717A]")}>
               {s.activity}
             </span>
@@ -216,10 +221,12 @@ export function TeamView() {
             <span key={c.key} className="text-right font-mono text-[12px]">{avgSections[c.key]}</span>
           ))}
           <span />
+          <span />
         </div>
+       </div>
       </div>
       <div className="font-mono text-[10px] text-[#A1A1AA] max-md:hidden">
-        ЗНАЧЕНИЯ КОЛОНОК — % РАЗДЕЛА · АКТИВНОСТЬ — ПО ПОСЛЕДНЕЙ ОТМЕТКЕ «ЗНАЮ»
+        КОЛОНКИ РАЗДЕЛОВ — % · ПОСЛ. ВХОД — ПО ЛОГИНУ · АКТИВНОСТЬ — ПО ПОСЛЕДНЕЙ ОТМЕТКЕ «ЗНАЮ»
       </div>
 
       {/* mobile-карточки */}
@@ -239,11 +246,21 @@ export function TeamView() {
             <span className="h-[5px] overflow-hidden rounded-full border border-border bg-card">
               <span className={cn("block h-full", weak(s.overall) ? "" : "rounded-r-[1px] border-r border-border", barFill(s.overall))} style={{ width: `${s.overall}%` }} />
             </span>
-            <div className="flex justify-between font-mono text-[9px]">
+            <div className="font-mono text-[9px]">
               <span className={cn(weak(s.overall) ? "font-bold text-loss-foreground" : "text-[#71717A]")}>
                 {s.weak ? `СЛАБОЕ: ${s.weak}` : s.strongNote}
               </span>
-              <span className={cn(s.activityAlarm ? "font-bold text-loss-foreground" : "text-[#A1A1AA]")}>{s.lastSeen}</span>
+            </div>
+            {/* обе метрики видны на мобиле: последний вход + последняя активность */}
+            <div className="grid grid-cols-2 gap-2 border-t border-divider pt-2">
+              <span className="flex flex-col gap-0.5">
+                <span className="font-mono text-[8px] tracking-[0.06em] text-[#A1A1AA]">ПОСЛ. ВХОД</span>
+                <span className="font-mono text-[10px] text-foreground">{s.lastLoginLong}</span>
+              </span>
+              <span className="flex flex-col gap-0.5 text-right">
+                <span className="font-mono text-[8px] tracking-[0.06em] text-[#A1A1AA]">АКТИВНОСТЬ</span>
+                <span className={cn("font-mono text-[10px]", s.activityAlarm ? "font-bold text-loss-foreground" : "text-foreground")}>{s.lastSeen}</span>
+              </span>
             </div>
           </div>
         ))}

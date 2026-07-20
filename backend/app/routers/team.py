@@ -57,6 +57,7 @@ def get_team(db: Session = Depends(get_db)):
             role=u.role,
             learned={k: by_user.get(u.id, {}).get(k, 0) for k in KINDS},
             lastActiveAt=last_active.get(u.id),
+            lastLoginAt=u.last_login_at,
         )
         for u in users
     ]

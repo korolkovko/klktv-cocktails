@@ -15,6 +15,7 @@ interface TeamMemberOut {
   role: string
   learned: Record<string, number>
   lastActiveAt: string | null
+  lastLoginAt: string | null
 }
 interface TeamOut {
   totals: Record<string, number>
@@ -38,14 +39,15 @@ function initialsOf(name: string): string {
   return name.trim().slice(0, 2).toUpperCase()
 }
 
-/** relative activity from an ISO timestamp (or null = never learned anything).
- *  `now` is passed in so the whole adapter shares one clock. */
-function activityOf(iso: string | null, now: number): { activity: string; lastSeen: string; alarm: boolean; days: number | null } {
-  if (!iso) return { activity: "—", lastSeen: "НЕ НАЧАЛ", alarm: true, days: null }
+/** relative time from an ISO timestamp (or null). `nullLong` = label shown when
+ *  there's no timestamp. `now` is passed in so the whole adapter shares one clock.
+ *  Used for both last-activity (last «знаю») and last-login. */
+function relTime(iso: string | null, now: number, nullLong: string): { short: string; long: string; alarm: boolean } {
+  if (!iso) return { short: "—", long: nullLong, alarm: true }
   const days = Math.max(0, Math.floor((now - new Date(iso).getTime()) / 86_400_000))
-  if (days === 0) return { activity: "СЕГОДНЯ", lastSeen: "СЕГОДНЯ", alarm: false, days }
-  if (days === 1) return { activity: "ВЧЕРА", lastSeen: "ВЧЕРА", alarm: false, days }
-  return { activity: `${days} ДН`, lastSeen: `${days} ДН НАЗАД`, alarm: days > 7, days }
+  if (days === 0) return { short: "СЕГОДНЯ", long: "СЕГОДНЯ", alarm: false }
+  if (days === 1) return { short: "ВЧЕРА", long: "ВЧЕРА", alarm: false }
+  return { short: `${days} ДН`, long: `${days} ДН НАЗАД`, alarm: days > 7 }
 }
 
 export function adaptTeam(out: TeamOut, now: number): TeamData {
@@ -58,7 +60,8 @@ export function adaptTeam(out: TeamOut, now: number): TeamData {
     ) as Record<TeamKind, number>
     const learnedTotal = KINDS.reduce((sum, k) => sum + (m.learned[k] ?? 0), 0)
     const overall = pct(learnedTotal, positions)
-    const act = activityOf(m.lastActiveAt, now)
+    const learn = relTime(m.lastActiveAt, now, "НЕ ОТМЕЧАЛ") // последняя отметка «знаю»
+    const login = relTime(m.lastLoginAt, now, "НЕ ВХОДИЛ")   // последний вход
     const name = m.name?.trim() || m.username
     // слабейший раздел (mobile-карточка); всё на 100% → strongNote вместо weak
     const minKind = KINDS.reduce((lo, k) => (sections[k] < sections[lo] ? k : lo), KINDS[0])
@@ -69,9 +72,12 @@ export function adaptTeam(out: TeamOut, now: number): TeamData {
       role: ROLE_RU[m.role] ?? m.role.toUpperCase(),
       overall,
       sections,
-      activity: act.activity,
-      lastSeen: act.lastSeen,
-      activityAlarm: act.alarm,
+      activity: learn.short,
+      lastSeen: learn.long,
+      activityAlarm: learn.alarm,
+      lastLogin: login.short,
+      lastLoginLong: login.long,
+      lastLoginAlarm: login.alarm,
       weak: allDone ? undefined : `${SECTION_LABEL[minKind]} ${sections[minKind]}%`,
       strongNote: allDone ? "ВСЁ ВЫУЧЕНО ✓" : undefined,
       admin: m.role === "admin",

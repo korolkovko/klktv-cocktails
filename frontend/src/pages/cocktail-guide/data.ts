@@ -201,11 +201,16 @@ export interface Staff {
   role: string
   overall: number
   sections: Record<TeamKind, number>
-  /** короткая — desktop-колонка АКТИВНОСТЬ («СЕГОДНЯ» / «12 ДН») */
+  /** ПОСЛЕДНЯЯ АКТИВНОСТЬ — по последней отметке «знаю» (max learned_at).
+   *  activity — короткая (desktop-колонка «АКТИВНОСТЬ»), lastSeen — полная. */
   activity: string
-  /** полная строка — mobile-карточка («БЫЛ СЕГОДНЯ» / «БЫЛ 12 ДН НАЗАД») */
   lastSeen: string
   activityAlarm?: boolean
+  /** ПОСЛЕДНИЙ ВХОД — по last_login_at (пишется при логине). lastLogin —
+   *  короткая (desktop-колонка «ПОСЛ. ВХОД»), lastLoginLong — полная (mobile). */
+  lastLogin: string
+  lastLoginLong: string
+  lastLoginAlarm?: boolean
   /** слабейший раздел (mobile-карточка) */
   weak?: string
   strongNote?: string
