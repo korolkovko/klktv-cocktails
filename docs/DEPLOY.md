@@ -30,6 +30,20 @@ name the exact frontend origin. Images are served by the backend from the volume
 
 ---
 
+## Part 0 — push the `v2` branch 🖐
+
+All v2 work lives on the **local `v2` branch** (70+ commits ahead of `main`); GitHub only has
+`main`, so `v2` must be pushed before Railway can deploy it.
+
+```
+git push -u origin v2
+```
+Then, when creating each Railway service (Parts A/B), set its deploy **branch = `v2`** (not `main`)
+and the root directory (`backend/` / `frontend/`). Railway auto-redeploys on pushes to `v2`.
+
+Note: `v2` shares `main`'s history, which already contains the old plaintext-password commits (also
+already in `origin/main`) — pushing `v2` exposes nothing new, but see Part G for purging them.
+
 ## Part A — Backend service 🖐
 
 1. New Railway service → **Deploy from repo**, root directory `backend/` (builder = Dockerfile, auto-detected from `railway.json`).
