@@ -1,7 +1,7 @@
 import * as React from "react"
 
 import { adminApi } from "../api"
-import { CheckboxField, NumberField, TextArea, TextField } from "../components/FormFields"
+import { CheckboxField, NumberField, SelectField, TextArea, TextField } from "../components/FormFields"
 import { ImageUploadField } from "../components/ImageUploadField"
 import { RelationTags } from "../components/RelationTags"
 import { EditorShell } from "../components/EditorShell"
@@ -18,13 +18,13 @@ import { EditorShell } from "../components/EditorShell"
 // Field shapes mirror backend/app/schemas_admin.py's `DrinkWriteIn` /
 // `DrinkAdminOut` one-for-one (kept local since there's no shared
 // frontend/backend type package yet).
-interface DrinkDetailIn {
+export interface DrinkDetailIn {
   label: string
   text: string
   sort_order: number
 }
 
-interface DrinkWriteIn {
+export interface DrinkWriteIn {
   slug: string
   name: string
   img: string | null
@@ -32,9 +32,7 @@ interface DrinkWriteIn {
   subtitle: string | null
   abv_raw: string | null
   price_raw: string | null
-  // price_currency intentionally omitted here — hidden/optional field,
-  // default "₽" (see task-8 brief). Not exposed in the UI, so never sent;
-  // the backend's Pydantic default applies on every create/update.
+  price_currency: string
   volume_ml: number | null
   glass: string | null
   badge: string | null
@@ -55,10 +53,28 @@ interface DrinkWriteIn {
   details: DrinkDetailIn[]
 }
 
-interface DrinkAdminOut extends DrinkWriteIn {
+export interface DrinkAdminOut extends DrinkWriteIn {
   id: number
   abv: number | null
   price_amount: number | null
+}
+
+// is_carbonated is tri-state in the DB: NULL for every alcoholic-origin
+// drink (meaningless there — the guest detail sheet hides the pill
+// entirely), and true/false only for zero-culture drinks ("Газированный" /
+// "Без газа"). A plain checkbox can't represent "unset", so this maps the
+// null/true/false space onto three explicit option keys; "unknown" round
+// -trips back to `null`, never to `false` (see task-8 review Fix 1).
+const CARBONATED_OPTIONS: { value: string; label: string }[] = [
+  { value: "unknown", label: "— / не указано" },
+  { value: "true", label: "Газированный" },
+  { value: "false", label: "Без газа" },
+]
+function carbonatedToOption(v: boolean | null): string {
+  return v === null ? "unknown" : v ? "true" : "false"
+}
+function optionToCarbonated(v: string): boolean | null {
+  return v === "unknown" ? null : v === "true"
 }
 
 // Free-text RelationTags fields still get-or-create on the backend for any
@@ -85,6 +101,7 @@ interface DrinkForm {
   subtitle: string
   abv_raw: string
   price_raw: string
+  price_currency: string
   volume_ml: number | null
   glass: string
   badge: string
@@ -92,7 +109,10 @@ interface DrinkForm {
   is_alcoholic: boolean
   is_zero_culture: boolean
   caffeine_level: number | null
-  is_carbonated: boolean
+  // Tri-state: null = "не указано" (the case for every alcoholic-origin
+  // drink), true/false only meaningful for zero-culture drinks. Must be
+  // preserved as null through load/save — see task-8 review fix (Fix 1).
+  is_carbonated: boolean | null
   recipe: string
   garnish: string
   pitch: string
@@ -113,6 +133,7 @@ const BLANK_FORM: DrinkForm = {
   subtitle: "",
   abv_raw: "",
   price_raw: "",
+  price_currency: "₽",
   volume_ml: null,
   glass: "",
   badge: "",
@@ -120,7 +141,7 @@ const BLANK_FORM: DrinkForm = {
   is_alcoholic: true,
   is_zero_culture: false,
   caffeine_level: null,
-  is_carbonated: false,
+  is_carbonated: null,
   recipe: "",
   garnish: "",
   pitch: "",
@@ -133,7 +154,10 @@ const BLANK_FORM: DrinkForm = {
   details: [],
 }
 
-function fromAdminOut(row: DrinkAdminOut): DrinkForm {
+// Exported (alongside the tri-state helpers above) so DrinkEditor.test.tsx
+// can assert the load->save null round-trip directly, without needing a
+// jsdom/@testing-library harness this project doesn't have yet.
+export function fromAdminOut(row: DrinkAdminOut): DrinkForm {
   return {
     slug: row.slug,
     name: row.name,
@@ -142,6 +166,7 @@ function fromAdminOut(row: DrinkAdminOut): DrinkForm {
     subtitle: row.subtitle ?? "",
     abv_raw: row.abv_raw ?? "",
     price_raw: row.price_raw ?? "",
+    price_currency: row.price_currency,
     volume_ml: row.volume_ml,
     glass: row.glass ?? "",
     badge: row.badge ?? "",
@@ -149,7 +174,8 @@ function fromAdminOut(row: DrinkAdminOut): DrinkForm {
     is_alcoholic: row.is_alcoholic,
     is_zero_culture: row.is_zero_culture,
     caffeine_level: row.caffeine_level,
-    is_carbonated: row.is_carbonated ?? false,
+    // Preserve null as-is — do NOT collapse to false (see Fix 1 above).
+    is_carbonated: row.is_carbonated,
     recipe: row.recipe ?? "",
     garnish: row.garnish ?? "",
     pitch: row.pitch ?? "",
@@ -163,7 +189,7 @@ function fromAdminOut(row: DrinkAdminOut): DrinkForm {
   }
 }
 
-function toWriteIn(form: DrinkForm): DrinkWriteIn {
+export function toWriteIn(form: DrinkForm): DrinkWriteIn {
   return {
     slug: form.slug.trim(),
     name: form.name.trim(),
@@ -172,6 +198,7 @@ function toWriteIn(form: DrinkForm): DrinkWriteIn {
     subtitle: form.subtitle.trim() || null,
     abv_raw: form.abv_raw.trim() || null,
     price_raw: form.price_raw.trim() || null,
+    price_currency: form.price_currency.trim() || "₽",
     volume_ml: form.volume_ml,
     glass: form.glass.trim() || null,
     badge: form.badge.trim() || null,
@@ -380,18 +407,26 @@ export function DrinkEditor({
               maxLength={32}
               hint={parsed && parsed.abv !== null ? `Распознано: ${parsed.abv}% ABV` : undefined}
             />
-            <TextField
-              label="Цена (как в меню)"
-              value={form.price_raw}
-              onChange={(v) => set("price_raw", v)}
-              placeholder="напр. 450 ₽"
-              maxLength={64}
-              hint={
-                parsed && parsed.price_amount !== null
-                  ? `Распознано: ${parsed.price_amount}`
-                  : undefined
-              }
-            />
+            <div className="grid grid-cols-[1fr_5rem] gap-2">
+              <TextField
+                label="Цена (как в меню)"
+                value={form.price_raw}
+                onChange={(v) => set("price_raw", v)}
+                placeholder="напр. 450 ₽"
+                maxLength={64}
+                hint={
+                  parsed && parsed.price_amount !== null
+                    ? `Распознано: ${parsed.price_amount}`
+                    : undefined
+                }
+              />
+              <TextField
+                label="Валюта"
+                value={form.price_currency}
+                onChange={(v) => set("price_currency", v)}
+                maxLength={8}
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -445,10 +480,12 @@ export function DrinkEditor({
               onChange={(v) => set("caffeine_level", v)}
               min={0}
             />
-            <CheckboxField
-              label="Газированный"
-              checked={form.is_carbonated}
-              onChange={(v) => set("is_carbonated", v)}
+            <SelectField
+              label="Газация"
+              value={carbonatedToOption(form.is_carbonated)}
+              onChange={(v) => set("is_carbonated", optionToCarbonated(v))}
+              options={CARBONATED_OPTIONS}
+              hint="«— / не указано» = NULL (норма для алкогольных); задавайте true/false только для Zero Culture"
             />
           </div>
 
