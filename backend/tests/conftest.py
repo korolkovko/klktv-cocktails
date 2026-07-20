@@ -1,19 +1,27 @@
 import os
+import shutil
 import tempfile
+from pathlib import Path
 
 # Self-configure the test env BEFORE any `app.*` module is imported (below, or by any
 # test module — conftest.py is collected first). Without this, TestClient sessions
 # 401 (Secure cookie dropped over plain http) and app.main's UPLOAD_DIR.mkdir() fails
-# outside a container (default is /app/uploads). Uses setdefault so a real CI/prod
-# value set in the environment always wins. SECRET_KEY/DATABASE_URL are NOT faked here
+# outside a container (default is /app/uploads) when no UPLOAD_DIR is exported at
+# all. Uses setdefault so it's purely an *import-time* safety net against that crash
+# — it is NOT what isolates test uploads from a real dev UPLOAD_DIR (the documented
+# dev workflow exports `UPLOAD_DIR=$(pwd)/.uploads` in the same shell tests run from,
+# which makes setdefault a no-op). That isolation is enforced unconditionally below
+# by the `_isolated_upload_dir` fixture. SECRET_KEY/DATABASE_URL are NOT faked here
 # — they must come from the real env (see app/config.py's require_env).
 os.environ.setdefault("COOKIE_SECURE", "false")
 os.environ.setdefault("COOKIE_SAMESITE", "lax")
-os.environ.setdefault("UPLOAD_DIR", tempfile.mkdtemp(prefix="klktv-test-uploads-"))
+os.environ.setdefault("UPLOAD_DIR", tempfile.mkdtemp(prefix="klktv-test-uploads-import-"))
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.exc import IntegrityError
+import app.main as app_main
+import app.routers.uploads as uploads_module
 from app.database import SessionLocal
 from app.main import app
 from app.models import User
@@ -52,6 +60,24 @@ def _get_or_create_user(username: str, password: str, role: str, name: str) -> b
 def _delete_user(username: str) -> None:
     with SessionLocal() as db:
         db.query(User).filter_by(username=username).delete(); db.commit()
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _isolated_upload_dir():
+    """Uploads written during tests must NEVER land in a real dev UPLOAD_DIR
+    (e.g. backend/.uploads) — the documented dev workflow exports
+    `UPLOAD_DIR=$(pwd)/.uploads` in the same shell tests are run from, which
+    makes the import-time `os.environ.setdefault(...)` above a no-op. So this
+    override is unconditional: regardless of what UPLOAD_DIR resolved to at
+    import time, patch the already-imported module attributes the upload
+    endpoints actually read at request time (plain module globals, re-looked-up
+    on every call rather than captured at import) to point at a fresh temp dir
+    for the whole test session."""
+    tmp = Path(tempfile.mkdtemp(prefix="klktv-test-uploads-"))
+    uploads_module.UPLOAD_DIR = tmp  # actual write path: uploads.upload_image() / resize_existing()
+    app_main.UPLOAD_DIR = tmp        # read by app.main's lifespan mkdir on every TestClient startup
+    yield
+    shutil.rmtree(tmp, ignore_errors=True)
 
 
 @pytest.fixture(autouse=True, scope="session")

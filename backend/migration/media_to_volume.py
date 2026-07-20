@@ -24,14 +24,16 @@ def _safe(name: str) -> str:
 
 def _copy_if_absent(src_dir: Path) -> int:
     """Copy every image file in src_dir into UPLOAD_DIR unless a file of the
-    same name already exists there. Returns the number of files copied."""
+    same (sanitized) name already exists there. Returns the number of files
+    copied. Names are run through `_safe()` — same as the logos loop — so no
+    un-sanitized legacy filename ever lands at /static/img/<name>."""
     if not src_dir.is_dir():
         return 0
     copied = 0
     for p in sorted(src_dir.iterdir()):
         if not p.is_file() or p.suffix.lower() not in IMAGE_EXTS:
             continue
-        dst = UPLOAD_DIR / p.name
+        dst = UPLOAD_DIR / _safe(p.name)
         if not dst.exists():
             shutil.copy2(p, dst)
             copied += 1
