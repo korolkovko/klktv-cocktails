@@ -41,9 +41,23 @@ Deploy decisions (owner): **reuse tokaido as v2-prod**, **staging-first then dom
 - Cutover scripts: `backend/migration/prepare_prod.py` (remove dev/test users v2tester+smoke_*), `make_kolya_admin.py` (done), `media_to_volume.py`/`run.py` (only if a fresh DB is ever used).
 - `.dockerignore` excludes dev `.uploads/`; `.env.migration` already excluded (no secret leak). `.env.example` (both) document prod vars. Backend 81 tests green.
 
-## NEXT TASK — execute the deploy (owner) + browser QA
+## DEPLOY — EXECUTED by owner (2026-07-20 session 3). Verify together next.
 
-Follow `docs/DEPLOY.md`: create the two Railway services + volume, set env vars, deploy to staging, run `prepare_prod.py`, **hands-on browser QA as kolya** (guest + Админка + uploads + users), then switch `cocktails.klktv.tech`. Also (owner, independent): rotate + purge the 12 plaintext passwords from git history. Optional: deferred MED/LOW parity items in `docs/audit/parity/SUMMARY.md`; the kit redesign of the admin UI.
+- `v2` branch pushed to **`origin/v2`** (GitHub `korolkovko/klktv-cocktails`); Railway services deploy from branch **`v2`** (NOT main). `main` stays = live v1.
+- Owner reported "деплой прошёл" — the two Railway services (backend + frontend) are up. A fresh `SECRET_KEY` was generated and set in Railway (NOT stored in this repo/git). Volume mount `/app/uploads`.
+- **Full runbook: `docs/DEPLOY.md`** (Part 0 push v2 → A backend → B frontend → C CORS → D prepare_prod → E QA → F domain switch → G password purge).
+
+## NEXT TASK (after compact) — POST-DEPLOY VERIFICATION, together
+
+First **gather from owner** (not yet recorded here): the backend URL, the frontend URL, whether it's on a staging subdomain or already `cocktails.klktv.tech`, whether `migration/prepare_prod.py` was run, and whether the volume is attached at `/app/uploads`.
+Then verify (checklist):
+1. `GET <backend>/health` → 200; `GET <backend>/api/content` → 401; `GET <backend>/static/img/pornstar.webp` → 200 (media auto-seeded to the volume).
+2. Frontend SPA loads; a deep link (e.g. `/classics`) refreshes without 404.
+3. Log in as **kolya** → cookie set and `/api/content` returns data (NOT 401). If login "works" but everything is 401 → cross-origin cookie/CORS mismatch (check `CORS_ORIGINS` == frontend origin exactly, `COOKIE_SECURE=true`, `COOKIE_SAMESITE=none`).
+4. Guest side: images load, filters work, Прогресс → Мой/Команда.
+5. **Админка** (`/admin` as kolya): create/edit/delete each type, upload a photo (lands on volume, shows in guide), Юзеры CRUD + self-protection. Reader → no «Админка», 403 on `/api/admin/*`.
+6. If staging: run `prepare_prod.py` (remove dev users), then switch `cocktails.klktv.tech` → v2 (DEPLOY.md Part F).
+Remaining owner tasks: purge the 12 plaintext passwords from git history; optional — deferred MED/LOW parity items (`docs/audit/parity/SUMMARY.md`), admin kit-redesign.
 
 ## Deferred / operational
 
