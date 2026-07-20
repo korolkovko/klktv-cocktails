@@ -123,13 +123,17 @@ export function MenuView({
   const [q, setQ] = React.useState("")
   const [spirit, setSpirit] = React.useState("Все")
   const [glass, setGlass] = React.useState("Все")
+  // Task 5: Безалко/Zero Culture слиты в Авторские — «ТИП» фильтрует по
+  // isAlcoholic вместо отдельных разделов (blueprint §E.2)
+  const [alcFilter, setAlcFilter] = React.useState("Все")
   const menu = SECTIONS.find((s) => s.id === "menu")!
 
   const rows = MENU.filter(
     (c) =>
       (spirit === "Все" || c.spirit === spirit) &&
       (glass === "Все" || c.glass === glass) &&
-      (q === "" || c.name.toLowerCase().includes(q.toLowerCase()))
+      (q === "" || c.name.toLowerCase().includes(q.toLowerCase())) &&
+      (alcFilter === "Все" || (alcFilter === "Алко") === c.isAlcoholic)
   )
   const learnedCount = MENU.filter((c) => learnedIds.has(c.id)).length
 
@@ -148,6 +152,7 @@ export function MenuView({
       <div className="flex flex-col gap-2">
         <FilterRow axis="SPIRIT" options={SPIRIT_FILTERS} active={spirit} onChange={setSpirit} />
         <FilterRow axis="GLASS" options={GLASS_FILTERS} active={glass} onChange={setGlass} />
+        <FilterRow axis="ТИП" options={["Все", "Алко", "Безалко"]} active={alcFilter} onChange={setAlcFilter} />
       </div>
       <div className="max-md:hidden">
         <ProgressStrip
@@ -175,7 +180,13 @@ export function MenuView({
             key={c.id}
             image={c.logo}
             name={c.name}
-            badge={c.badge ? { label: c.badge, tone: c.badge === "HOT" ? "hot" : c.badge === "ONESIP" ? "butter" : "ink" } : undefined}
+            badge={
+              c.badge
+                ? { label: c.badge, tone: c.badge === "HOT" ? "hot" : c.badge === "ONESIP" ? "butter" : "ink" }
+                : !c.isAlcoholic
+                  ? { label: "0%", tone: "ink" }
+                  : undefined
+            }
             subtitle={c.subtitle}
             meta={`${c.price} ₽ · ${c.volume} МЛ · ${c.abv}%`}
             descriptors={c.descriptors.slice(0, 3).join(" · ")}

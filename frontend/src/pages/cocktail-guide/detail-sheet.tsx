@@ -19,10 +19,10 @@ import { useContent } from "@/data/ContentContext"
 // Правый Sheet 500px остаётся каноном для админ-данных (Cost Control R23) —
 // в СПРАВОЧНИКЕ заменяется модалкой/шитом: узкий Sheet не работает для обучения.
 
-const Meta = ({ price, volume, abv }: { price?: number; volume: number; abv: number }) =>
+const Meta = ({ price, volume, abv, isAlcoholic }: { price?: number; volume: number; abv: number; isAlcoholic: boolean }) =>
   price !== undefined ? (
     <span className="font-mono text-[11px] font-bold whitespace-nowrap md:text-[12px]">
-      {price} ₽ · {volume} МЛ · {abv}% ABV
+      {price} ₽ · {volume} МЛ · {isAlcoholic ? `${abv}% ABV` : "0%"}
     </span>
   ) : null
 
@@ -318,7 +318,7 @@ export function CocktailDetail({ cocktail, open, onOpenChange, learned, onLearne
     <>
       <span className="text-[12.5px] leading-[1.4] text-[#71717A]">{c.subtitle}</span>
       <div className="flex flex-wrap items-center gap-2">
-        <Meta price={c.price} volume={c.volume} abv={c.abv} />
+        <Meta price={c.price} volume={c.volume} abv={c.abv} isAlcoholic={c.isAlcoholic} />
         {hotBadge && <span className="rounded-[4px] bg-signal px-1.5 py-px font-mono text-[9px] font-bold text-white">HOT</span>}
       </div>
       <Photo src={c.photo} alt={c.name} />
@@ -343,7 +343,7 @@ export function CocktailDetail({ cocktail, open, onOpenChange, learned, onLearne
           {hotBadge && <span className="ml-2 inline-block rounded-[4px] bg-signal px-[7px] py-px align-[4px] font-mono text-[10px] font-bold text-white">HOT</span>}
         </span>
         <span className="text-[14px] text-[#71717A]">{c.subtitle}</span>
-        <Meta price={c.price} volume={c.volume} abv={c.abv} />
+        <Meta price={c.price} volume={c.volume} abv={c.abv} isAlcoholic={c.isAlcoholic} />
       </div>
       <CloseBtn onClick={() => onOpenChange(false)} />
     </>

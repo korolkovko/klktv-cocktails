@@ -43,26 +43,8 @@ import type {
   KitchenDishOut,
 } from "./bundle"
 
-/**
- * TASK 5 GAP: the kit's `Cocktail` type (data.ts) does not yet declare
- * `isAlcoholic` / `isZeroCulture` / `caffeineLevel` / `isCarbonated` — the
- * backend already emits all four (`DrinkOut`), and the kit type is meant
- * to be extended to read them in Task 5. Rather than edit data.ts here
- * (out of scope for this task) or silently drop the fields, this adapter
- * produces them via this local extended type. `MappedCocktail` is a
- * strict superset of `Cocktail`, so once Task 5 lands the kit's own
- * `Cocktail` type gains these fields, `mapCocktail`'s return type can be
- * narrowed back to plain `Cocktail` with no change to the mapping logic.
- */
-export type MappedCocktail = Cocktail & {
-  isAlcoholic: boolean
-  isZeroCulture: boolean
-  caffeineLevel?: number
-  isCarbonated?: boolean
-}
-
 export interface KitData {
-  MENU: MappedCocktail[]
+  MENU: Cocktail[]
   CLASSICS: Classic[]
   FAMILIES: Family[]
   SPIRIT_GROUPS: SpiritGroup[]
@@ -81,7 +63,7 @@ export interface KitData {
   CLASSICS_TOTAL: number
 }
 
-function mapCocktail(d: ContentBundle["drinks"][number]): MappedCocktail {
+function mapCocktail(d: ContentBundle["drinks"][number]): Cocktail {
   return {
     id: d.id,
     name: d.name,
@@ -107,8 +89,8 @@ function mapCocktail(d: ContentBundle["drinks"][number]): MappedCocktail {
     faq: d.faq ?? undefined,
     isAlcoholic: d.isAlcoholic,
     isZeroCulture: d.isZeroCulture,
-    caffeineLevel: d.caffeineLevel ?? undefined,
-    isCarbonated: d.isCarbonated ?? undefined,
+    caffeineLevel: d.caffeineLevel,
+    isCarbonated: d.isCarbonated,
   }
 }
 

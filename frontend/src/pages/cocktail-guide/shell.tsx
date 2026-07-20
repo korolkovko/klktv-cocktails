@@ -28,13 +28,12 @@ const DESKTOP_TABS: { id: Route; label: string }[] = [
   { id: "classics", label: "Классика" },
   { id: "spirits", label: "Спириты" },
   { id: "kitchen", label: "Кухня" },
-  { id: "zero", label: "Безалко" },
-  { id: "zc", label: "Zero Culture" },
   { id: "progress", label: "Прогресс" },
 ]
 
 // bottom-nav = 5 ячеек (R27.1): Авторские · Кухня · Классика · Спириты · Разделы;
-// Прогресс/Безалко/ZC не имеют своей ячейки → активна «Разделы» (Прогресс — в шите)
+// Прогресс не имеет своей ячейки → активна «Разделы» (Прогресс — в шите).
+// Безалко/Zero Culture слиты в Авторские (Task 5, blueprint §E) — больше не роуты.
 const NAV_PRIMARY: Route[] = ["menu", "kitchen", "classics", "spirits"]
 
 /** бутылка спирита — инлайн из реф-SVG (в lucide нет плоской бутылки) */

@@ -152,10 +152,6 @@ export default function CocktailGuidePage({
         return <KitchenView learnedIds={learned} onToggle={toggleKitchen} onOpen={openDish} onOpenProgress={openProgress} />
       case "progress":
         return null // прогресс рендерит ProgressWithTeam (вкладки Мой/Команда)
-      case "zero":
-      case "zc":
-        // Безалко/ZC — заглушка на паттерне спиритов (в этот раунд не входят)
-        return <SpiritsView learnedKeys={learned} onToggle={toggleSpirit} onOpen={openSpirit} onOpenProgress={openProgress} />
       default:
         return null
     }

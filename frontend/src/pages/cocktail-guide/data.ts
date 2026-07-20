@@ -17,7 +17,7 @@ export type TintName =
 
 /* ---------- разделы (навигация + прогресс) ---------- */
 
-export type SectionId = "menu" | "classics" | "spirits" | "kitchen" | "zero" | "zc"
+export type SectionId = "menu" | "classics" | "spirits" | "kitchen"
 
 export interface Section {
   id: SectionId
@@ -46,6 +46,13 @@ export interface Cocktail {
   descriptors: string[]
   badge?: MenuBadge
   learned: boolean
+  /** Task 5: alc/non-alc merge — Безалко/Zero Culture слиты в Авторские;
+   *  isAlcoholic гейтит фильтр «ТИП» + «0%»-бейдж/деталь; остальные два
+   *  зарезервированы под §E.5 follow-up (кофеин-метр/газация в детали) */
+  isAlcoholic: boolean
+  isZeroCulture: boolean
+  caffeineLevel: number | null
+  isCarbonated: boolean | null
   /** деталь (3p) — все секции опциональны, рендерятся если заполнены */
   recipe?: string
   garnish?: string
