@@ -5,21 +5,24 @@ import { cn } from "@/lib/utils"
 
 import { adminApi, type AdminEntity } from "./api"
 import { EntityList, type EntityColumn } from "./components/EntityList"
-import { EditorShell } from "./components/EditorShell"
 import { DrinkEditor } from "./editors/DrinkEditor"
 import { ClassicEditor } from "./editors/ClassicEditor"
 import { SpiritEditor, SpiritCategoriesPanel } from "./editors/SpiritEditor"
 import { KitchenEditor, KitchenCategoriesPanel } from "./editors/KitchenEditor"
 import { FamilyEditor } from "./editors/FamilyEditor"
 import { CategoriesTab } from "./editors/CategoriesTab"
+import { UsersPage } from "./editors/UsersPage"
 
 // Task 7 shell: tab bar + EntityList wired to adminApi.list per tab. Tasks
 // 8-9 replaced the placeholder editor with real self-contained editors for
 // every tab (each owns its own EditorShell, so it's mounted directly instead
 // of going through a shared EditorShell wrapper — see DrinkEditor.tsx's
-// header comment for the pattern). "categories" (Разделы) is the one
-// exception: it's a fixed set with no create/delete, so its whole tab body
-// (list + inline edit + reorder) is `<CategoriesTab>`, not EntityList+modal.
+// header comment for the pattern). "categories" (Разделы) and "users"
+// (Юзеры, Task 10) are the two exceptions: each owns its whole tab body
+// (list + inline edit, `<CategoriesTab>`/`<UsersPage>`) instead of
+// EntityList+modal — categories because it's a fixed set with no create/
+// delete, users because row actions must be hidden on the signed-in
+// admin's own row (see UsersPage.tsx).
 //
 // Row shape varies per entity (DrinkAdminOut/ClassicAdminOut/…, see
 // backend/app/schemas_admin.py) — not yet typed here since Task 7 only
@@ -36,8 +39,7 @@ interface TabConfig {
   // for it (no POST/DELETE, see backend/app/routers/admin.py). Its tab body
   // is `<CategoriesTab>` (Task 9), not EntityList+modal, so this flag is
   // inert for it now; kept in case another read-only-except-edit entity
-  // shows up (e.g. "users" still uses the plain EntityList+placeholder path
-  // below and could set it too).
+  // shows up.
   noCreateDelete?: boolean
   columns: EntityColumn<Row>[]
 }
@@ -230,6 +232,8 @@ export default function AdminPage() {
 
         {tab.id === "categories" ? (
           <CategoriesTab />
+        ) : tab.id === "users" ? (
+          <UsersPage currentUsername={user?.username} />
         ) : (
           <>
             {tab.id === "spirits" && <SpiritCategoriesPanel />}
@@ -300,21 +304,6 @@ export default function AdminPage() {
           }}
           onClose={() => setEditing(null)}
         />
-      )}
-
-      {editing && tab.id === "users" && (
-        <EditorShell
-          title={editing.mode === "new" ? `Новый: ${tab.label}` : `Редактирование: ${tab.label}`}
-          onClose={() => setEditing(null)}
-          onSave={() => setEditing(null)}
-          saveDisabled
-          onDelete={editing.mode === "edit" ? () => handleDelete(editing.row) : undefined}
-        >
-          <p className="text-sm text-gray-500">
-            Редактор «{tab.label}» появится в следующей задаче. Общие примитивы (поля форм,
-            загрузка изображений, теги-связи) уже готовы — здесь будет полноценная форма.
-          </p>
-        </EditorShell>
       )}
     </div>
   )

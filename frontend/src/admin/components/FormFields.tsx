@@ -25,6 +25,7 @@ export function TextField({
   required,
   maxLength,
   disabled,
+  type = "text",
 }: {
   label?: string
   value: string
@@ -34,12 +35,15 @@ export function TextField({
   required?: boolean
   maxLength?: number
   disabled?: boolean
+  // Task 10 (UsersPage) needs a password-reset input; every other caller
+  // relies on the "text" default, so this stays optional.
+  type?: "text" | "password"
 }) {
   return (
     <label className="block">
       {label && <span className={LABEL_CLS}>{label}</span>}
       <input
-        type="text"
+        type={type}
         className={INPUT_CLS}
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -47,6 +51,7 @@ export function TextField({
         required={required}
         maxLength={maxLength}
         disabled={disabled}
+        autoComplete={type === "password" ? "new-password" : undefined}
       />
       <Hint>{hint}</Hint>
     </label>
