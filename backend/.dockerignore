@@ -4,6 +4,9 @@ __pycache__/
 .env
 .env.*
 !.env.example
+# dev-only upload dir — prod media lives on the Railway volume mounted at
+# UPLOAD_DIR, which shadows anything baked into the image here
+.uploads/
 .python-version
 *.egg-info/
 .pytest_cache/

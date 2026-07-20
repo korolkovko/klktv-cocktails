@@ -20,6 +20,10 @@ UPLOAD_DIR = Path(os.environ.get("UPLOAD_DIR", "/app/uploads"))
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    # Seed an empty prod volume with the baked media set (copy-if-absent) so
+    # /static/img/<name> resolves on first deploy; no-op once populated.
+    from app.media_seed import seed_media_into
+    seed_media_into(UPLOAD_DIR)
     yield
 
 
