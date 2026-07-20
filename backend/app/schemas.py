@@ -16,6 +16,11 @@ class UserResponse(BaseModel):
 
 # ── Content bundle v2 output schemas (kit-shaped) ──────────
 
+class DrinkDetailOut(BaseModel):
+    label: str
+    text: str
+
+
 class DrinkOut(BaseModel):
     id: str
     name: str
@@ -41,6 +46,10 @@ class DrinkOut(BaseModel):
     isZeroCulture: bool = False
     caffeineLevel: int | None = None
     isCarbonated: bool | None = None
+    # Free-form story blocks (label+text) migrated from prod cocktail/zero/zc
+    # details. Prod stored ALL author-drink prose here, not in the structured
+    # columns above — so this is where the "О коктейле"/"Отсылки"/etc. text lives.
+    details: list[DrinkDetailOut] = []
 
     model_config = ConfigDict(from_attributes=False)
 

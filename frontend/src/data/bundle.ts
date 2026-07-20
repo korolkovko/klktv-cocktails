@@ -32,6 +32,7 @@ export interface DrinkOut {
   isZeroCulture: boolean
   caffeineLevel: number | null
   isCarbonated: boolean | null
+  details: { label: string; text: string }[]
 }
 
 export interface OurAnswerOut {

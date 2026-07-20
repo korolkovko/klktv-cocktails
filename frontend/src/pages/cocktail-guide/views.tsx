@@ -188,7 +188,13 @@ export function MenuView({
                   : undefined
             }
             subtitle={c.subtitle}
-            meta={`${c.price} ₽ · ${c.volume} МЛ · ${c.abv}%`}
+            meta={[
+              c.price != null ? `${c.price} ₽` : null,
+              c.volume != null ? `${c.volume} МЛ` : null,
+              c.isAlcoholic ? `${c.abv}%` : "0%",
+            ]
+              .filter(Boolean)
+              .join(" · ")}
             descriptors={c.descriptors.slice(0, 3).join(" · ")}
             learned={learnedIds.has(c.id)}
             onLearnedChange={() => onToggle(c.id)}

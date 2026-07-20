@@ -19,12 +19,17 @@ import { useContent } from "@/data/ContentContext"
 // Правый Sheet 500px остаётся каноном для админ-данных (Cost Control R23) —
 // в СПРАВОЧНИКЕ заменяется модалкой/шитом: узкий Sheet не работает для обучения.
 
-const Meta = ({ price, volume, abv, isAlcoholic }: { price?: number; volume: number; abv: number; isAlcoholic: boolean }) =>
-  price !== undefined ? (
-    <span className="font-mono text-[11px] font-bold whitespace-nowrap md:text-[12px]">
-      {price} ₽ · {volume} МЛ · {isAlcoholic ? `${abv}% ABV` : "0%"}
-    </span>
-  ) : null
+const Meta = ({ price, volume, abv, isAlcoholic }: { price?: number; volume?: number; abv: number; isAlcoholic: boolean }) => {
+  // Авторские в проде без цены/объёма — показываем только то, что есть, но ABV
+  // всегда (или «0%» у безалко). Иначе выходило «0 ₽ · 0 МЛ».
+  const parts: string[] = []
+  if (price != null) parts.push(`${price} ₽`)
+  if (volume != null) parts.push(`${volume} МЛ`)
+  parts.push(isAlcoholic ? `${abv}% ABV` : "0%")
+  return (
+    <span className="font-mono text-[11px] font-bold whitespace-nowrap md:text-[12px]">{parts.join(" · ")}</span>
+  )
+}
 
 const Label = ({ children }: { children: React.ReactNode }) => (
   <span className="font-mono text-[9.5px] font-bold tracking-[0.08em] text-[#A1A1AA]">{children}</span>
@@ -364,6 +369,9 @@ export function CocktailDetail({ cocktail, open, onOpenChange, learned, onLearne
       <Section title="О КОКТЕЙЛЕ">{c.about}</Section>
       <Section title="ПРО НАЗВАНИЕ">{c.naming}</Section>
       <Section title="ЧАСТЫЕ ВОПРОСЫ ГОСТЕЙ">{c.faq}</Section>
+      {c.details?.map((d, i) => (
+        <Section key={`${d.label}-${i}`} title={d.label.toUpperCase()}>{d.text}</Section>
+      ))}
     </>
   )
 
@@ -404,6 +412,9 @@ export function CocktailDetail({ cocktail, open, onOpenChange, learned, onLearne
       <Section title="О КОКТЕЙЛЕ" desktop>{c.about}</Section>
       <Section title="ПРО НАЗВАНИЕ" desktop>{c.naming}</Section>
       <Section title="ЧАСТЫЕ ВОПРОСЫ ГОСТЕЙ" desktop>{c.faq}</Section>
+      {c.details?.map((d, i) => (
+        <Section key={`${d.label}-${i}`} title={d.label.toUpperCase()} desktop>{d.text}</Section>
+      ))}
     </>
   )
 

@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.database import get_db
 from app.auth import get_current_user
 from app import models as m
-from app.schemas import (DrinkOut, ClassicOut, FamilyOut, SpiritEntryOut, SpiritCategoryOut,
+from app.schemas import (DrinkOut, DrinkDetailOut, ClassicOut, FamilyOut, SpiritEntryOut, SpiritCategoryOut,
     KitchenDishOut, KitchenCategoryOut, SectionOut, FiltersOut, ContentBundleOut, DishNutritionOut, OurAnswer)
 
 router = APIRouter(prefix="/api", tags=["content"], dependencies=[Depends(get_current_user)])
@@ -29,6 +29,7 @@ def _serialize_drink(d: m.Drink) -> DrinkOut:
         about=d.about, naming=d.naming, faq=d.faq,
         isAlcoholic=d.is_alcoholic, isZeroCulture=d.is_zero_culture,
         caffeineLevel=d.caffeine_level, isCarbonated=d.is_carbonated,
+        details=[DrinkDetailOut(label=dd.label, text=dd.text) for dd in d.details],
     )
 
 
@@ -76,6 +77,7 @@ def get_content(db: Session = Depends(get_db)):
         selectinload(m.Drink.spirits).selectinload(m.DrinkSpirit.spirit),
         selectinload(m.Drink.flavors).selectinload(m.DrinkFlavor.flavor),
         selectinload(m.Drink.glass), selectinload(m.Drink.badge),
+        selectinload(m.Drink.details),
     ).order_by(m.Drink.sort_order, m.Drink.name)).all()
 
     classics = db.scalars(select(m.Classic).options(

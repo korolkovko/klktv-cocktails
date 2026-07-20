@@ -38,6 +38,7 @@ const bundle: ContentBundle = {
       isZeroCulture: false,
       caffeineLevel: null,
       isCarbonated: true,
+      details: [],
     },
     {
       id: "virgin-mule",
@@ -63,6 +64,7 @@ const bundle: ContentBundle = {
       isZeroCulture: true,
       caffeineLevel: 0,
       isCarbonated: true,
+      details: [],
     },
   ],
   classics: [

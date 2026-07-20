@@ -38,8 +38,9 @@ export interface Cocktail {
   name: string
   logo: string
   subtitle: string
-  price: number
-  volume: number
+  /** авторские в проде без цены/объёма — опциональны, в детали не показываем 0 */
+  price?: number
+  volume?: number
   abv: number
   spirit: string
   /** крепкие компоненты для strong-чипов детали; дефолт [spirit] */
@@ -64,6 +65,9 @@ export interface Cocktail {
   about?: string
   naming?: string
   faq?: string
+  /** свободные story-блоки (label+text) из прод-деталей — здесь живёт вся
+   *  сюжетная проза авторских (О коктейле / Отсылки / Про этикетку / …) */
+  details?: { label: string; text: string }[]
 }
 
 /* ---------- 3o Классика: семейства (taxonomy tints) + позиции ---------- */

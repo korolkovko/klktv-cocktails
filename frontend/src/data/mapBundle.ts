@@ -70,8 +70,10 @@ function mapCocktail(d: ContentBundle["drinks"][number]): Cocktail {
     name: d.name,
     logo: resolveImageUrl(d.logo) ?? "",
     subtitle: d.subtitle ?? "",
-    price: d.price ?? 0,
-    volume: d.volume ?? 0,
+    // author drinks have no price/volume in prod — keep undefined so the kit
+    // hides them instead of rendering "0 ₽ · 0 МЛ"
+    price: d.price ?? undefined,
+    volume: d.volume ?? undefined,
     abv: d.abv ?? 0,
     spirit: d.spirit,
     spirits: d.spirits,
@@ -92,6 +94,7 @@ function mapCocktail(d: ContentBundle["drinks"][number]): Cocktail {
     isZeroCulture: d.isZeroCulture,
     caffeineLevel: d.caffeineLevel,
     isCarbonated: d.isCarbonated,
+    details: d.details,
   }
 }
 
