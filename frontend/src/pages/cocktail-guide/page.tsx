@@ -2,6 +2,7 @@ import * as React from "react"
 
 import { PageFrame } from "@/components/kollektiv/page-frame"
 import { useIsMobile } from "@/lib/use-media-query"
+import { cn } from "@/lib/utils"
 import { useContent } from "@/data/ContentContext"
 import { useProgress } from "@/data/ProgressContext"
 import type { User } from "@/auth/AuthContext"
@@ -151,9 +152,7 @@ export default function CocktailGuidePage({
       case "kitchen":
         return <KitchenView learnedIds={learned} onToggle={toggleKitchen} onOpen={openDish} onOpenProgress={openProgress} />
       case "progress":
-        return null // прогресс рендерит ProgressWithTeam (личный «Мой»)
-      case "team":
-        return <TeamView /> // прогресс команды — виден всем
+        return null // прогресс рендерит ProgressWithTeam (табы Мой/Команда)
       default:
         return null
     }
@@ -263,23 +262,50 @@ export default function CocktailGuidePage({
   )
 }
 
-/** Прогресс: только личный «Мой» (§44) — вкладка «Команда» убрана в Task 9:
- *  нет бэкенд-эндпоинта для командного прогресса, цифры были фиктивной демо-
- *  данными (blueprint §E.10). Имя `ProgressWithTeam` сохранено как есть —
- *  переименование продукт-owned файла вне скоупа этой задачи. */
+/** Раздел «Прогресс» с табами «Мой» / «Команда» (как в оригинале кита):
+ *  «Мой» — личный §44-прогресс; «Команда» — прогресс всей команды (виден
+ *  всем, GET /api/team). Таб — локальный стейт (не отдельный роут). */
 function ProgressWithTeam({ learnedIds, onOpenSection }: { learnedIds: Set<string>; onOpenSection: (id: SectionId) => void }) {
   const { SECTIONS, TOTAL_POSITIONS } = useContent()
+  const [tab, setTab] = React.useState<"my" | "team">("my")
+  const seg = (id: "my" | "team", label: string, extra?: string) => (
+    <button
+      type="button"
+      onClick={() => setTab(id)}
+      className={cn(
+        "flex cursor-pointer items-center justify-center gap-1.5 px-3.5 py-[7px] max-md:min-h-11 max-md:flex-1",
+        id === "team" && "border-l border-border",
+        tab === id && "bg-primary text-primary-foreground",
+      )}
+    >
+      {label}
+      {extra && (
+        <span className={cn("rounded-[4px] px-1.5 py-px font-mono text-[10px] font-bold", tab === id ? "bg-card text-foreground" : "bg-muted")}>
+          {extra}
+        </span>
+      )}
+    </button>
+  )
   return (
     <div className="flex flex-col gap-3.5">
       <div className="flex items-center justify-between gap-3.5">
         <div className="flex items-center gap-3.5 max-md:w-full">
           <span className="text-[22px] font-bold max-md:hidden">Прогресс</span>
+          {/* сегменты Мой / Команда (mobile — на всю ширину) */}
+          <div className="flex shrink-0 overflow-hidden rounded-md border border-border text-[13px] font-semibold max-md:w-full">
+            {seg("my", "Мой")}
+            {seg("team", "Команда", "ВСЕ")}
+          </div>
         </div>
         <span className="font-mono text-[11px] text-[#71717A] max-md:hidden">
           {TOTAL_POSITIONS} ПОЗИЦИЙ В БАЗЕ · {SECTIONS.length} РАЗДЕЛОВ
         </span>
       </div>
-      <ProgressView learnedIds={learnedIds} onOpenSection={onOpenSection} />
+      {tab === "my" ? (
+        <ProgressView learnedIds={learnedIds} onOpenSection={onOpenSection} />
+      ) : (
+        <TeamView />
+      )}
     </div>
   )
 }

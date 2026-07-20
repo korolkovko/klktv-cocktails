@@ -20,8 +20,9 @@ import { type SectionId } from "./data"
 
 const pct = (l: number, t: number) => (t > 0 ? Math.round((l / t) * 100) : 0)
 
-/** роут-разделы (в т.ч. виртуальные progress/team) */
-export type Route = SectionId | "progress" | "team"
+/** роут-разделы (в т.ч. виртуальный progress; «Мой/Команда» — табы ВНУТРИ
+ *  прогресса, не отдельный роут) */
+export type Route = SectionId | "progress"
 
 const DESKTOP_TABS: { id: Route; label: string }[] = [
   { id: "menu", label: "Авторские" },
@@ -29,7 +30,6 @@ const DESKTOP_TABS: { id: Route; label: string }[] = [
   { id: "spirits", label: "Спириты" },
   { id: "kitchen", label: "Кухня" },
   { id: "progress", label: "Прогресс" },
-  { id: "team", label: "Команда" },
 ]
 
 // bottom-nav = 5 ячеек (R27.1): Авторские · Кухня · Классика · Спириты · Разделы;
@@ -155,7 +155,7 @@ export function CocktailMobileHeader({
   const [open, setOpen] = React.useState(false)
   const { SECTIONS } = useContent()
   const label =
-    route === "progress" ? "Прогресс" : route === "team" ? "Команда" : SECTIONS.find((s) => s.id === route)?.label ?? "Авторские"
+    route === "progress" ? "Прогресс" : SECTIONS.find((s) => s.id === route)?.label ?? "Авторские"
   return (
     <div className="flex items-center justify-between border-b border-border bg-card px-4 py-3 pt-[calc(12px+env(safe-area-inset-top))] md:hidden">
       <span className="inline-flex items-baseline gap-2.5 min-w-0">
@@ -253,17 +253,8 @@ export function SectionsSheet({
               {totalPct}%
             </span>
           </button>
-          {/* Прогресс команды — виден всем (не только админу) */}
-          <button
-            type="button"
-            onClick={() => onNavigate("team")}
-            className={cn(row, route === "team" ? "bg-primary" : "hover:bg-[#FFFDF0]")}
-          >
-            <span className={cn("text-[15px]", route === "team" ? "font-bold text-primary-foreground" : "font-semibold")}>
-              Прогресс команды
-            </span>
-            <span className="font-mono text-[9px] tracking-[0.06em] text-[#A1A1AA]">ВСЕ</span>
-          </button>
+          {/* «Прогресс команды» больше не отдельный пункт — это таб «Команда»
+              внутри раздела Прогресс (виден всем) */}
           {/* админ-пункты по ролям (демо — статичные роли) */}
           <div className={cn(row, "hover:bg-[#FFFDF0]")}>
             <span className="text-[15px] font-semibold">Управление контентом</span>
