@@ -1,5 +1,13 @@
 const BASE = import.meta.env.VITE_API_URL ?? ""
 
+// Global "on unauthorized" hook — lets AuthContext learn about a 401 from
+// any API call (not just the initial /api/auth/me probe) so an expired
+// session bounces the user back to LoginPage instead of silently failing.
+let onUnauthorized: (() => void) | null = null
+export function setUnauthorizedHandler(fn: (() => void) | null) {
+  onUnauthorized = fn
+}
+
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const res = await fetch(BASE + path, {
     method,
@@ -10,6 +18,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   if (res.status === 204) return null as T
   const data = await res.json().catch(() => null)
   if (!res.ok) {
+    if (res.status === 401) onUnauthorized?.()
     const err = new Error((data && (data.detail as string)) || res.statusText) as Error & { status?: number }
     err.status = res.status
     throw err

@@ -1,5 +1,5 @@
 import * as React from "react"
-import { api } from "@/lib/api"
+import { api, setUnauthorizedHandler } from "@/lib/api"
 
 // Shape matches backend `UserResponse` (backend/app/schemas.py) exactly —
 // note there is no `id` field on this endpoint's response, only
@@ -26,6 +26,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .then(setUser)
       .catch(() => setUser(null))
       .finally(() => setLoading(false))
+  }, [])
+  // Any 401 from any API call (not just the /me probe above) clears the
+  // user, which makes AuthGate fall back to LoginPage. This is what
+  // bounces an expired-session tab back to sign-in without a manual
+  // refresh — see setUnauthorizedHandler in src/lib/api.ts.
+  React.useEffect(() => {
+    setUnauthorizedHandler(() => setUser(null))
+    return () => setUnauthorizedHandler(null)
   }, [])
   const login = async (username: string, password: string) => {
     const u = await api.post<User>("/api/auth/login", {
