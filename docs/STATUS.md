@@ -24,9 +24,18 @@ Rebuild of the bar's closed (login-only) drinks & food guide. Old prod is live a
 - **Spirit-card bugs:** SourceLink double-protocol href + long-URL overflow fixed. Photo resilience verified (spirit bottle + cocktail photo render without breaking; live end-to-end smoke test).
 - Backend 39 tests + frontend 10 tests green. **Note:** ETL verify.py asserts DEST progress count == prod's; it now trips on the +1 dev-test row (v2tester) — expected, not a data issue.
 
-## NEXT TASK — media unification, then Phase 2
+## DONE (2026-07-20 session 2) — ADMIN PANEL (functional, not kit) — commits `5e3ed43..c2ba1b5`
 
-The parity audit is done. Remaining, in order: (1) **media unification** (see below — owner wants all media stored the same way; kitchen photos still only in `/tmp`), (2) the deferred MED/LOW parity items in `docs/audit/parity/SUMMARY.md` if the owner wants them, (3) **Phase 2** (admin/uploads/user-mgmt on the kit, then final ETL + cutover).
+Full admin built via SDD (10 tasks + reviews; spec `docs/superpowers/specs/2026-07-20-admin-panel-design.md`, plan `docs/superpowers/plans/2026-07-20-admin-panel.md`, ledger `.superpowers/sdd/progress.md`).
+- **Backend** `/api/admin/*`: `admin.py` content CRUD for the v2 unified schema (drinks/classics/spirits+categories/kitchen+categories/families/categories — full-record PATCH, delete-then-insert relations, 409/404, delete-cascades incl. learning_progress, slug-rename reconciles progress), `admin_users.py` (user mgmt, `require_admin`, self-protection, no password_hash leak, `last_seen_at` in UserOut), `uploads.py` (image resize→volume, `require_editor`). Roles: `require_editor` content+uploads, `require_admin` users+destructive. **78 backend tests.**
+- **Media on the Railway volume** (decision CHANGED from Option B frontend/public → volume): all images under `UPLOAD_DIR`, served `/static/img/`; `backend/migration/media_to_volume.py` moved the 24 logos + kitchen photos onto the volume and rewrote DB paths; `resolveImageUrl` simplified. Dev `UPLOAD_DIR=backend/.uploads` (gitignored); prod = a Railway volume mounted at `UPLOAD_DIR`.
+- **Frontend** admin at `/admin` (editor-gated; "Админка" entry for editor+): plain-Tailwind shell + shared primitives (`frontend/src/admin/components/`) + per-entity editors (`frontend/src/admin/editors/`) + UsersPage (admin-only tab). Image upload wired into Drink/Spirit/Kitchen editors. **56 frontend tests, build clean.**
+- **`kolya` is now `admin`** (password unchanged). `backend/migration/make_kolya_admin.py`.
+- Live-smoked end-to-end (login→list→create→reflected in `/api/content`→upload→rename→delete; reader→403). Deferred polish (final review, non-blocking): EditorShell a11y (aria-modal/focus-trap — belongs to the later kit redesign), EntityList search stringify, reorder partial-list guard.
+
+## NEXT TASK — browser QA of admin, then media-on-prod + cutover
+
+Admin is code-complete + live-smoked at the API level. Remaining: (1) **hands-on browser QA** of the admin UI as `kolya` (create/edit/delete each type, image upload, users) — the redesign onto the kit comes after; (2) **prod media**: mount a Railway volume at `UPLOAD_DIR` and run `media_to_volume.py` against prod at cutover; (3) deferred MED/LOW parity items in `docs/audit/parity/SUMMARY.md` if wanted; (4) **cutover**: final ETL + deploy config (`VITE_API_URL`, `CORS_ORIGINS`, rotate/purge the 12 plaintext passwords, remove `v2tester`).
 
 ## Deferred / operational
 
