@@ -7,6 +7,12 @@ let onUnauthorized: (() => void) | null = null
 export function setUnauthorizedHandler(fn: (() => void) | null) {
   onUnauthorized = fn
 }
+// Lets call sites that bypass `request()` (e.g. admin/api.ts's multipart
+// image upload, which can't go through the JSON-only helper below) still
+// trigger the same "bounce to login" behavior on a 401.
+export function notifyUnauthorized() {
+  onUnauthorized?.()
+}
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const res = await fetch(BASE + path, {
@@ -29,5 +35,6 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 export const api = {
   get: <T>(p: string) => request<T>("GET", p),
   post: <T>(p: string, b?: unknown) => request<T>("POST", p, b),
+  patch: <T>(p: string, b?: unknown) => request<T>("PATCH", p, b),
   del: <T>(p: string) => request<T>("DELETE", p),
 }

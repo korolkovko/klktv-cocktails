@@ -118,6 +118,17 @@ export function CocktailDesktopHeader({
               <div className="px-2.5 py-2 text-[13px] font-semibold">
                 {user.name ?? user.username} <span className="text-[#71717A]">· {user.role}</span>
               </div>
+              {user.role !== "reader" && (
+                <>
+                  <div className="mx-1 border-t border-divider" />
+                  <a
+                    href="/admin"
+                    className="flex min-h-9 w-full cursor-pointer items-center rounded-md px-2.5 text-[13px] font-semibold hover:bg-muted"
+                  >
+                    Админка
+                  </a>
+                </>
+              )}
               <div className="mx-1 border-t border-divider" />
               <button
                 type="button"
@@ -255,15 +266,17 @@ export function SectionsSheet({
           </button>
           {/* «Прогресс команды» больше не отдельный пункт — это таб «Команда»
               внутри раздела Прогресс (виден всем) */}
-          {/* админ-пункты по ролям (демо — статичные роли) */}
-          <div className={cn(row, "hover:bg-[#FFFDF0]")}>
-            <span className="text-[15px] font-semibold">Управление контентом</span>
-            <span className="font-mono text-[9px] tracking-[0.06em] text-[#A1A1AA]">EDITOR+</span>
-          </div>
-          <div className={cn(row, "hover:bg-[#FFFDF0]")}>
-            <span className="text-[15px] font-semibold">Юзеры</span>
-            <span className="font-mono text-[9px] tracking-[0.06em] text-[#A1A1AA]">ADMIN</span>
-          </div>
+          {/* Task 7: реальная ссылка на /admin (было 2 статичных демо-пункта
+              «Управление контентом»/«Юзеры» без onClick) — editor видит один
+              общий вход, юзеров бэкенд всё равно ограничивает require_admin. */}
+          {user.role !== "reader" && (
+            <a href="/admin" className={cn(row, "hover:bg-[#FFFDF0]")}>
+              <span className="text-[15px] font-semibold">Админка</span>
+              <span className="font-mono text-[9px] tracking-[0.06em] text-[#A1A1AA]">
+                {user.role === "admin" ? "ADMIN" : "EDITOR+"}
+              </span>
+            </a>
+          )}
           <div className="mt-1.5 flex items-center justify-between border-t border-border px-2.5 pt-3">
             <span className="inline-flex items-center gap-2.5">
               <span className="flex size-[30px] items-center justify-center rounded-full border border-border bg-muted font-mono text-[10px] font-bold">
