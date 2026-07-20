@@ -18,10 +18,11 @@ from app import models as m
 from app.schemas_admin import (
     DrinkAdminOut, DrinkWriteIn, ClassicAdminOut, ClassicWriteIn,
     SpiritCategoryAdminOut, SpiritCategoryWriteIn, SpiritEntryAdminOut, SpiritEntryWriteIn,
+    KitchenCategoryAdminOut, KitchenCategoryWriteIn, KitchenDishAdminOut, KitchenDishWriteIn,
 )
 
 # migration.parsers are pure functions (no I/O) — safe to import into the app.
-from migration.parsers import parse_abv, parse_price
+from migration.parsers import parse_abv, parse_price, parse_timing, parse_weight_g, parse_nutrition
 
 router = APIRouter(prefix="/api/admin", tags=["admin"], dependencies=[Depends(require_editor)])
 
@@ -522,6 +523,200 @@ def delete_spirit(slug: str, db: Session = Depends(get_db)):
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Spirit not found")
     db.query(m.LearningProgress).filter(
         m.LearningProgress.kind == "spirits", m.LearningProgress.slug == slug
+    ).delete(synchronize_session=False)
+    db.delete(obj)
+    db.commit()
+
+
+# ── Kitchen categories ────────────────────────────────────
+
+def _get_kitchen_category_or_400(db: Session, slug: str) -> m.KitchenCategory:
+    # Kitchen categories are managed by their own editor screen — not
+    # get-or-created here, mirroring `_get_spirit_category_or_400`.
+    slug = slug.strip()
+    if not slug:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Kitchen category slug must not be blank")
+    obj = db.scalar(select(m.KitchenCategory).where(m.KitchenCategory.slug == slug))
+    if not obj:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=f"unknown kitchen category: {slug}")
+    return obj
+
+
+def _to_kitchen_category_admin_out(obj: m.KitchenCategory) -> KitchenCategoryAdminOut:
+    return KitchenCategoryAdminOut(
+        id=obj.id, slug=obj.slug, label=obj.label, sort_order=obj.sort_order,
+    )
+
+
+def _apply_kitchen_category(db: Session, obj: m.KitchenCategory, data: KitchenCategoryWriteIn) -> None:
+    obj.label = data.label
+    obj.sort_order = data.sort_order
+
+
+def _get_kitchen_category_or_404(db: Session, slug: str) -> m.KitchenCategory:
+    obj = db.scalar(select(m.KitchenCategory).where(m.KitchenCategory.slug == slug))
+    if not obj:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Kitchen category not found")
+    return obj
+
+
+@router.get("/kitchen-categories", response_model=list[KitchenCategoryAdminOut])
+def list_kitchen_categories(db: Session = Depends(get_db)):
+    rows = db.scalars(
+        select(m.KitchenCategory).order_by(m.KitchenCategory.sort_order, m.KitchenCategory.label)
+    ).all()
+    return [_to_kitchen_category_admin_out(c) for c in rows]
+
+
+@router.get("/kitchen-categories/{slug}", response_model=KitchenCategoryAdminOut)
+def get_kitchen_category(slug: str, db: Session = Depends(get_db)):
+    obj = _get_kitchen_category_or_404(db, slug)
+    return _to_kitchen_category_admin_out(obj)
+
+
+@router.post("/kitchen-categories", status_code=status.HTTP_201_CREATED, response_model=KitchenCategoryAdminOut)
+def create_kitchen_category(data: KitchenCategoryWriteIn, db: Session = Depends(get_db)):
+    if db.scalar(select(m.KitchenCategory).where(m.KitchenCategory.slug == data.slug)):
+        raise HTTPException(status.HTTP_409_CONFLICT, detail="Kitchen category with this slug already exists")
+    obj = m.KitchenCategory(slug=data.slug)
+    db.add(obj)
+    _apply_kitchen_category(db, obj, data)
+    db.commit()
+    return _to_kitchen_category_admin_out(_get_kitchen_category_or_404(db, obj.slug))
+
+
+@router.patch("/kitchen-categories/{slug}", response_model=KitchenCategoryAdminOut)
+def update_kitchen_category(slug: str, data: KitchenCategoryWriteIn, db: Session = Depends(get_db)):
+    obj = db.scalar(select(m.KitchenCategory).where(m.KitchenCategory.slug == slug))
+    if not obj:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Kitchen category not found")
+    if data.slug != slug and db.scalar(select(m.KitchenCategory).where(m.KitchenCategory.slug == data.slug)):
+        raise HTTPException(status.HTTP_409_CONFLICT, detail="New slug already in use")
+    obj.slug = data.slug
+    _apply_kitchen_category(db, obj, data)
+    db.commit()
+    return _to_kitchen_category_admin_out(_get_kitchen_category_or_404(db, obj.slug))
+
+
+@router.delete("/kitchen-categories/{slug}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_kitchen_category(slug: str, db: Session = Depends(get_db)):
+    obj = db.scalar(select(m.KitchenCategory).where(m.KitchenCategory.slug == slug))
+    if not obj:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Kitchen category not found")
+    dish_count = db.scalar(
+        select(func.count()).select_from(m.KitchenDish).where(m.KitchenDish.category_id == obj.id)
+    )
+    if dish_count:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail=f"Kitchen category '{slug}' still has {dish_count} dish"
+                   f"{'' if dish_count == 1 else 'es'} — move or delete them first",
+        )
+    db.delete(obj)
+    db.commit()
+
+
+# ── Kitchen dishes ────────────────────────────────────────
+
+_KITCHEN_DISH_OPTIONS = (
+    selectinload(m.KitchenDish.category),
+)
+
+_NUTRITION_FIELDS = ("kcal_portion", "protein_g", "fat_g", "carb_g", "kcal_100g")
+
+
+def _to_kitchen_dish_admin_out(obj: m.KitchenDish) -> KitchenDishAdminOut:
+    return KitchenDishAdminOut(
+        id=obj.id, slug=obj.slug, category=obj.category.slug,
+        name=obj.name, img=obj.img,
+        price_raw=obj.price_raw, price_amount=_num(obj.price_amount),
+        tagline=obj.tagline, description=obj.description,
+        timing_raw=obj.timing_raw, timing_min_low=obj.timing_min_low, timing_min_high=obj.timing_min_high,
+        weight_raw=obj.weight_raw, weight_g=obj.weight_g,
+        nutrition_raw=obj.nutrition_raw,
+        kcal_portion=_num(obj.kcal_portion), protein_g=_num(obj.protein_g),
+        fat_g=_num(obj.fat_g), carb_g=_num(obj.carb_g), kcal_100g=_num(obj.kcal_100g),
+        serving=obj.serving, interesting_facts=obj.interesting_facts,
+        sort_order=obj.sort_order,
+    )
+
+
+def _apply_kitchen_dish(db: Session, obj: m.KitchenDish, data: KitchenDishWriteIn) -> None:
+    cat = _get_kitchen_category_or_400(db, data.category)
+    price, _ = parse_price(data.price_raw)
+    timing_low, timing_high = parse_timing(data.timing_raw)
+    weight = parse_weight_g(data.weight_raw)
+    nutrition = parse_nutrition(data.nutrition_raw)
+    # Direct numeric overrides win over the parsed nutrition values.
+    for field in _NUTRITION_FIELDS:
+        override = getattr(data, field)
+        if override is not None:
+            nutrition[field] = override
+    obj.category_id = cat.id
+    obj.name = data.name; obj.img = data.img
+    obj.price_amount = price; obj.price_raw = data.price_raw
+    obj.tagline = data.tagline; obj.description = data.description
+    obj.timing_min_low = timing_low; obj.timing_min_high = timing_high; obj.timing_raw = data.timing_raw
+    obj.weight_g = weight; obj.weight_raw = data.weight_raw
+    obj.nutrition_raw = data.nutrition_raw
+    obj.kcal_portion = nutrition["kcal_portion"]; obj.protein_g = nutrition["protein_g"]
+    obj.fat_g = nutrition["fat_g"]; obj.carb_g = nutrition["carb_g"]; obj.kcal_100g = nutrition["kcal_100g"]
+    obj.serving = data.serving; obj.interesting_facts = data.interesting_facts
+    obj.sort_order = data.sort_order
+
+
+def _get_kitchen_dish_or_404(db: Session, slug: str) -> m.KitchenDish:
+    obj = db.scalar(select(m.KitchenDish).options(*_KITCHEN_DISH_OPTIONS).where(m.KitchenDish.slug == slug))
+    if not obj:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Kitchen dish not found")
+    return obj
+
+
+@router.get("/kitchen-dishes", response_model=list[KitchenDishAdminOut])
+def list_kitchen_dishes(db: Session = Depends(get_db)):
+    rows = db.scalars(
+        select(m.KitchenDish).options(*_KITCHEN_DISH_OPTIONS).order_by(m.KitchenDish.sort_order, m.KitchenDish.name)
+    ).all()
+    return [_to_kitchen_dish_admin_out(d) for d in rows]
+
+
+@router.get("/kitchen-dishes/{slug}", response_model=KitchenDishAdminOut)
+def get_kitchen_dish(slug: str, db: Session = Depends(get_db)):
+    obj = _get_kitchen_dish_or_404(db, slug)
+    return _to_kitchen_dish_admin_out(obj)
+
+
+@router.post("/kitchen-dishes", status_code=status.HTTP_201_CREATED, response_model=KitchenDishAdminOut)
+def create_kitchen_dish(data: KitchenDishWriteIn, db: Session = Depends(get_db)):
+    if db.scalar(select(m.KitchenDish).where(m.KitchenDish.slug == data.slug)):
+        raise HTTPException(status.HTTP_409_CONFLICT, detail="Kitchen dish with this slug already exists")
+    obj = m.KitchenDish(slug=data.slug)
+    db.add(obj)
+    _apply_kitchen_dish(db, obj, data)
+    db.commit()
+    return _to_kitchen_dish_admin_out(_get_kitchen_dish_or_404(db, obj.slug))
+
+
+@router.patch("/kitchen-dishes/{slug}", response_model=KitchenDishAdminOut)
+def update_kitchen_dish(slug: str, data: KitchenDishWriteIn, db: Session = Depends(get_db)):
+    obj = db.scalar(select(m.KitchenDish).where(m.KitchenDish.slug == slug))
+    if not obj:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Kitchen dish not found")
+    if data.slug != slug and db.scalar(select(m.KitchenDish).where(m.KitchenDish.slug == data.slug)):
+        raise HTTPException(status.HTTP_409_CONFLICT, detail="New slug already in use")
+    obj.slug = data.slug
+    _apply_kitchen_dish(db, obj, data)
+    db.commit()
+    return _to_kitchen_dish_admin_out(_get_kitchen_dish_or_404(db, obj.slug))
+
+
+@router.delete("/kitchen-dishes/{slug}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_kitchen_dish(slug: str, db: Session = Depends(get_db)):
+    obj = db.scalar(select(m.KitchenDish).where(m.KitchenDish.slug == slug))
+    if not obj:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Kitchen dish not found")
+    db.query(m.LearningProgress).filter(
+        m.LearningProgress.kind == "kitchen", m.LearningProgress.slug == slug
     ).delete(synchronize_session=False)
     db.delete(obj)
     db.commit()

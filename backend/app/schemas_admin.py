@@ -108,3 +108,46 @@ class SpiritEntryAdminOut(SpiritEntryWriteIn):
     abv: float | None = None         # parsed
     price_amount: float | None = None
     serving_ml: int | None = None
+
+
+# ── Kitchen ──────────────────────────────────────────────────
+
+class KitchenCategoryWriteIn(BaseModel):
+    slug: str = Field(min_length=1, max_length=64)
+    label: str = Field(max_length=128)
+    sort_order: int = 0
+
+
+class KitchenCategoryAdminOut(KitchenCategoryWriteIn):
+    id: int
+
+
+class KitchenDishWriteIn(BaseModel):
+    slug: str = Field(min_length=1, max_length=80)
+    category: str                    # kitchen-category slug (must exist; not get-or-created)
+    name: str = Field(max_length=256)
+    img: str | None = Field(default=None, max_length=256)
+    price_raw: str | None = Field(default=None, max_length=32)
+    tagline: str | None = None       # kitchen_dishes.tagline is Text — unbounded, no cap
+    description: str | None = None   # Text
+    timing_raw: str | None = Field(default=None, max_length=32)
+    weight_raw: str | None = Field(default=None, max_length=64)
+    nutrition_raw: str | None = None  # Text
+    # Direct numeric overrides — when provided (non-None), win over the
+    # values parsed from `nutrition_raw` (see `_apply_kitchen_dish`).
+    kcal_portion: float | None = None
+    protein_g: float | None = None
+    fat_g: float | None = None
+    carb_g: float | None = None
+    kcal_100g: float | None = None
+    serving: str | None = None       # Text
+    interesting_facts: str | None = None  # Text
+    sort_order: int = 0
+
+
+class KitchenDishAdminOut(KitchenDishWriteIn):
+    id: int
+    price_amount: float | None = None
+    timing_min_low: int | None = None
+    timing_min_high: int | None = None
+    weight_g: int | None = None
