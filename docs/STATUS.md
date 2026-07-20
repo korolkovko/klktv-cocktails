@@ -33,9 +33,17 @@ Full admin built via SDD (10 tasks + reviews; spec `docs/superpowers/specs/2026-
 - **`kolya` is now `admin`** (password unchanged). `backend/migration/make_kolya_admin.py`.
 - Live-smoked end-to-end (login→list→create→reflected in `/api/content`→upload→rename→delete; reader→403). Deferred polish (final review, non-blocking): EditorShell a11y (aria-modal/focus-trap — belongs to the later kit redesign), EntityList search stringify, reorder partial-list guard.
 
-## NEXT TASK — browser QA of admin, then media-on-prod + cutover
+## DONE (2026-07-20 session 3) — DEPLOY PREP — commit `f5f2552`
 
-Admin is code-complete + live-smoked at the API level. Remaining: (1) **hands-on browser QA** of the admin UI as `kolya` (create/edit/delete each type, image upload, users) — the redesign onto the kit comes after; (2) **prod media**: mount a Railway volume at `UPLOAD_DIR` and run `media_to_volume.py` against prod at cutover; (3) deferred MED/LOW parity items in `docs/audit/parity/SUMMARY.md` if wanted; (4) **cutover**: final ETL + deploy config (`VITE_API_URL`, `CORS_ORIGINS`, rotate/purge the 12 plaintext passwords, remove `v2tester`).
+Deploy decisions (owner): **reuse tokaido as v2-prod**, **staging-first then domain switch**, **create new backend+frontend Railway services** (DB already exists). Everything preparable is done + committed:
+- **`docs/DEPLOY.md`** — the full runbook (READ THIS to deploy): services, Railway volume at `UPLOAD_DIR`, env-var tables, cross-origin cookie/CORS wiring, pre-go-live cleanup, staging QA, domain switch, rollback, password-history purge.
+- **Media auto-seeds the prod volume**: the 52 content images are baked into the backend image (`backend/seed_media/`) and copied into an empty `UPLOAD_DIR` on boot (`backend/app/media_seed.py`, copy-if-absent) — no manual media step.
+- Cutover scripts: `backend/migration/prepare_prod.py` (remove dev/test users v2tester+smoke_*), `make_kolya_admin.py` (done), `media_to_volume.py`/`run.py` (only if a fresh DB is ever used).
+- `.dockerignore` excludes dev `.uploads/`; `.env.migration` already excluded (no secret leak). `.env.example` (both) document prod vars. Backend 81 tests green.
+
+## NEXT TASK — execute the deploy (owner) + browser QA
+
+Follow `docs/DEPLOY.md`: create the two Railway services + volume, set env vars, deploy to staging, run `prepare_prod.py`, **hands-on browser QA as kolya** (guest + Админка + uploads + users), then switch `cocktails.klktv.tech`. Also (owner, independent): rotate + purge the 12 plaintext passwords from git history. Optional: deferred MED/LOW parity items in `docs/audit/parity/SUMMARY.md`; the kit redesign of the admin UI.
 
 ## Deferred / operational
 
