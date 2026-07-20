@@ -6,12 +6,17 @@ export interface EntityColumn<T> {
   render?: (item: T) => React.ReactNode
 }
 
-// Searchable table + New/Edit/Delete row actions — generic over whatever
-// row shape a tab's `adminApi.list(entity)` returns. `getKey` supplies the
-// natural key (slug/key/id) used both as the React key and for row-action
-// callbacks; the default search matches against every rendered column's raw
-// value (string coercion), a caller can pass `searchKeys` to search over
-// something more specific/richer instead.
+// Searchable table + Edit (+ optional New/Delete) row actions — generic over
+// whatever row shape a tab's `adminApi.list(entity)` returns. `getKey`
+// supplies the natural key (slug/key/id) used both as the React key and for
+// row-action callbacks; the default search matches against every rendered
+// column's raw value (string coercion), a caller can pass `searchKeys` to
+// search over something more specific/richer instead.
+//
+// `onNew`/`onDelete` are optional: some entities (e.g. `categories`/Разделы)
+// are a fixed set the backend only exposes GET/PATCH/reorder for — no
+// POST/DELETE — so a caller that omits them gets a read-only-except-edit
+// list, no "+ Новый" button and no per-row "Удалить".
 export function EntityList<T>({
   items,
   columns,
@@ -27,8 +32,8 @@ export function EntityList<T>({
   columns: EntityColumn<T>[]
   getKey: (item: T) => string
   onEdit: (item: T) => void
-  onNew: () => void
-  onDelete: (item: T) => void
+  onNew?: () => void
+  onDelete?: (item: T) => void
   searchPlaceholder?: string
   searchKeys?: (item: T) => string
   loading?: boolean
@@ -56,13 +61,15 @@ export function EntityList<T>({
           placeholder={searchPlaceholder}
           className="w-full max-w-xs rounded border border-gray-300 bg-white px-2.5 py-1.5 text-sm outline-none focus:border-gray-500 focus:ring-2 focus:ring-gray-200"
         />
-        <button
-          type="button"
-          onClick={onNew}
-          className="shrink-0 rounded bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-gray-700"
-        >
-          + Новый
-        </button>
+        {onNew && (
+          <button
+            type="button"
+            onClick={onNew}
+            className="shrink-0 rounded bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-gray-700"
+          >
+            + Новый
+          </button>
+        )}
       </div>
       <div className="overflow-x-auto rounded border border-gray-200">
         <table className="w-full min-w-max text-left text-sm">
@@ -110,13 +117,15 @@ export function EntityList<T>({
                       >
                         Изменить
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => onDelete(item)}
-                        className="text-xs font-medium text-red-600 underline hover:text-red-800"
-                      >
-                        Удалить
-                      </button>
+                      {onDelete && (
+                        <button
+                          type="button"
+                          onClick={() => onDelete(item)}
+                          className="text-xs font-medium text-red-600 underline hover:text-red-800"
+                        >
+                          Удалить
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

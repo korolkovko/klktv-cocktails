@@ -23,6 +23,11 @@ interface TabConfig {
   entity: AdminEntity
   keyField: string
   adminOnly?: boolean
+  // `categories` is a fixed set — the backend only exposes GET/PATCH/reorder
+  // for it (no POST/DELETE, see backend/app/routers/admin.py), so this tab
+  // must not offer New/Delete anywhere (list actions or the edit modal)
+  // until Task 9's CategoriesTab adds real reorder/visibility editing.
+  noCreateDelete?: boolean
   columns: EntityColumn<Row>[]
 }
 
@@ -86,6 +91,7 @@ const TABS: TabConfig[] = [
     label: "Разделы",
     entity: "categories",
     keyField: "key",
+    noCreateDelete: true,
     columns: [
       { key: "label", label: "Название" },
       { key: "key", label: "Ключ" },
@@ -207,9 +213,9 @@ export default function AdminPage() {
           columns={tab.columns}
           getKey={getKey}
           loading={loading}
-          onNew={() => setEditing({ mode: "new" })}
+          onNew={tab.noCreateDelete ? undefined : () => setEditing({ mode: "new" })}
           onEdit={(row) => setEditing({ mode: "edit", row })}
-          onDelete={handleDelete}
+          onDelete={tab.noCreateDelete ? undefined : handleDelete}
         />
       </div>
 
@@ -219,7 +225,11 @@ export default function AdminPage() {
           onClose={() => setEditing(null)}
           onSave={() => setEditing(null)}
           saveDisabled
-          onDelete={editing.mode === "edit" ? () => handleDelete(editing.row) : undefined}
+          onDelete={
+            editing.mode === "edit" && !tab.noCreateDelete
+              ? () => handleDelete(editing.row)
+              : undefined
+          }
         >
           <p className="text-sm text-gray-500">
             Редактор «{tab.label}» появится в следующей задаче. Общие примитивы (поля форм,

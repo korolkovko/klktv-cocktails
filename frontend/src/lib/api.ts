@@ -1,4 +1,4 @@
-const BASE = import.meta.env.VITE_API_URL ?? ""
+export const BASE = import.meta.env.VITE_API_URL ?? ""
 
 // Global "on unauthorized" hook — lets AuthContext learn about a 401 from
 // any API call (not just the initial /api/auth/me probe) so an expired

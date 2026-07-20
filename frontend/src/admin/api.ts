@@ -12,7 +12,7 @@
 // bypasses `api` and talks to `fetch` directly — mirrors lib/api.ts's own
 // request() shape (credentials include, 401 -> global handler, thrown Error
 // carries the JSON body's `detail` when present).
-import { api, notifyUnauthorized } from "@/lib/api"
+import { api, BASE, notifyUnauthorized } from "@/lib/api"
 
 export type AdminEntity =
   | "drinks"
@@ -24,8 +24,6 @@ export type AdminEntity =
   | "families"
   | "categories"
   | "users"
-
-const BASE = import.meta.env.VITE_API_URL ?? ""
 
 function pathFor(entity: AdminEntity, key?: string): string {
   const base = `/api/admin/${entity}`
