@@ -70,3 +70,41 @@ class ClassicWriteIn(BaseModel):
 
 class ClassicAdminOut(ClassicWriteIn):
     id: int
+
+
+# ── Spirits ──────────────────────────────────────────────────
+
+class SpiritCategoryWriteIn(BaseModel):
+    slug: str = Field(min_length=1, max_length=64)
+    label: str = Field(max_length=128)
+    sort_order: int = 0
+    is_archived: bool = False
+
+
+class SpiritCategoryAdminOut(SpiritCategoryWriteIn):
+    id: int
+
+
+class SpiritEntryWriteIn(BaseModel):
+    slug: str = Field(min_length=1, max_length=80)
+    category: str                   # spirit-category slug (must exist; not get-or-created)
+    name: str = Field(max_length=256)
+    img: str | None = Field(default=None, max_length=256)
+    abv_raw: str | None = Field(default=None, max_length=32)
+    price_raw: str | None = Field(default=None, max_length=64)
+    flavour: str | None = None       # spirit_entries.flavour is Text — unbounded, no cap
+    brand: str | None = None         # Text
+    country: str | None = None       # Text
+    description: str | None = None   # Text
+    features: str | None = None      # Text
+    cocktail_pairings: str | None = None  # Text
+    fact: str | None = None          # Text
+    source_url: str | None = None    # Text
+    sort_order: int = 0
+
+
+class SpiritEntryAdminOut(SpiritEntryWriteIn):
+    id: int
+    abv: float | None = None         # parsed
+    price_amount: float | None = None
+    serving_ml: int | None = None

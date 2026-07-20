@@ -9,13 +9,16 @@ This module starts with Drinks (the CRUD template); Tasks 3–6 append
 classics/spirits/kitchen/families endpoints to this same router.
 """
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.orm import Session, selectinload
 
 from app.auth import require_editor
 from app.database import get_db
 from app import models as m
-from app.schemas_admin import DrinkAdminOut, DrinkWriteIn, ClassicAdminOut, ClassicWriteIn
+from app.schemas_admin import (
+    DrinkAdminOut, DrinkWriteIn, ClassicAdminOut, ClassicWriteIn,
+    SpiritCategoryAdminOut, SpiritCategoryWriteIn, SpiritEntryAdminOut, SpiritEntryWriteIn,
+)
 
 # migration.parsers are pure functions (no I/O) — safe to import into the app.
 from migration.parsers import parse_abv, parse_price
@@ -339,6 +342,186 @@ def delete_classic(slug: str, db: Session = Depends(get_db)):
         db.query(tbl).filter(tbl.classic_id == obj.id).delete(synchronize_session=False)
     db.query(m.LearningProgress).filter(
         m.LearningProgress.kind == "classics", m.LearningProgress.slug == slug
+    ).delete(synchronize_session=False)
+    db.delete(obj)
+    db.commit()
+
+
+# ── Spirit categories ─────────────────────────────────────
+
+def _get_spirit_category_or_400(db: Session, slug: str) -> m.SpiritCategory:
+    # Spirit categories are managed by their own editor screen — not
+    # get-or-created here, mirroring `_get_family_or_400` for classics.
+    slug = slug.strip()
+    if not slug:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Spirit category slug must not be blank")
+    obj = db.scalar(select(m.SpiritCategory).where(m.SpiritCategory.slug == slug))
+    if not obj:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=f"unknown spirit category: {slug}")
+    return obj
+
+
+def _to_spirit_category_admin_out(obj: m.SpiritCategory) -> SpiritCategoryAdminOut:
+    return SpiritCategoryAdminOut(
+        id=obj.id, slug=obj.slug, label=obj.label,
+        sort_order=obj.sort_order, is_archived=obj.is_archived,
+    )
+
+
+def _apply_spirit_category(db: Session, obj: m.SpiritCategory, data: SpiritCategoryWriteIn) -> None:
+    obj.label = data.label
+    obj.sort_order = data.sort_order
+    obj.is_archived = data.is_archived
+
+
+def _get_spirit_category_or_404(db: Session, slug: str) -> m.SpiritCategory:
+    obj = db.scalar(select(m.SpiritCategory).where(m.SpiritCategory.slug == slug))
+    if not obj:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Spirit category not found")
+    return obj
+
+
+@router.get("/spirit-categories", response_model=list[SpiritCategoryAdminOut])
+def list_spirit_categories(db: Session = Depends(get_db)):
+    rows = db.scalars(
+        select(m.SpiritCategory).order_by(m.SpiritCategory.sort_order, m.SpiritCategory.label)
+    ).all()
+    return [_to_spirit_category_admin_out(c) for c in rows]
+
+
+@router.get("/spirit-categories/{slug}", response_model=SpiritCategoryAdminOut)
+def get_spirit_category(slug: str, db: Session = Depends(get_db)):
+    obj = _get_spirit_category_or_404(db, slug)
+    return _to_spirit_category_admin_out(obj)
+
+
+@router.post("/spirit-categories", status_code=status.HTTP_201_CREATED, response_model=SpiritCategoryAdminOut)
+def create_spirit_category(data: SpiritCategoryWriteIn, db: Session = Depends(get_db)):
+    if db.scalar(select(m.SpiritCategory).where(m.SpiritCategory.slug == data.slug)):
+        raise HTTPException(status.HTTP_409_CONFLICT, detail="Spirit category with this slug already exists")
+    obj = m.SpiritCategory(slug=data.slug)
+    db.add(obj)
+    _apply_spirit_category(db, obj, data)
+    db.commit()
+    return _to_spirit_category_admin_out(_get_spirit_category_or_404(db, obj.slug))
+
+
+@router.patch("/spirit-categories/{slug}", response_model=SpiritCategoryAdminOut)
+def update_spirit_category(slug: str, data: SpiritCategoryWriteIn, db: Session = Depends(get_db)):
+    obj = db.scalar(select(m.SpiritCategory).where(m.SpiritCategory.slug == slug))
+    if not obj:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Spirit category not found")
+    if data.slug != slug and db.scalar(select(m.SpiritCategory).where(m.SpiritCategory.slug == data.slug)):
+        raise HTTPException(status.HTTP_409_CONFLICT, detail="New slug already in use")
+    obj.slug = data.slug
+    _apply_spirit_category(db, obj, data)
+    db.commit()
+    return _to_spirit_category_admin_out(_get_spirit_category_or_404(db, obj.slug))
+
+
+@router.delete("/spirit-categories/{slug}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_spirit_category(slug: str, db: Session = Depends(get_db)):
+    obj = db.scalar(select(m.SpiritCategory).where(m.SpiritCategory.slug == slug))
+    if not obj:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Spirit category not found")
+    entry_count = db.scalar(
+        select(func.count()).select_from(m.SpiritEntry).where(m.SpiritEntry.category_id == obj.id)
+    )
+    if entry_count:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail=f"Spirit category '{slug}' still has {entry_count} spirit entr"
+                   f"{'y' if entry_count == 1 else 'ies'} — move or delete them first",
+        )
+    db.delete(obj)
+    db.commit()
+
+
+# ── Spirits ───────────────────────────────────────────────
+
+_SPIRIT_OPTIONS = (
+    selectinload(m.SpiritEntry.category),
+)
+
+
+def _to_spirit_admin_out(obj: m.SpiritEntry) -> SpiritEntryAdminOut:
+    return SpiritEntryAdminOut(
+        id=obj.id, slug=obj.slug, category=obj.category.slug,
+        name=obj.name, img=obj.img,
+        abv_raw=obj.abv_raw, abv=_num(obj.abv),
+        price_raw=obj.price_raw, price_amount=_num(obj.price_amount), serving_ml=obj.serving_ml,
+        flavour=obj.flavour, brand=obj.brand, country=obj.country, description=obj.description,
+        features=obj.features, cocktail_pairings=obj.cocktail_pairings, fact=obj.fact,
+        source_url=obj.source_url, sort_order=obj.sort_order,
+    )
+
+
+def _apply_spirit(db: Session, obj: m.SpiritEntry, data: SpiritEntryWriteIn) -> None:
+    cat = _get_spirit_category_or_400(db, data.category)
+    abv, _ = parse_abv(data.abv_raw)
+    price, serving = parse_price(data.price_raw)
+    obj.category_id = cat.id
+    obj.name = data.name; obj.img = data.img
+    obj.abv = abv; obj.abv_raw = data.abv_raw
+    obj.price_amount = price; obj.price_raw = data.price_raw; obj.serving_ml = serving
+    obj.flavour = data.flavour; obj.brand = data.brand; obj.country = data.country
+    obj.description = data.description
+    obj.features = data.features; obj.cocktail_pairings = data.cocktail_pairings; obj.fact = data.fact
+    obj.source_url = data.source_url; obj.sort_order = data.sort_order
+
+
+def _get_spirit_or_404(db: Session, slug: str) -> m.SpiritEntry:
+    obj = db.scalar(select(m.SpiritEntry).options(*_SPIRIT_OPTIONS).where(m.SpiritEntry.slug == slug))
+    if not obj:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Spirit not found")
+    return obj
+
+
+@router.get("/spirits", response_model=list[SpiritEntryAdminOut])
+def list_spirits(db: Session = Depends(get_db)):
+    rows = db.scalars(
+        select(m.SpiritEntry).options(*_SPIRIT_OPTIONS).order_by(m.SpiritEntry.sort_order, m.SpiritEntry.name)
+    ).all()
+    return [_to_spirit_admin_out(e) for e in rows]
+
+
+@router.get("/spirits/{slug}", response_model=SpiritEntryAdminOut)
+def get_spirit(slug: str, db: Session = Depends(get_db)):
+    obj = _get_spirit_or_404(db, slug)
+    return _to_spirit_admin_out(obj)
+
+
+@router.post("/spirits", status_code=status.HTTP_201_CREATED, response_model=SpiritEntryAdminOut)
+def create_spirit(data: SpiritEntryWriteIn, db: Session = Depends(get_db)):
+    if db.scalar(select(m.SpiritEntry).where(m.SpiritEntry.slug == data.slug)):
+        raise HTTPException(status.HTTP_409_CONFLICT, detail="Spirit with this slug already exists")
+    obj = m.SpiritEntry(slug=data.slug)
+    db.add(obj)
+    _apply_spirit(db, obj, data)
+    db.commit()
+    return _to_spirit_admin_out(_get_spirit_or_404(db, obj.slug))
+
+
+@router.patch("/spirits/{slug}", response_model=SpiritEntryAdminOut)
+def update_spirit(slug: str, data: SpiritEntryWriteIn, db: Session = Depends(get_db)):
+    obj = db.scalar(select(m.SpiritEntry).where(m.SpiritEntry.slug == slug))
+    if not obj:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Spirit not found")
+    if data.slug != slug and db.scalar(select(m.SpiritEntry).where(m.SpiritEntry.slug == data.slug)):
+        raise HTTPException(status.HTTP_409_CONFLICT, detail="New slug already in use")
+    obj.slug = data.slug
+    _apply_spirit(db, obj, data)
+    db.commit()
+    return _to_spirit_admin_out(_get_spirit_or_404(db, obj.slug))
+
+
+@router.delete("/spirits/{slug}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_spirit(slug: str, db: Session = Depends(get_db)):
+    obj = db.scalar(select(m.SpiritEntry).where(m.SpiritEntry.slug == slug))
+    if not obj:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Spirit not found")
+    db.query(m.LearningProgress).filter(
+        m.LearningProgress.kind == "spirits", m.LearningProgress.slug == slug
     ).delete(synchronize_session=False)
     db.delete(obj)
     db.commit()
