@@ -860,11 +860,13 @@ function DetailShellFull({
       >
         <DialogTitle className="sr-only">{title}</DialogTitle>
         <div className="flex shrink-0 items-center gap-4 border-b border-border px-[22px] py-[18px]">{desktopHeader}</div>
-        {/* длинный контент (напр. Апсайкл Кола) скроллится в середине; шапка и
-            подвал-листалка закреплены — иначе модалка вылезала за верх/низ экрана */}
-        <div key={nav.index} className="grid min-h-0 flex-1 animate-in grid-cols-[280px_1fr] overflow-y-auto fade-in-0 duration-[120ms]">
-          <div className="flex flex-col gap-3.5 border-r border-divider px-[22px] py-[18px]">{desktopLeft}</div>
-          <div className="flex flex-col gap-3.5 px-[22px] py-[18px]">{desktopRight}</div>
+        {/* левая колонка (карточка бармена + «ИЗУЧЕНО») закреплена и всегда
+            видна; скроллится ТОЛЬКО правая колонка с длинным учебным текстом
+            (напр. Апсайкл Кола). Каждая колонка тянется на высоту контейнера и
+            скроллит свой overflow независимо; шапка/подвал-листалка закреплены. */}
+        <div key={nav.index} className="flex min-h-0 flex-1 animate-in overflow-hidden fade-in-0 duration-[120ms]">
+          <div className="flex w-[280px] shrink-0 flex-col gap-3.5 overflow-y-auto border-r border-divider px-[22px] py-[18px]">{desktopLeft}</div>
+          <div className="flex min-w-0 flex-1 flex-col gap-3.5 overflow-y-auto px-[22px] py-[18px]">{desktopRight}</div>
         </div>
         <DesktopDeckBar nav={nav} />
       </DialogContent>
