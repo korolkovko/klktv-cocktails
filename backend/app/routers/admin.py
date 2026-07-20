@@ -1,730 +1,207 @@
-"""Editor/admin CRUD for cocktails, classics, families.
+"""Editor/admin CRUD on the v2 unified content schema.
 
 All writes go through `require_editor` (admin or editor role).
-Lookup rows (tags, flavors, descriptors, glasses, spirits, badges) are
-auto-created when the editor uses a new label — keeps the UX simple
-without a separate management screen.
+Lookup rows (glasses, badges, spirits, tags, flavors, descriptors) are
+auto-created when the editor references a new key/label — keeps the UX
+simple without a separate lookup-management screen.
+
+This module starts with Drinks (the CRUD template); Tasks 3–6 append
+classics/spirits/kitchen/families endpoints to this same router.
 """
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, ConfigDict
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.orm import Session, selectinload
 
 from app.auth import require_editor
 from app.database import get_db
-from app.models import (
-    Badge, Category, Classic, ClassicDescriptor, ClassicRelatedCocktail, ClassicSpirit,
-    Cocktail, CocktailDetail, CocktailFlavor, CocktailTag,
-    Descriptor, Family, Flavor, Glass, KitchenCategory, KitchenDish,
-    Spirit, SpiritCategory, SpiritEntry,
-    Tag, User,
-    ZCDrink, ZCDrinkDetail, ZeroCocktail, ZeroCocktailDetail,
-)
+from app import models as m
+from app.schemas_admin import DrinkAdminOut, DrinkWriteIn
+
+# migration.parsers are pure functions (no I/O) — safe to import into the app.
+from migration.parsers import parse_abv, parse_price
 
 router = APIRouter(prefix="/api/admin", tags=["admin"], dependencies=[Depends(require_editor)])
 
 
-# ── Input schemas ──────────────────────────────────────────
-
-class CocktailDetailIn(BaseModel):
-    label: str
-    text: str
-
-    model_config = ConfigDict(extra="ignore")
-
-
-class CocktailWriteIn(BaseModel):
-    slug: str
-    name: str
-    img: str | None = None
-    abv: str | None = None
-    glass_key: str | None = None
-    glass_label_override: str | None = None
-    badge_key: str | None = None
-    badge_label: str | None = None
-    tagline: str | None = None
-    tags: list[str] = []
-    flavors: list[str] = []
-    details: list[CocktailDetailIn] = []
-    sort_order: int = 0
-
-
-class ClassicWriteIn(BaseModel):
-    slug: str
-    name: str
-    family_key: str
-    year: int | None = None
-    origin: str | None = None
-    spirits: list[str] = []
-    composition: str | None = None
-    glass_key: str | None = None
-    glass_label_override: str | None = None
-    garnish: str | None = None
-    descriptors: list[str] = []
-    history: str | None = None
-    for_whom: str | None = None
-    related_ours: list[str] = []
-    sort_order: int = 0
-
-
-class KitchenCategoryWriteIn(BaseModel):
-    slug: str
-    label: str
-    sort_order: int = 0
-
-
-class KitchenDishWriteIn(BaseModel):
-    slug: str
-    category_slug: str
-    name: str
-    img: str | None = None
-    price: str | None = None
-    tagline: str | None = None
-    description: str | None = None
-    timing: str | None = None
-    weight: str | None = None
-    nutrition: str | None = None
-    serving: str | None = None
-    interesting_facts: str | None = None
-    sort_order: int = 0
-
-
-class SpiritCategoryWriteIn(BaseModel):
-    slug: str
-    label: str
-    sort_order: int = 0
-    is_archived: bool = False
-
-
-class SpiritEntryWriteIn(BaseModel):
-    slug: str
-    category_slug: str
-    name: str
-    img: str | None = None
-    abv: str | None = None
-    price: str | None = None
-    flavour: str | None = None
-    brand: str | None = None
-    country: str | None = None
-    brand_country: str | None = None      # long-form notes
-    source_url: str | None = None
-    features: str | None = None
-    cocktail_pairings: str | None = None
-    fact: str | None = None
-    sort_order: int = 0
-
-
-class ZeroDetailIn(BaseModel):
-    label: str
-    text: str
-
-    model_config = ConfigDict(extra="ignore")
-
-
-class ZeroCocktailWriteIn(BaseModel):
-    slug: str
-    name: str
-    img: str | None = None
-    price: str | None = None
-    abv: str | None = None
-    glass_key: str | None = None
-    glass_label_override: str | None = None
-    tagline: str | None = None
-    ingredients_text: str | None = None
-    details: list[ZeroDetailIn] = []
-    sort_order: int = 0
-
-
-class ZCDrinkWriteIn(BaseModel):
-    slug: str
-    name: str
-    img: str | None = None
-    is_alcoholic: bool = True
-    price: str | None = None
-    abv: str | None = None
-    glass_key: str | None = None
-    glass_label_override: str | None = None
-    tagline: str | None = None
-    caffeine_level: int | None = None    # ignored when is_alcoholic=True
-    is_carbonated: bool | None = None    # ignored when is_alcoholic=True
-    details: list[ZeroDetailIn] = []
-    sort_order: int = 0
-
-
-class CategoryWriteIn(BaseModel):
-    """Admin-editable fields. `key` and `kind` are structural and not
-    editable from the UI — they're set when seeding/scaffolding new types."""
-    label: str
-    sort_order: int = 0
-    is_visible: bool = True
-
-
-class CategoryReorderIn(BaseModel):
-    keys: list[str]  # full ordered list of category keys
-
-
-class FamilyWriteIn(BaseModel):
-    key: str
-    label: str
-    sub: str | None = None
-    color: str | None = None
-    logic: str | None = None
-    evolution: str | None = None
-    tip: str | None = None
-    sort_order: int = 0
-
-
 # ── Lookup helpers (find-or-create) ────────────────────────
 
-def _get_or_create_tag(db: Session, key: str) -> Tag:
+def _get_or_create_glass(db: Session, key: str) -> m.Glass:
     key = key.strip()
-    if not key:
-        raise HTTPException(400, detail="Tag key required")
-    obj = db.query(Tag).filter(Tag.key == key).first()
+    obj = db.scalar(select(m.Glass).where(m.Glass.key == key))
     if not obj:
-        obj = Tag(key=key)
+        obj = m.Glass(key=key, label=key.title())
         db.add(obj); db.flush()
     return obj
 
 
-def _get_or_create_flavor(db: Session, label: str) -> Flavor:
+def _get_or_create_badge(db: Session, key: str) -> m.Badge:
+    key = key.strip()
+    obj = db.scalar(select(m.Badge).where(m.Badge.key == key))
+    if not obj:
+        obj = m.Badge(key=key, label=key.title())
+        db.add(obj); db.flush()
+    return obj
+
+
+def _get_or_create_spirit(db: Session, key: str) -> m.Spirit:
+    key = key.strip()
+    obj = db.scalar(select(m.Spirit).where(m.Spirit.key == key))
+    if not obj:
+        obj = m.Spirit(key=key, label=key.title())
+        db.add(obj); db.flush()
+    return obj
+
+
+def _get_or_create_tag(db: Session, key: str) -> m.Tag:
+    key = key.strip()
+    obj = db.scalar(select(m.Tag).where(m.Tag.key == key))
+    if not obj:
+        obj = m.Tag(key=key, label=key.title())
+        db.add(obj); db.flush()
+    return obj
+
+
+def _get_or_create_flavor(db: Session, label: str) -> m.Flavor:
     label = label.strip()
-    if not label:
-        raise HTTPException(400, detail="Flavor label required")
-    obj = db.query(Flavor).filter(Flavor.label == label).first()
+    obj = db.scalar(select(m.Flavor).where(m.Flavor.label == label))
     if not obj:
-        obj = Flavor(label=label)
+        obj = m.Flavor(label=label)
         db.add(obj); db.flush()
     return obj
 
 
-def _get_or_create_descriptor(db: Session, label: str) -> Descriptor:
+def _get_or_create_descriptor(db: Session, label: str) -> m.Descriptor:
     label = label.strip()
-    if not label:
-        raise HTTPException(400, detail="Descriptor label required")
-    obj = db.query(Descriptor).filter(Descriptor.label == label).first()
+    obj = db.scalar(select(m.Descriptor).where(m.Descriptor.label == label))
     if not obj:
-        obj = Descriptor(label=label)
+        obj = m.Descriptor(label=label)
         db.add(obj); db.flush()
     return obj
 
 
-def _get_or_create_glass(db: Session, key: str, label: str | None = None) -> Glass | None:
-    if not key: return None
-    key = key.strip()
-    obj = db.query(Glass).filter(Glass.key == key).first()
-    if not obj:
-        obj = Glass(key=key, label=label or key.title())
-        db.add(obj); db.flush()
-    elif label and obj.label != label:
-        obj.label = label
-    return obj
+# ── Drinks ────────────────────────────────────────────────
+
+_DRINK_OPTIONS = (
+    selectinload(m.Drink.spirits).selectinload(m.DrinkSpirit.spirit),
+    selectinload(m.Drink.flavors).selectinload(m.DrinkFlavor.flavor),
+    selectinload(m.Drink.tags).selectinload(m.DrinkTag.tag),
+    selectinload(m.Drink.details),
+    selectinload(m.Drink.glass),
+    selectinload(m.Drink.badge),
+)
 
 
-def _get_or_create_badge(db: Session, key: str | None, label: str | None) -> Badge | None:
-    if not key: return None
-    obj = db.query(Badge).filter(Badge.key == key).first()
-    if not obj:
-        obj = Badge(key=key, label=label or key.title())
-        db.add(obj); db.flush()
-    elif label and obj.label != label:
-        obj.label = label
-    return obj
+def _num(x):
+    return None if x is None else float(x)
 
 
-def _get_spirit(db: Session, key: str) -> Spirit | None:
-    return db.query(Spirit).filter(Spirit.key == key.strip()).first()
-
-
-def _get_or_create_spirit(db: Session, key: str) -> Spirit:
-    key = key.strip()
-    obj = _get_spirit(db, key)
-    if not obj:
-        obj = Spirit(key=key, label=key.title())
-        db.add(obj); db.flush()
-    return obj
-
-
-def _get_family(db: Session, key: str) -> Family:
-    obj = db.query(Family).filter(Family.key == key.strip()).first()
-    if not obj:
-        raise HTTPException(400, detail=f"Family {key!r} not found — create it first")
-    return obj
-
-
-# ── Cocktails ─────────────────────────────────────────────
-
-def _apply_cocktail(db: Session, obj: Cocktail, data: CocktailWriteIn) -> None:
-    glass = _get_or_create_glass(db, data.glass_key, data.glass_label_override) if data.glass_key else None
-    badge = _get_or_create_badge(db, data.badge_key, data.badge_label) if data.badge_key else None
-
-    obj.name = data.name
-    obj.img = data.img
-    obj.abv = data.abv
-    obj.tagline = data.tagline
-    obj.glass_id = glass.id if glass else None
-    obj.glass_label_override = data.glass_label_override if not glass else None
-    obj.badge_id = badge.id if badge else None
-    obj.sort_order = data.sort_order
-
-    if obj.id is None:
-        db.flush()  # need PK before junctions
-
-    # Replace tags/flavors/details wholesale (rare op, small data, simplest)
-    db.query(CocktailTag).filter(CocktailTag.cocktail_id == obj.id).delete()
-    for i, key in enumerate(data.tags):
-        tag = _get_or_create_tag(db, key)
-        db.add(CocktailTag(cocktail_id=obj.id, tag_id=tag.id, sort_order=i))
-
-    db.query(CocktailFlavor).filter(CocktailFlavor.cocktail_id == obj.id).delete()
-    for i, label in enumerate(data.flavors):
-        flavor = _get_or_create_flavor(db, label)
-        db.add(CocktailFlavor(cocktail_id=obj.id, flavor_id=flavor.id, sort_order=i))
-
-    db.query(CocktailDetail).filter(CocktailDetail.cocktail_id == obj.id).delete()
-    for i, d in enumerate(data.details):
-        db.add(CocktailDetail(cocktail_id=obj.id, label=d.label, text=d.text, sort_order=i))
-
-
-@router.post("/cocktails", status_code=status.HTTP_201_CREATED)
-def create_cocktail(data: CocktailWriteIn, db: Session = Depends(get_db)):
-    if db.query(Cocktail).filter(Cocktail.slug == data.slug).first():
-        raise HTTPException(409, detail="Cocktail with this slug already exists")
-    obj = Cocktail(slug=data.slug)
-    db.add(obj)
-    _apply_cocktail(db, obj, data)
-    db.commit()
-    return {"slug": obj.slug}
-
-
-@router.patch("/cocktails/{slug}")
-def update_cocktail(slug: str, data: CocktailWriteIn, db: Session = Depends(get_db)):
-    obj = db.query(Cocktail).filter(Cocktail.slug == slug).first()
-    if not obj:
-        raise HTTPException(404, detail="Cocktail not found")
-    if data.slug != slug:
-        # Slug change: ensure new slug isn't taken
-        if db.query(Cocktail).filter(Cocktail.slug == data.slug).first():
-            raise HTTPException(409, detail="New slug already in use")
-        obj.slug = data.slug
-    _apply_cocktail(db, obj, data)
-    db.commit()
-    return {"slug": obj.slug}
-
-
-@router.delete("/cocktails/{slug}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_cocktail(slug: str, db: Session = Depends(get_db)):
-    obj = db.query(Cocktail).filter(Cocktail.slug == slug).first()
-    if not obj:
-        raise HTTPException(404, detail="Cocktail not found")
-    db.delete(obj)
-    db.commit()
-
-
-# ── Classics ──────────────────────────────────────────────
-
-def _apply_classic(db: Session, obj: Classic, data: ClassicWriteIn) -> None:
-    family = _get_family(db, data.family_key)
-    glass = _get_or_create_glass(db, data.glass_key, data.glass_label_override) if data.glass_key else None
-
-    obj.name = data.name
-    obj.family_id = family.id
-    obj.year = data.year
-    obj.origin = data.origin
-    obj.composition = data.composition
-    obj.glass_id = glass.id if glass else None
-    obj.glass_label_override = data.glass_label_override if not glass else None
-    obj.garnish = data.garnish
-    obj.history = data.history
-    obj.for_whom = data.for_whom
-    obj.sort_order = data.sort_order
-
-    if obj.id is None:
-        db.flush()
-
-    db.query(ClassicSpirit).filter(ClassicSpirit.classic_id == obj.id).delete()
-    for i, key in enumerate(data.spirits):
-        spirit = _get_or_create_spirit(db, key)
-        db.add(ClassicSpirit(classic_id=obj.id, spirit_id=spirit.id, sort_order=i))
-
-    db.query(ClassicDescriptor).filter(ClassicDescriptor.classic_id == obj.id).delete()
-    for i, label in enumerate(data.descriptors):
-        desc = _get_or_create_descriptor(db, label)
-        db.add(ClassicDescriptor(classic_id=obj.id, descriptor_id=desc.id, sort_order=i))
-
-    db.query(ClassicRelatedCocktail).filter(ClassicRelatedCocktail.classic_id == obj.id).delete()
-    for i, slug in enumerate(data.related_ours):
-        related = db.query(Cocktail).filter(Cocktail.slug == slug).first()
-        if related:
-            db.add(ClassicRelatedCocktail(classic_id=obj.id, cocktail_id=related.id, sort_order=i))
-
-
-@router.post("/classics", status_code=status.HTTP_201_CREATED)
-def create_classic(data: ClassicWriteIn, db: Session = Depends(get_db)):
-    if db.query(Classic).filter(Classic.slug == data.slug).first():
-        raise HTTPException(409, detail="Classic with this slug already exists")
-    obj = Classic(slug=data.slug)
-    db.add(obj)
-    _apply_classic(db, obj, data)
-    db.commit()
-    return {"slug": obj.slug}
-
-
-@router.patch("/classics/{slug}")
-def update_classic(slug: str, data: ClassicWriteIn, db: Session = Depends(get_db)):
-    obj = db.query(Classic).filter(Classic.slug == slug).first()
-    if not obj:
-        raise HTTPException(404, detail="Classic not found")
-    if data.slug != slug:
-        if db.query(Classic).filter(Classic.slug == data.slug).first():
-            raise HTTPException(409, detail="New slug already in use")
-        obj.slug = data.slug
-    _apply_classic(db, obj, data)
-    db.commit()
-    return {"slug": obj.slug}
-
-
-@router.delete("/classics/{slug}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_classic(slug: str, db: Session = Depends(get_db)):
-    obj = db.query(Classic).filter(Classic.slug == slug).first()
-    if not obj:
-        raise HTTPException(404, detail="Classic not found")
-    db.delete(obj)
-    db.commit()
-
-
-# ── Families ──────────────────────────────────────────────
-
-@router.post("/families", status_code=status.HTTP_201_CREATED)
-def create_family(data: FamilyWriteIn, db: Session = Depends(get_db)):
-    if db.query(Family).filter(Family.key == data.key).first():
-        raise HTTPException(409, detail="Family with this key already exists")
-    obj = Family(
-        key=data.key, label=data.label, sub=data.sub, color=data.color,
-        logic=data.logic, evolution=data.evolution, tip=data.tip,
-        sort_order=data.sort_order,
+def _to_admin_out(obj: m.Drink) -> DrinkAdminOut:
+    return DrinkAdminOut(
+        id=obj.id, slug=obj.slug, name=obj.name, img=obj.img, photo=obj.photo,
+        subtitle=obj.subtitle,
+        abv_raw=obj.abv_raw, abv=_num(obj.abv),
+        price_raw=obj.price_raw, price_amount=_num(obj.price_amount),
+        price_currency=obj.price_currency, volume_ml=obj.volume_ml,
+        glass=obj.glass.key if obj.glass else None,
+        badge=obj.badge.key if obj.badge else None,
+        sort_order=obj.sort_order,
+        is_alcoholic=obj.is_alcoholic, is_zero_culture=obj.is_zero_culture,
+        caffeine_level=obj.caffeine_level, is_carbonated=obj.is_carbonated,
+        recipe=obj.recipe, garnish=obj.garnish, pitch=obj.pitch,
+        about=obj.about, naming=obj.naming, faq=obj.faq,
+        spirits=[ds.spirit.key for ds in obj.spirits],
+        flavors=[df.flavor.label for df in obj.flavors],
+        tags=[dt.tag.key for dt in obj.tags],
+        details=[{"label": dd.label, "text": dd.text, "sort_order": dd.sort_order} for dd in obj.details],
     )
-    db.add(obj); db.commit()
-    return {"key": obj.key}
 
 
-@router.patch("/families/{key}")
-def update_family(key: str, data: FamilyWriteIn, db: Session = Depends(get_db)):
-    obj = db.query(Family).filter(Family.key == key).first()
+def _apply_drink(db: Session, obj: m.Drink, data: DrinkWriteIn) -> None:
+    abv, _ = parse_abv(data.abv_raw)
+    price, _ = parse_price(data.price_raw)
+    obj.name = data.name; obj.img = data.img; obj.photo = data.photo
+    obj.subtitle = data.subtitle
+    obj.abv = abv; obj.abv_raw = data.abv_raw
+    obj.price_amount = price; obj.price_raw = data.price_raw; obj.price_currency = data.price_currency
+    obj.volume_ml = data.volume_ml; obj.sort_order = data.sort_order
+    obj.is_alcoholic = data.is_alcoholic; obj.is_zero_culture = data.is_zero_culture
+    obj.caffeine_level = data.caffeine_level; obj.is_carbonated = data.is_carbonated
+    obj.recipe = data.recipe; obj.garnish = data.garnish; obj.pitch = data.pitch
+    obj.about = data.about; obj.naming = data.naming; obj.faq = data.faq
+    g = _get_or_create_glass(db, data.glass) if data.glass else None
+    obj.glass_id = g.id if g else None
+    b = _get_or_create_badge(db, data.badge) if data.badge else None
+    obj.badge_id = b.id if b else None
+    db.flush()
+    # rebuild relations (delete-then-insert), mirroring the ETL
+    for tbl in (m.DrinkSpirit, m.DrinkFlavor, m.DrinkTag, m.DrinkDetail):
+        db.query(tbl).filter(tbl.drink_id == obj.id).delete(synchronize_session=False)
+    for i, key in enumerate(data.spirits):
+        sp = _get_or_create_spirit(db, key)
+        db.add(m.DrinkSpirit(drink_id=obj.id, spirit_id=sp.id, sort_order=i))
+    for i, label in enumerate(data.flavors):
+        fl = _get_or_create_flavor(db, label)
+        db.add(m.DrinkFlavor(drink_id=obj.id, flavor_id=fl.id, sort_order=i))
+    for i, key in enumerate(data.tags):
+        tg = _get_or_create_tag(db, key)
+        db.add(m.DrinkTag(drink_id=obj.id, tag_id=tg.id, sort_order=i))
+    for det in data.details:
+        db.add(m.DrinkDetail(drink_id=obj.id, label=det.label, text=det.text, sort_order=det.sort_order))
+
+
+def _get_drink_or_404(db: Session, slug: str) -> m.Drink:
+    obj = db.scalar(select(m.Drink).options(*_DRINK_OPTIONS).where(m.Drink.slug == slug))
     if not obj:
-        raise HTTPException(404, detail="Family not found")
-    if data.key != key and db.query(Family).filter(Family.key == data.key).first():
-        raise HTTPException(409, detail="New key already in use")
-    obj.key = data.key; obj.label = data.label; obj.sub = data.sub
-    obj.color = data.color; obj.logic = data.logic
-    obj.evolution = data.evolution; obj.tip = data.tip
-    obj.sort_order = data.sort_order
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Drink not found")
+    return obj
+
+
+@router.get("/drinks", response_model=list[DrinkAdminOut])
+def list_drinks(db: Session = Depends(get_db)):
+    rows = db.scalars(
+        select(m.Drink).options(*_DRINK_OPTIONS).order_by(m.Drink.sort_order, m.Drink.name)
+    ).all()
+    return [_to_admin_out(d) for d in rows]
+
+
+@router.get("/drinks/{slug}", response_model=DrinkAdminOut)
+def get_drink(slug: str, db: Session = Depends(get_db)):
+    obj = _get_drink_or_404(db, slug)
+    return _to_admin_out(obj)
+
+
+@router.post("/drinks", status_code=status.HTTP_201_CREATED, response_model=DrinkAdminOut)
+def create_drink(data: DrinkWriteIn, db: Session = Depends(get_db)):
+    if db.scalar(select(m.Drink).where(m.Drink.slug == data.slug)):
+        raise HTTPException(status.HTTP_409_CONFLICT, detail="Drink with this slug already exists")
+    obj = m.Drink(slug=data.slug)
+    db.add(obj)
+    _apply_drink(db, obj, data)
     db.commit()
-    return {"key": obj.key}
+    return _to_admin_out(_get_drink_or_404(db, obj.slug))
 
 
-@router.delete("/families/{key}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_family(key: str, db: Session = Depends(get_db)):
-    obj = db.query(Family).filter(Family.key == key).first()
+@router.patch("/drinks/{slug}", response_model=DrinkAdminOut)
+def update_drink(slug: str, data: DrinkWriteIn, db: Session = Depends(get_db)):
+    obj = db.scalar(select(m.Drink).where(m.Drink.slug == slug))
     if not obj:
-        raise HTTPException(404, detail="Family not found")
-    if db.query(Classic).filter(Classic.family_id == obj.id).first():
-        raise HTTPException(409, detail="Family has classics — reassign them first")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Drink not found")
+    if data.slug != slug and db.scalar(select(m.Drink).where(m.Drink.slug == data.slug)):
+        raise HTTPException(status.HTTP_409_CONFLICT, detail="New slug already in use")
+    obj.slug = data.slug
+    _apply_drink(db, obj, data)
+    db.commit()
+    return _to_admin_out(_get_drink_or_404(db, obj.slug))
+
+
+@router.delete("/drinks/{slug}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_drink(slug: str, db: Session = Depends(get_db)):
+    obj = db.scalar(select(m.Drink).where(m.Drink.slug == slug))
+    if not obj:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Drink not found")
+    db.query(m.ClassicRelatedDrink).filter(m.ClassicRelatedDrink.drink_id == obj.id).delete(synchronize_session=False)
+    db.query(m.LearningProgress).filter(
+        m.LearningProgress.kind == "menu", m.LearningProgress.slug == slug
+    ).delete(synchronize_session=False)
     db.delete(obj)
     db.commit()
-
-
-# ── Categories ────────────────────────────────────────────
-
-@router.get("/categories")
-def list_categories(db: Session = Depends(get_db)):
-    """Admin view: ALL categories (including invisible ones)."""
-    rows = db.query(Category).order_by(Category.sort_order, Category.id).all()
-    return [
-        {"key": r.key, "label": r.label, "kind": r.kind,
-         "sort_order": r.sort_order, "is_visible": r.is_visible}
-        for r in rows
-    ]
-
-
-@router.patch("/categories/{key}")
-def update_category(key: str, data: CategoryWriteIn, db: Session = Depends(get_db)):
-    obj = db.query(Category).filter(Category.key == key).first()
-    if not obj:
-        raise HTTPException(404, detail="Category not found")
-    obj.label = data.label
-    obj.sort_order = data.sort_order
-    obj.is_visible = data.is_visible
-    db.commit()
-    return {"key": obj.key}
-
-
-@router.post("/categories/reorder")
-def reorder_categories(data: CategoryReorderIn, db: Session = Depends(get_db)):
-    """Set sort_order from the position of each key in the provided list.
-    Unknown keys are skipped. Missing keys keep their old sort_order."""
-    for i, key in enumerate(data.keys):
-        obj = db.query(Category).filter(Category.key == key).first()
-        if obj:
-            obj.sort_order = i
-    db.commit()
-    return {"count": len(data.keys)}
-
-
-# ── Zero cocktails (non-alc) ──────────────────────────────
-
-def _apply_zero(db: Session, obj: ZeroCocktail, data: ZeroCocktailWriteIn) -> None:
-    glass = _get_or_create_glass(db, data.glass_key, data.glass_label_override) if data.glass_key else None
-    obj.name = data.name
-    obj.img = data.img
-    obj.price = data.price
-    obj.abv = data.abv
-    obj.glass_id = glass.id if glass else None
-    obj.glass_label_override = data.glass_label_override if not glass else None
-    obj.tagline = data.tagline
-    obj.ingredients_text = data.ingredients_text
-    obj.sort_order = data.sort_order
-    if obj.id is None:
-        db.flush()
-    db.query(ZeroCocktailDetail).filter(ZeroCocktailDetail.parent_id == obj.id).delete()
-    for i, d in enumerate(data.details):
-        db.add(ZeroCocktailDetail(parent_id=obj.id, label=d.label, text=d.text, sort_order=i))
-
-
-@router.post("/zero-cocktails", status_code=status.HTTP_201_CREATED)
-def create_zero(data: ZeroCocktailWriteIn, db: Session = Depends(get_db)):
-    if db.query(ZeroCocktail).filter(ZeroCocktail.slug == data.slug).first():
-        raise HTTPException(409, detail="Zero cocktail with this slug already exists")
-    obj = ZeroCocktail(slug=data.slug); db.add(obj)
-    _apply_zero(db, obj, data); db.commit()
-    return {"slug": obj.slug}
-
-
-@router.patch("/zero-cocktails/{slug}")
-def update_zero(slug: str, data: ZeroCocktailWriteIn, db: Session = Depends(get_db)):
-    obj = db.query(ZeroCocktail).filter(ZeroCocktail.slug == slug).first()
-    if not obj:
-        raise HTTPException(404, detail="Zero cocktail not found")
-    if data.slug != slug and db.query(ZeroCocktail).filter(ZeroCocktail.slug == data.slug).first():
-        raise HTTPException(409, detail="New slug already in use")
-    obj.slug = data.slug
-    _apply_zero(db, obj, data); db.commit()
-    return {"slug": obj.slug}
-
-
-@router.delete("/zero-cocktails/{slug}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_zero(slug: str, db: Session = Depends(get_db)):
-    obj = db.query(ZeroCocktail).filter(ZeroCocktail.slug == slug).first()
-    if not obj:
-        raise HTTPException(404, detail="Zero cocktail not found")
-    db.delete(obj); db.commit()
-
-
-# ── Zero Culture drinks ──────────────────────────────────
-
-def _apply_zc(db: Session, obj: ZCDrink, data: ZCDrinkWriteIn) -> None:
-    glass = _get_or_create_glass(db, data.glass_key, data.glass_label_override) if data.glass_key else None
-    obj.name = data.name
-    obj.img = data.img
-    obj.is_alcoholic = data.is_alcoholic
-    obj.price = data.price
-    obj.abv = data.abv
-    obj.glass_id = glass.id if glass else None
-    obj.glass_label_override = data.glass_label_override if not glass else None
-    obj.tagline = data.tagline
-    obj.caffeine_level = data.caffeine_level if not data.is_alcoholic else None
-    obj.is_carbonated = data.is_carbonated if not data.is_alcoholic else None
-    obj.sort_order = data.sort_order
-    if obj.id is None:
-        db.flush()
-    db.query(ZCDrinkDetail).filter(ZCDrinkDetail.parent_id == obj.id).delete()
-    for i, d in enumerate(data.details):
-        db.add(ZCDrinkDetail(parent_id=obj.id, label=d.label, text=d.text, sort_order=i))
-
-
-@router.post("/zc-drinks", status_code=status.HTTP_201_CREATED)
-def create_zc(data: ZCDrinkWriteIn, db: Session = Depends(get_db)):
-    if db.query(ZCDrink).filter(ZCDrink.slug == data.slug).first():
-        raise HTTPException(409, detail="ZC drink with this slug already exists")
-    obj = ZCDrink(slug=data.slug); db.add(obj)
-    _apply_zc(db, obj, data); db.commit()
-    return {"slug": obj.slug}
-
-
-@router.patch("/zc-drinks/{slug}")
-def update_zc(slug: str, data: ZCDrinkWriteIn, db: Session = Depends(get_db)):
-    obj = db.query(ZCDrink).filter(ZCDrink.slug == slug).first()
-    if not obj:
-        raise HTTPException(404, detail="ZC drink not found")
-    if data.slug != slug and db.query(ZCDrink).filter(ZCDrink.slug == data.slug).first():
-        raise HTTPException(409, detail="New slug already in use")
-    obj.slug = data.slug
-    _apply_zc(db, obj, data); db.commit()
-    return {"slug": obj.slug}
-
-
-@router.delete("/zc-drinks/{slug}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_zc(slug: str, db: Session = Depends(get_db)):
-    obj = db.query(ZCDrink).filter(ZCDrink.slug == slug).first()
-    if not obj:
-        raise HTTPException(404, detail="ZC drink not found")
-    db.delete(obj); db.commit()
-
-
-# ── Kitchen ───────────────────────────────────────────────
-
-def _resolve_kitchen_cat(db: Session, slug: str) -> KitchenCategory:
-    obj = db.query(KitchenCategory).filter(KitchenCategory.slug == slug).first()
-    if not obj:
-        raise HTTPException(400, detail=f"Kitchen category {slug!r} not found")
-    return obj
-
-
-@router.post("/kitchen-categories", status_code=status.HTTP_201_CREATED)
-def create_kitchen_cat(data: KitchenCategoryWriteIn, db: Session = Depends(get_db)):
-    if db.query(KitchenCategory).filter(KitchenCategory.slug == data.slug).first():
-        raise HTTPException(409, detail="Kitchen category with this slug already exists")
-    obj = KitchenCategory(slug=data.slug, label=data.label, sort_order=data.sort_order)
-    db.add(obj); db.commit()
-    return {"slug": obj.slug}
-
-
-@router.patch("/kitchen-categories/{slug}")
-def update_kitchen_cat(slug: str, data: KitchenCategoryWriteIn, db: Session = Depends(get_db)):
-    obj = _resolve_kitchen_cat(db, slug)
-    if data.slug != slug and db.query(KitchenCategory).filter(KitchenCategory.slug == data.slug).first():
-        raise HTTPException(409, detail="New slug already in use")
-    obj.slug = data.slug; obj.label = data.label; obj.sort_order = data.sort_order
-    db.commit()
-    return {"slug": obj.slug}
-
-
-@router.delete("/kitchen-categories/{slug}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_kitchen_cat(slug: str, db: Session = Depends(get_db)):
-    obj = _resolve_kitchen_cat(db, slug)
-    if db.query(KitchenDish).filter(KitchenDish.category_id == obj.id).first():
-        raise HTTPException(409, detail="Category has dishes — reassign them first")
-    db.delete(obj); db.commit()
-
-
-def _apply_dish(db: Session, obj: KitchenDish, data: KitchenDishWriteIn) -> None:
-    cat = _resolve_kitchen_cat(db, data.category_slug)
-    obj.name = data.name; obj.img = data.img
-    obj.price = data.price; obj.tagline = data.tagline
-    obj.description = data.description
-    obj.timing = data.timing; obj.weight = data.weight
-    obj.nutrition = data.nutrition; obj.serving = data.serving
-    obj.interesting_facts = data.interesting_facts
-    obj.category_id = cat.id; obj.sort_order = data.sort_order
-    if obj.id is None:
-        db.flush()
-
-
-@router.post("/kitchen-dishes", status_code=status.HTTP_201_CREATED)
-def create_dish(data: KitchenDishWriteIn, db: Session = Depends(get_db)):
-    if db.query(KitchenDish).filter(KitchenDish.slug == data.slug).first():
-        raise HTTPException(409, detail="Dish with this slug already exists")
-    obj = KitchenDish(slug=data.slug); db.add(obj)
-    _apply_dish(db, obj, data); db.commit()
-    return {"slug": obj.slug}
-
-
-@router.patch("/kitchen-dishes/{slug}")
-def update_dish(slug: str, data: KitchenDishWriteIn, db: Session = Depends(get_db)):
-    obj = db.query(KitchenDish).filter(KitchenDish.slug == slug).first()
-    if not obj:
-        raise HTTPException(404, detail="Dish not found")
-    if data.slug != slug and db.query(KitchenDish).filter(KitchenDish.slug == data.slug).first():
-        raise HTTPException(409, detail="New slug already in use")
-    obj.slug = data.slug
-    _apply_dish(db, obj, data); db.commit()
-    return {"slug": obj.slug}
-
-
-@router.delete("/kitchen-dishes/{slug}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_dish(slug: str, db: Session = Depends(get_db)):
-    obj = db.query(KitchenDish).filter(KitchenDish.slug == slug).first()
-    if not obj:
-        raise HTTPException(404, detail="Dish not found")
-    db.delete(obj); db.commit()
-
-
-# ── Encyclopedia of spirits ───────────────────────────────
-
-def _resolve_spirit_cat(db: Session, slug: str) -> SpiritCategory:
-    obj = db.query(SpiritCategory).filter(SpiritCategory.slug == slug).first()
-    if not obj:
-        raise HTTPException(400, detail=f"Spirit category {slug!r} not found")
-    return obj
-
-
-@router.post("/spirit-categories", status_code=status.HTTP_201_CREATED)
-def create_spirit_cat(data: SpiritCategoryWriteIn, db: Session = Depends(get_db)):
-    if db.query(SpiritCategory).filter(SpiritCategory.slug == data.slug).first():
-        raise HTTPException(409, detail="Spirit category with this slug already exists")
-    obj = SpiritCategory(slug=data.slug, label=data.label,
-                         sort_order=data.sort_order, is_archived=data.is_archived)
-    db.add(obj); db.commit()
-    return {"slug": obj.slug}
-
-
-@router.patch("/spirit-categories/{slug}")
-def update_spirit_cat(slug: str, data: SpiritCategoryWriteIn, db: Session = Depends(get_db)):
-    obj = _resolve_spirit_cat(db, slug)
-    if data.slug != slug and db.query(SpiritCategory).filter(SpiritCategory.slug == data.slug).first():
-        raise HTTPException(409, detail="New slug already in use")
-    obj.slug = data.slug; obj.label = data.label
-    obj.sort_order = data.sort_order; obj.is_archived = data.is_archived
-    db.commit()
-    return {"slug": obj.slug}
-
-
-@router.delete("/spirit-categories/{slug}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_spirit_cat(slug: str, db: Session = Depends(get_db)):
-    obj = _resolve_spirit_cat(db, slug)
-    if db.query(SpiritEntry).filter(SpiritEntry.category_id == obj.id).first():
-        raise HTTPException(409, detail="Category has entries — reassign them first")
-    db.delete(obj); db.commit()
-
-
-def _apply_spirit(db: Session, obj: SpiritEntry, data: SpiritEntryWriteIn) -> None:
-    cat = _resolve_spirit_cat(db, data.category_slug)
-    obj.name = data.name; obj.img = data.img
-    obj.abv = data.abv; obj.price = data.price
-    obj.flavour = data.flavour
-    obj.brand = data.brand; obj.country = data.country
-    obj.brand_country = data.brand_country
-    obj.source_url = data.source_url
-    obj.features = data.features; obj.cocktail_pairings = data.cocktail_pairings
-    obj.fact = data.fact
-    obj.category_id = cat.id; obj.sort_order = data.sort_order
-    if obj.id is None:
-        db.flush()
-
-
-@router.post("/spirit-entries", status_code=status.HTTP_201_CREATED)
-def create_spirit(data: SpiritEntryWriteIn, db: Session = Depends(get_db)):
-    if db.query(SpiritEntry).filter(SpiritEntry.slug == data.slug).first():
-        raise HTTPException(409, detail="Spirit with this slug already exists")
-    obj = SpiritEntry(slug=data.slug); db.add(obj)
-    _apply_spirit(db, obj, data); db.commit()
-    return {"slug": obj.slug}
-
-
-@router.patch("/spirit-entries/{slug}")
-def update_spirit(slug: str, data: SpiritEntryWriteIn, db: Session = Depends(get_db)):
-    obj = db.query(SpiritEntry).filter(SpiritEntry.slug == slug).first()
-    if not obj:
-        raise HTTPException(404, detail="Spirit not found")
-    if data.slug != slug and db.query(SpiritEntry).filter(SpiritEntry.slug == data.slug).first():
-        raise HTTPException(409, detail="New slug already in use")
-    obj.slug = data.slug
-    _apply_spirit(db, obj, data); db.commit()
-    return {"slug": obj.slug}
-
-
-@router.delete("/spirit-entries/{slug}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_spirit(slug: str, db: Session = Depends(get_db)):
-    obj = db.query(SpiritEntry).filter(SpiritEntry.slug == slug).first()
-    if not obj:
-        raise HTTPException(404, detail="Spirit not found")
-    db.delete(obj); db.commit()
