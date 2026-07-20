@@ -64,3 +64,29 @@ def test_blank_tag_key_rejected_and_not_persisted(editor_client):
         with SessionLocal() as db:
             assert db.query(Tag).filter_by(key="").first() is None
             assert db.query(Flavor).filter_by(label="").first() is None
+
+
+def test_slug_rename_reconciles_learning_progress(editor_client):
+    slug = "test-rename-progress"
+    new_slug = "test-rename-progress-v2"
+    payload = {
+        "slug": slug, "name": "Rename Progress Test",
+        "is_alcoholic": True, "is_zero_culture": False,
+    }
+    try:
+        assert editor_client.post("/api/admin/drinks", json=payload).status_code == 201
+        # Mark learned as the logged-in (editor) user against the OLD slug.
+        assert editor_client.post(f"/api/me/progress/menu/{slug}").status_code == 204
+        assert slug in editor_client.get("/api/me/progress").json()["menu"]
+
+        r = editor_client.patch(f"/api/admin/drinks/{slug}", json={**payload, "slug": new_slug})
+        assert r.status_code == 200, r.text
+
+        progress = editor_client.get("/api/me/progress").json()["menu"]
+        assert new_slug in progress
+        assert slug not in progress
+    finally:
+        editor_client.delete(f"/api/admin/drinks/{slug}")
+        editor_client.delete(f"/api/admin/drinks/{new_slug}")
+        editor_client.delete(f"/api/me/progress/menu/{slug}")
+        editor_client.delete(f"/api/me/progress/menu/{new_slug}")

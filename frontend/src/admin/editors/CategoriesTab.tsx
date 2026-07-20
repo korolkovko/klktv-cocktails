@@ -113,6 +113,7 @@ export function CategoriesTab() {
                     <input
                       type="text"
                       defaultValue={row.label}
+                      maxLength={64}
                       onBlur={(e) => {
                         const v = e.target.value.trim()
                         if (v && v !== row.label) void saveRow(row, { label: v })

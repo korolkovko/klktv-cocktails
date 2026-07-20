@@ -24,8 +24,8 @@ class DrinkWriteIn(BaseModel):
     price_raw: str | None = Field(default=None, max_length=64)
     price_currency: str = Field(default="₽", max_length=8)
     volume_ml: int | None = None
-    glass: str | None = None        # glass key (get-or-create)
-    badge: str | None = None        # badge key (get-or-create)
+    glass: str | None = Field(default=None, max_length=32)   # glass key (get-or-create)
+    badge: str | None = Field(default=None, max_length=32)   # badge key (get-or-create)
     sort_order: int = 0
     is_alcoholic: bool = True
     is_zero_culture: bool = False
@@ -58,7 +58,7 @@ class ClassicWriteIn(BaseModel):
     year: int | None = None
     origin: str | None = Field(default=None, max_length=128)
     composition: str | None = None  # classics.composition is Text — unbounded, no cap
-    glass: str | None = None        # glass key (get-or-create)
+    glass: str | None = Field(default=None, max_length=32)   # glass key (get-or-create)
     garnish: str | None = None      # classics.garnish is Text — unbounded, no cap
     history: str | None = None      # classics.history is Text — unbounded, no cap
     for_whom: str | None = None     # classics.for_whom is Text — unbounded, no cap

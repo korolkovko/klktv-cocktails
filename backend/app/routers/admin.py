@@ -218,6 +218,10 @@ def update_drink(slug: str, data: DrinkWriteIn, db: Session = Depends(get_db)):
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Drink not found")
     if data.slug != slug and db.scalar(select(m.Drink).where(m.Drink.slug == data.slug)):
         raise HTTPException(status.HTTP_409_CONFLICT, detail="New slug already in use")
+    if data.slug != slug:
+        db.query(m.LearningProgress).filter_by(kind="menu", slug=slug).update(
+            {"slug": data.slug}, synchronize_session=False
+        )
     obj.slug = data.slug
     _apply_drink(db, obj, data)
     db.commit()
@@ -330,6 +334,10 @@ def update_classic(slug: str, data: ClassicWriteIn, db: Session = Depends(get_db
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Classic not found")
     if data.slug != slug and db.scalar(select(m.Classic).where(m.Classic.slug == data.slug)):
         raise HTTPException(status.HTTP_409_CONFLICT, detail="New slug already in use")
+    if data.slug != slug:
+        db.query(m.LearningProgress).filter_by(kind="classics", slug=slug).update(
+            {"slug": data.slug}, synchronize_session=False
+        )
     obj.slug = data.slug
     _apply_classic(db, obj, data)
     db.commit()
@@ -512,6 +520,10 @@ def update_spirit(slug: str, data: SpiritEntryWriteIn, db: Session = Depends(get
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Spirit not found")
     if data.slug != slug and db.scalar(select(m.SpiritEntry).where(m.SpiritEntry.slug == data.slug)):
         raise HTTPException(status.HTTP_409_CONFLICT, detail="New slug already in use")
+    if data.slug != slug:
+        db.query(m.LearningProgress).filter_by(kind="spirits", slug=slug).update(
+            {"slug": data.slug}, synchronize_session=False
+        )
     obj.slug = data.slug
     _apply_spirit(db, obj, data)
     db.commit()
@@ -706,6 +718,10 @@ def update_kitchen_dish(slug: str, data: KitchenDishWriteIn, db: Session = Depen
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Kitchen dish not found")
     if data.slug != slug and db.scalar(select(m.KitchenDish).where(m.KitchenDish.slug == data.slug)):
         raise HTTPException(status.HTTP_409_CONFLICT, detail="New slug already in use")
+    if data.slug != slug:
+        db.query(m.LearningProgress).filter_by(kind="kitchen", slug=slug).update(
+            {"slug": data.slug}, synchronize_session=False
+        )
     obj.slug = data.slug
     _apply_kitchen_dish(db, obj, data)
     db.commit()

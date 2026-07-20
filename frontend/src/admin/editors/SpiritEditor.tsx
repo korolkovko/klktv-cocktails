@@ -408,6 +408,7 @@ export function SpiritCategoriesPanel({ onChanged }: { onChanged?: () => void })
               <input
                 type="text"
                 defaultValue={row.label}
+                maxLength={128}
                 onBlur={(e) => {
                   const v = e.target.value.trim()
                   if (v && v !== row.label) void handleRename(row, v)
