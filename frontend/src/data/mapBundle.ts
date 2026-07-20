@@ -42,6 +42,7 @@ import type {
   SpiritEntryOut,
   KitchenDishOut,
 } from "./bundle"
+import { resolveImageUrl } from "@/lib/img"
 
 export interface KitData {
   MENU: Cocktail[]
@@ -67,7 +68,7 @@ function mapCocktail(d: ContentBundle["drinks"][number]): Cocktail {
   return {
     id: d.id,
     name: d.name,
-    logo: d.logo ?? "",
+    logo: resolveImageUrl(d.logo) ?? "",
     subtitle: d.subtitle ?? "",
     price: d.price ?? 0,
     volume: d.volume ?? 0,
@@ -83,7 +84,7 @@ function mapCocktail(d: ContentBundle["drinks"][number]): Cocktail {
     recipe: d.recipe ?? undefined,
     garnish: d.garnish ?? undefined,
     pitch: d.pitch ?? undefined,
-    photo: d.photo ?? undefined,
+    photo: resolveImageUrl(d.photo),
     about: d.about ?? undefined,
     naming: d.naming ?? undefined,
     faq: d.faq ?? undefined,
@@ -150,7 +151,7 @@ function mapSpirit(s: SpiritEntryOut): Spirit {
     pairings: s.pairings ?? undefined,
     fact: s.fact ?? undefined,
     sourceUrl: s.sourceUrl ?? undefined,
-    img: s.img ?? undefined,
+    img: resolveImageUrl(s.img),
   }
 }
 
@@ -189,7 +190,7 @@ function mapDish(k: KitchenDishOut, categoryLabelBySlug: Map<string, string>): D
     weight: k.weight ?? 0,
     timing: k.timing ?? 0,
     learned: false,
-    photo: k.photo ?? undefined,
+    photo: resolveImageUrl(k.photo),
     description: k.description ?? undefined,
     serving: k.serving ?? undefined,
     fact: k.fact ?? undefined,
