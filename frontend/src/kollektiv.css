@@ -1,0 +1,590 @@
+/* ============================================================
+   KOLLEKTIV DESIGN SYSTEM · v2.0 · MONO GRID REFINED
+   Tailwind v4 @theme-порт токенов из /globals.css (источник истины).
+   Light-only (v2). Dark — ON HOLD.
+   Шрифты self-host: @fontsource в src/main.tsx.
+   ============================================================ */
+
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* ---- shadcn core tokens ---- */
+  --background: #fbfbf9; /* PAPER */
+  --foreground: #0a0a0a; /* INK */
+  --card: #ffffff;
+  --card-foreground: #0a0a0a;
+  --popover: #ffffff;
+  --popover-foreground: #0a0a0a;
+  --primary: #0a0a0a; /* INK — primary-кнопки */
+  --primary-foreground: #ffffff;
+  --secondary: #ffffff; /* белая кнопка с INK-рамкой */
+  --secondary-foreground: #0a0a0a;
+  --muted: #edede8; /* CONCRETE */
+  --muted-foreground: #71717a;
+  --accent: #fff9c2; /* BUTTER — hover строк, выделение */
+  --accent-foreground: #0a0a0a;
+  --destructive: #e01000; /* SIGNAL */
+  --destructive-foreground: #ffffff;
+  --border: #0a0a0a; /* контуры компонентов — всегда INK 1px */
+  --input: #0a0a0a;
+  --ring: #fff9c2; /* focus-ring BUTTER (+1px INK поверх) */
+  --radius: 0.375rem; /* 6px — контролы/чипы */
+  --radius-card: 10px; /* карточки, таблицы */
+  --radius-canvas: 16px; /* полотна страниц */
+
+  /* ---- kollektiv custom tokens ---- */
+  --desk: #ececea; /* фон рабочего стола под полотном страницы (§01b) */
+  --divider: #edede8; /* внутренние линии таблиц/списков */
+  --divider-strong: #d4d4ce;
+  --profit: #b7f7c2; /* крупные акценты (метрики, легенды) */
+  --profit-muted: #c8f5d0; /* чипы в таблицах/списках */
+  --profit-foreground: #0a0a0a;
+  --loss: #ffd8d4;
+  --loss-muted: #ffe2df;
+  --loss-foreground: #a00c00;
+  --butter: #fff9c2;
+  --butter-muted: #fffad1;
+  --butter-foreground: #0a0a0a;
+  --success: #22c55e; /* только точки-статусы, не текст */
+  --night: #121214; /* зарезервировано под dark */
+
+  /* ---- taxonomy tints (§45): DATA-палитра, НЕ семантика ----
+     Живут ТОЛЬКО маркером-квадратом 8–10px с INK-рамкой (на INK-фоне —
+     белой) в чипах/лейблах/легендах. Заливки карточек, текст тинтом,
+     бордеры-акценты — ЗАПРЕЩЕНЫ. Статусы (SIGNAL/PROFIT/BUTTER/LOSS) не
+     трогаются. До 9 осей; кончились — повтор с индексом (см. tint-marker.tsx). */
+  --tint-sour: #bff0b2;
+  --tint-daisy: #e8f5a3;
+  --tint-mary: #f5b3a7;
+  --tint-negroni: #ffbe8a;
+  --tint-martini: #b8d4f5;
+  --tint-manhattan: #f0d6a3;
+  --tint-highball: #b0e8f0;
+  --tint-spritz: #ffc9e4;
+  --tint-dessert: #e5d3b8;
+
+  /* ---- depth: сдвиговые тени, никаких blur ---- */
+  --shadow-soft: 2px 2px 0 rgb(10 10 10 / 0.2); /* D1 — кнопки */
+  --shadow-hard: 2px 2px 0 #0a0a0a; /* D1 — secondary/destructive */
+  --shadow-overlay: 4px 4px 0 #0a0a0a; /* D2 — модалки, меню, поповеры */
+  --shadow-card: 6px 6px 0 rgb(10 10 10 / 0.9); /* D3 — полотна страниц */
+  --shadow-tooltip: 3px 3px 0 rgb(224 16 0 / 0.9); /* тултипы — красная */
+
+  /* ---- motion ---- */
+  --duration-fast: 100ms; /* hover/press */
+  --duration-base: 180ms; /* modal/popover enter (exit 120ms) */
+  --duration-slide: 250ms; /* sheet, данные графиков */
+  --ease-out-custom: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* ---- density (data-density="compact" на контейнере) ---- */
+  --row-h: 38px;
+  --control-h: 40px;
+  --cell-py: 10px;
+
+  /* ---- маппинг для стоковых shadcn-компонентов ---- */
+  --sidebar: #fbfbf9;
+  --sidebar-foreground: #0a0a0a;
+  --sidebar-primary: #0a0a0a; /* активный пункт — INK-заливка */
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #fff9c2; /* hover — BUTTER */
+  --sidebar-accent-foreground: #0a0a0a;
+  --sidebar-border: #edede8;
+  --sidebar-ring: #fff9c2;
+  --chart-1: #0a0a0a; /* INK-бары */
+  --chart-2: #3f3f46; /* weekend */
+  --chart-3: #b7f7c2; /* PROFIT */
+  --chart-4: #fff9c2; /* BUTTER */
+  --chart-5: #e01000; /* SIGNAL — только опасное */
+}
+
+[data-density='compact'] {
+  --row-h: 28px;
+  --control-h: 32px;
+  --cell-py: 5px;
+  /* На мобилке compact запрещён — гвард ниже возвращает default */
+}
+
+/* ---- MOBILE.md: гварды < 768px ---- */
+@media (max-width: 767px) {
+  /* compact запрещён — даже включённый на десктопе, тут возвращается default */
+  [data-density='compact'] {
+    --row-h: 38px;
+    --control-h: 40px;
+    --cell-py: 10px;
+  }
+
+  /* тач-таргеты ≥44px: у мелких контролов зона нажатия растягивается
+     невидимым ::after до 44px, визуальный размер не меняется */
+  [data-slot='checkbox'],
+  [data-slot='radio-group-item'],
+  [data-slot='switch'] {
+    position: relative;
+  }
+  [data-slot='checkbox']::after,
+  [data-slot='radio-group-item']::after {
+    content: '';
+    position: absolute;
+    inset: -13px; /* 18 + 2×13 = 44 */
+  }
+  [data-slot='switch']::after {
+    content: '';
+    position: absolute;
+    inset: -12px -4px; /* 20 + 2×12 = 44 */
+  }
+}
+
+/* .dark { } — ON HOLD (v2 light-only). Спека: фон #121214, красный
+   светлеет до #FF3B2F и получает glow, тени-сдвиги — белые 15%,
+   чипы — тинты вместо заливок. Не развивать без решения. */
+
+@theme inline {
+  /* ---- typography ---- */
+  --font-sans: 'Space Grotesk', system-ui, sans-serif;
+  --font-heading: var(--font-sans);
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  /* type scale v2 — жёсткая: sans 28/20/14/12, mono 24/13/11/10 */
+  --text-display: 28px;
+  --text-display--line-height: 1.2;
+  --text-display--font-weight: 700;
+  --text-h2: 20px;
+  --text-h2--line-height: 1.3;
+  --text-h2--font-weight: 700;
+  --text-body: 14px;
+  --text-body--line-height: 1.5;
+  --text-small: 12px;
+  --text-small--line-height: 1.4;
+  --text-num-lg: 24px;
+  --text-num-lg--line-height: 1.2;
+  --text-num: 13px;
+  --text-num--line-height: 1.4;
+  --text-label: 11px;
+  --text-label--line-height: 1.3;
+  --text-micro: 10px;
+  --text-micro--line-height: 1.2;
+
+  /* ---- colors: shadcn core ---- */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* ---- colors: kollektiv ---- */
+  --color-ink: var(--foreground);
+  --color-paper: var(--background);
+  --color-desk: var(--desk);
+  --color-concrete: var(--muted);
+  --color-signal: var(--destructive);
+  --color-divider: var(--divider);
+  --color-divider-strong: var(--divider-strong);
+  --color-profit: var(--profit);
+  --color-profit-muted: var(--profit-muted);
+  --color-profit-foreground: var(--profit-foreground);
+  --color-loss: var(--loss);
+  --color-loss-muted: var(--loss-muted);
+  --color-loss-foreground: var(--loss-foreground);
+  --color-butter: var(--butter);
+  --color-butter-muted: var(--butter-muted);
+  --color-butter-foreground: var(--butter-foreground);
+  --color-success: var(--success);
+
+  /* ---- colors: стоковые shadcn (sidebar, charts) ---- */
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  /* ---- radii: 3 ступени (6/10/16) ---- */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius); /* 6px — контролы, чипы */
+  --radius-xl: var(--radius-card); /* 10px — карточки, таблицы */
+  --radius-2xl: var(--radius-canvas); /* 16px — полотна страниц */
+
+  /* ---- depth ---- */
+  --shadow-soft: var(--shadow-soft);
+  --shadow-hard: var(--shadow-hard);
+  --shadow-overlay: var(--shadow-overlay);
+  --shadow-card: var(--shadow-card);
+  --shadow-tooltip: var(--shadow-tooltip);
+
+  /* ---- motion ---- */
+  --animate-k-spin: k-spin 0.7s linear infinite;
+  --animate-k-enter: k-enter 180ms ease-out;
+  --animate-k-slide-in: k-slide-in 250ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-k-pulse: k-pulse 1.4s ease infinite;
+  --animate-k-shake: k-shake 250ms ease 3;
+  /* §37 FAB: BUTTER-стрелка «всасывается в облако» при аплоаде */
+  --animate-k-fab-upload: k-fab-upload 1.1s ease-in infinite;
+  /* §40 Day summary: появление карточки-сводки (свап дня БЕЗ реанимации) */
+  --animate-k-rise: k-rise 180ms ease-out;
+
+  @keyframes k-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  @keyframes k-enter {
+    from {
+      opacity: 0;
+      transform: translateY(6px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes k-slide-in {
+    from {
+      transform: translateX(100%);
+    }
+    to {
+      transform: none;
+    }
+  }
+  @keyframes k-pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.35;
+    }
+  }
+  @keyframes k-rise {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes k-fab-upload {
+    0% {
+      transform: translateY(12px);
+      opacity: 0;
+    }
+    30% {
+      opacity: 1;
+    }
+    70% {
+      opacity: 1;
+    }
+    100% {
+      transform: translateY(-8px);
+      opacity: 0;
+    }
+  }
+  @keyframes k-shake {
+    0%,
+    100% {
+      transform: none;
+    }
+    25% {
+      transform: translateX(-4px);
+    }
+    75% {
+      transform: translateX(4px);
+    }
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-sans;
+    font-size: 14px;
+  }
+
+  /* Focus: только клавиатура — 3px BUTTER + 1px INK.
+     !important — чтобы ринг побеждал utility-тени (shadow-soft и др.) */
+  :focus-visible {
+    outline: none;
+    box-shadow:
+      0 0 0 3px var(--ring),
+      0 0 0 4px var(--foreground) !important;
+  }
+
+  /* Оверлеи-контейнеры получают фокус программно (Radix) — ринг им не положен,
+     возвращаем их собственную тень (ревью R4) */
+  [data-slot='select-content']:focus-visible,
+  [data-slot='dropdown-menu-content']:focus-visible,
+  [data-slot='dropdown-menu-sub-content']:focus-visible,
+  [data-slot='popover-content']:focus-visible,
+  [data-slot='context-menu-content']:focus-visible,
+  [data-slot='context-menu-sub-content']:focus-visible,
+  [data-slot='dialog-content']:focus-visible {
+    box-shadow: var(--shadow-overlay) !important;
+  }
+  /* у command своей тени нет (живёт внутри dialog-content) */
+  [data-slot='command']:focus-visible {
+    box-shadow: none !important;
+  }
+  /* поиск комбобокса: индикация — focus-within на строке (ринг рвал бы кромки панели) */
+  [data-slot='combobox-input']:focus-visible {
+    box-shadow: none !important;
+  }
+  /* поиск в попапе faceted-фильтра (§02b/R15) — тот же канон меню с поиском:
+     без ринга, индикация — SIGNAL-курсор */
+  [data-slot='faceted-search-input']:focus-visible {
+    box-shadow: none !important;
+  }
+  /* пункты меню: фокус-индикация — CONCRETE-заливка (канон §18), не ринг;
+     Radix фокусирует выбранный пункт при открытии — без этого INK-пилюля
+     получала бы жёлтую рамку */
+  [data-slot='select-item']:focus-visible,
+  [data-slot='dropdown-menu-item']:focus-visible,
+  [data-slot='dropdown-menu-checkbox-item']:focus-visible,
+  [data-slot='dropdown-menu-radio-item']:focus-visible,
+  [data-slot='dropdown-menu-sub-trigger']:focus-visible,
+  [data-slot='context-menu-item']:focus-visible,
+  [data-slot='context-menu-checkbox-item']:focus-visible,
+  [data-slot='context-menu-radio-item']:focus-visible,
+  [data-slot='context-menu-sub-trigger']:focus-visible {
+    box-shadow: none !important;
+  }
+  /* у sheet тень направленная — в сторону контента, по стороне открытия */
+  [data-slot='sheet-content'][data-side='right']:focus-visible {
+    box-shadow: -5px 0 0 rgb(10 10 10 / 0.15) !important;
+  }
+  [data-slot='sheet-content'][data-side='left']:focus-visible {
+    box-shadow: 5px 0 0 rgb(10 10 10 / 0.15) !important;
+  }
+  [data-slot='sheet-content'][data-side='bottom']:focus-visible {
+    box-shadow: 0 -5px 0 rgb(10 10 10 / 0.15) !important;
+  }
+  [data-slot='sheet-content'][data-side='top']:focus-visible {
+    box-shadow: 0 5px 0 rgb(10 10 10 / 0.15) !important;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  /* Все цифры, коды, таблицы, лейблы — только моно */
+  .font-num,
+  td[data-num],
+  .kbd,
+  .label-mono {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+  .label-mono {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  /* Кнопка «нажимается»: hover 1px к тени, active — донажатие */
+  .btn-push {
+    transition:
+      transform var(--duration-fast) ease,
+      box-shadow var(--duration-fast) ease;
+  }
+  .btn-push:hover {
+    transform: translate(1px, 1px);
+  }
+  .btn-push:active {
+    transform: translate(3px, 3px);
+    box-shadow: 0 0 0 transparent !important;
+  }
+}
+
+/* ============ §36 DOCS PROSE (ревью R16) ============
+   Rich text документации — классом .docs-prose, не компонентами.
+   Ссылки SIGNAL; маркеры-квадраты; mono-нумерация с ведущим нулём;
+   цитата INK-линиями (НЕ левый бордер); kbd с утолщённым низом;
+   простая таблица БЕЗ INK-шапки (INK-инверсия — только у data-таблиц). */
+@layer components {
+  .docs-prose {
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .docs-prose > * + * {
+    margin-top: 14px;
+  }
+  .docs-prose a {
+    color: var(--destructive);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    text-decoration-thickness: 1px;
+  }
+  .docs-prose a[target='_blank']::after {
+    content: ' ↗';
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+  }
+  .docs-prose mark {
+    background: var(--butter);
+    border-radius: 0;
+    padding: 0 3px;
+  }
+  .docs-prose s {
+    color: #a1a1aa;
+  }
+  .docs-prose b,
+  .docs-prose strong {
+    font-weight: 700;
+  }
+  .docs-prose code:not(pre code) {
+    background: #edede8;
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+  }
+  /* маркированный список: INK-квадрат 8px R2; вложенность максимум 1 —
+     квадрат контурный, текст приглушается */
+  .docs-prose ul {
+    list-style: none;
+    padding-left: 4px;
+  }
+  .docs-prose ul li {
+    position: relative;
+    padding-left: 20px;
+    margin-top: 6px;
+  }
+  .docs-prose ul li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.48em;
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    background: var(--foreground);
+  }
+  .docs-prose ul ul {
+    padding-left: 0;
+  }
+  .docs-prose ul ul li {
+    color: #52525b;
+  }
+  .docs-prose ul ul li::before {
+    background: #d4d4ce;
+  }
+  /* нумерованный: mono-числа с ведущим нулём */
+  .docs-prose ol {
+    list-style: none;
+    counter-reset: docs-item;
+    padding-left: 4px;
+  }
+  .docs-prose ol li {
+    position: relative;
+    counter-increment: docs-item;
+    padding-left: 28px;
+    margin-top: 6px;
+  }
+  .docs-prose ol li::before {
+    content: counter(docs-item, decimal-leading-zero);
+    position: absolute;
+    left: 0;
+    top: 0.18em;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    color: #71717a;
+  }
+  /* цитата: INK-линии сверху/снизу, italic; автор — mono-строкой в footer */
+  .docs-prose blockquote {
+    border-top: 1.5px solid var(--foreground);
+    border-bottom: 1.5px solid var(--foreground);
+    padding: 12px 2px;
+    font-style: italic;
+    font-size: 15px;
+    line-height: 1.55;
+  }
+  .docs-prose blockquote footer {
+    margin-top: 6px;
+    font-style: normal;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #a1a1aa;
+  }
+  .docs-prose kbd {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    border: 1px solid var(--foreground);
+    border-bottom-width: 2.5px;
+    border-radius: 4px;
+    padding: 1px 5px;
+    background: var(--card);
+  }
+  /* простая (markdown) таблица: шапка PAPER + mono 9 caps — НЕ INK;
+     сортировка/фильтры появились → это DataTable §02, не prose */
+  .docs-prose table {
+    width: 100%;
+    border: 1px solid var(--foreground);
+    border-radius: 8px;
+    border-collapse: separate;
+    border-spacing: 0;
+    overflow: hidden;
+    font-size: 13.5px;
+  }
+  .docs-prose th {
+    background: var(--background);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #52525b;
+    text-align: left;
+    padding: 7px 12px;
+    border-bottom: 1px solid #edede8;
+  }
+  .docs-prose td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #edede8;
+  }
+  .docs-prose tr:last-child td {
+    border-bottom: none;
+  }
+  .docs-prose th[data-num],
+  .docs-prose td[data-num] {
+    font-family: var(--font-mono);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+}
