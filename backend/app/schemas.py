@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, ConfigDict
 
 
@@ -12,6 +14,25 @@ class UserResponse(BaseModel):
     username: str
     name: str | None
     role: str
+
+
+# ── Team progress (all authenticated users, not admin-only) ──
+
+class TeamMemberOut(BaseModel):
+    """Per-staffer learning progress for the team view. `learned` is
+    keyed by kind (menu/classics/spirits/kitchen); the frontend divides
+    by `TeamOut.totals` to get per-section %. `lastActiveAt` is the most
+    recent learned_at (proxy for activity — no login tracking)."""
+    username: str
+    name: str | None
+    role: str
+    learned: dict[str, int]
+    lastActiveAt: datetime | None = None
+
+
+class TeamOut(BaseModel):
+    totals: dict[str, int]
+    members: list[TeamMemberOut]
 
 
 # ── Content bundle v2 output schemas (kit-shaped) ──────────
@@ -98,6 +119,8 @@ class SpiritEntryOut(BaseModel):
     img: str | None = None
     abv: float | None = None
     country: str | None = None
+    price: int | None = None
+    serving: int | None = None
     flavour: str | None = None
     brand: str | None = None
     brandDetail: str | None = None
@@ -122,6 +145,7 @@ class DishNutritionOut(BaseModel):
     protein: float | None = None
     fat: float | None = None
     carb: float | None = None
+    kcal100: int | None = None
 
     model_config = ConfigDict(from_attributes=False)
 

@@ -74,7 +74,9 @@ function mapCocktail(d: ContentBundle["drinks"][number]): Cocktail {
     // hides them instead of rendering "0 ₽ · 0 МЛ"
     price: d.price ?? undefined,
     volume: d.volume ?? undefined,
-    abv: d.abv ?? 0,
+    // undefined (not 0) when ABV isn't recorded — an alcoholic drink with no
+    // ABV must not render as "0% ABV"; the kit hides the chip on undefined.
+    abv: d.abv ?? undefined,
     spirit: d.spirit,
     spirits: d.spirits,
     glass: d.glass,
@@ -144,6 +146,8 @@ function mapSpirit(s: SpiritEntryOut): Spirit {
     meta: spiritMeta(s.country, abv),
     learned: false,
     abv,
+    price: s.price ?? undefined,
+    serving: s.serving ?? undefined,
     country: s.country ?? undefined,
     // NO backend column — degrades gracefully (SpiritDetail shows country only).
     region: undefined,
@@ -177,7 +181,7 @@ function buildSpiritGroups(bundle: ContentBundle, wantArchived: boolean): Spirit
  *  zeros (blueprint §B). */
 function mapNutrition(n: DishNutritionOut): DishNutrition | undefined {
   if (n.kcal == null && n.protein == null && n.fat == null && n.carb == null) return undefined
-  return { kcal: n.kcal ?? 0, protein: n.protein ?? 0, fat: n.fat ?? 0, carb: n.carb ?? 0 }
+  return { kcal: n.kcal ?? 0, protein: n.protein ?? 0, fat: n.fat ?? 0, carb: n.carb ?? 0, kcal100: n.kcal100 ?? undefined }
 }
 
 function mapDish(k: KitchenDishOut, categoryLabelBySlug: Map<string, string>): Dish {
@@ -189,9 +193,11 @@ function mapDish(k: KitchenDishOut, categoryLabelBySlug: Map<string, string>): D
     // label, not its slug (blueprint §B).
     category: categoryLabelBySlug.get(k.categorySlug) ?? k.categorySlug,
     subtitle: k.subtitle ?? "",
-    price: k.price ?? 0,
-    weight: k.weight ?? 0,
-    timing: k.timing ?? 0,
+    // undefined (not 0) — dishes without a price/weight/timing hide the chip
+    // instead of showing "0 ₽ · 0 Г · 0 МИН".
+    price: k.price ?? undefined,
+    weight: k.weight ?? undefined,
+    timing: k.timing ?? undefined,
     learned: false,
     photo: resolveImageUrl(k.photo),
     description: k.description ?? undefined,

@@ -107,6 +107,8 @@ const bundle: ContentBundle = {
       img: null,
       abv: 43.1,
       country: "Англия",
+      price: 450,
+      serving: 30,
       flavour: "Сухой лондонский стиль.",
       brand: "Diageo",
       brandDetail: null,
@@ -122,13 +124,15 @@ const bundle: ContentBundle = {
       img: null,
       abv: 41.4,
       country: "Шотландия",
+      price: null,
+      serving: null,
       flavour: "Огурец и лепестки розы.",
       brand: "William Grant & Sons",
       brandDetail: null,
       features: null,
       pairings: null,
       fact: null,
-      sourceUrl: "hendricksgin.com",
+      sourceUrl: "https://hendricksgin.com",
     },
     {
       slug: "grappa-julia",
@@ -137,6 +141,8 @@ const bundle: ContentBundle = {
       img: null,
       abv: null,
       country: null,
+      price: null,
+      serving: null,
       flavour: null,
       brand: null,
       brandDetail: null,
@@ -160,7 +166,7 @@ const bundle: ContentBundle = {
       description: null,
       serving: null,
       fact: null,
-      nutrition: { kcal: 420, protein: 24, fat: 18, carb: 38 },
+      nutrition: { kcal: 420, protein: 24, fat: 18, carb: 38, kcal100: 168 },
     },
     {
       id: "edamame",
@@ -174,7 +180,7 @@ const bundle: ContentBundle = {
       description: null,
       serving: null,
       fact: null,
-      nutrition: { kcal: null, protein: null, fat: null, carb: null },
+      nutrition: { kcal: null, protein: null, fat: null, carb: null, kcal100: null },
     },
   ],
   filters: {
@@ -215,10 +221,23 @@ describe("mapBundle", () => {
     expect(tanqueray?.meta).toBe("АНГЛИЯ · 43.1% ABV")
   })
 
+  it("maps spirit price/serving through, undefined when absent", () => {
+    const gin = kit.SPIRIT_GROUPS[0]
+    expect(gin.items.find((s) => s.name === "Танкерей")?.price).toBe(450)
+    expect(gin.items.find((s) => s.name === "Танкерей")?.serving).toBe(30)
+    expect(gin.items.find((s) => s.name === "Хендрикс")?.price).toBeUndefined()
+  })
+
+  it("maps a null drink ABV to undefined (not 0 — no false '0% ABV')", () => {
+    // virgin-mule has abv:null in the fixture
+    const nonAlc = kit.MENU.find((c) => c.id === "virgin-mule")
+    expect(nonAlc?.abv).toBeUndefined()
+  })
+
   it("maps dish nutrition to undefined when all macros are null, and to an object otherwise", () => {
     const tako = kit.DISHES.find((d) => d.id === "tako")
     const edamame = kit.DISHES.find((d) => d.id === "edamame")
-    expect(tako?.nutrition).toEqual({ kcal: 420, protein: 24, fat: 18, carb: 38 })
+    expect(tako?.nutrition).toEqual({ kcal: 420, protein: 24, fat: 18, carb: 38, kcal100: 168 })
     expect(edamame?.nutrition).toBeUndefined()
   })
 

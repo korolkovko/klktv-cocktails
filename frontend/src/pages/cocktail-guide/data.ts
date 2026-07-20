@@ -41,7 +41,9 @@ export interface Cocktail {
   /** авторские в проде без цены/объёма — опциональны, в детали не показываем 0 */
   price?: number
   volume?: number
-  abv: number
+  /** ABV не записан у части авторских (напр. Undressed Negroni) — undefined,
+   *  а не 0: алкогольный коктейль без ABV прячет чип, не показывает «0% ABV» */
+  abv?: number
   spirit: string
   /** крепкие компоненты для strong-чипов детали; дефолт [spirit] */
   spirits?: string[]
@@ -112,6 +114,9 @@ export interface Spirit {
   learned: boolean
   /** ABV для шапки детали «КАТЕГОРИЯ · СТРАНА · NN% ABV» */
   abv: number
+  /** цена за порцию (₽) + объём порции (мл) — старая карта/шит показывали цену */
+  price?: number
+  serving?: number
   /** деталь (канон флеш-карточек R25) — все секции опциональны */
   country?: string
   /** регион (desktop-шапка «СТРАНА, РЕГИОН»); mobile — только country */
@@ -145,6 +150,8 @@ export interface DishNutrition {
   protein: number
   fat: number
   carb: number
+  /** ккал на 100 г (старый шит показывал и «на порцию», и «на 100 г») */
+  kcal100?: number
 }
 
 export interface Dish {
@@ -153,9 +160,11 @@ export interface Dish {
   /** курс (код категории «ОСНОВНЫЕ») */
   category: string
   subtitle: string
-  price: number
-  weight: number
-  timing: number
+  /** прод-блюда бывают без цены/веса/тайминга — опциональны; чип не рендерим
+   *  при отсутствии (иначе «0 ₽ · 0 МИН») */
+  price?: number
+  weight?: number
+  timing?: number
   learned: boolean
   /** фото блюда 4:3; в детали нет — блока нет (R25); в списке — тамб-плейсхолдер */
   photo?: string
@@ -178,17 +187,23 @@ export interface KitchenCategory {
 // сохранён т.к. нет бэкенд-замены и задача его не трогает, см. header note)
 export const KITCHEN_LEARNED = 18
 
-/* ---------- 3s Прогресс команды (ADMIN) ---------- */
+/* ---------- 3s Прогресс команды — виден ВСЕМ (было ADMIN) ---------- */
+// Wired to GET /api/team (backend/app/routers/team.py) через useTeam()
+// (src/data/team.ts). Разделы zero/zc больше не существуют (слиты в menu),
+// поэтому sections — 4 реальных вида. Демо-константы (TEAM/TEAM_STATS/
+// TEAM_AVG_SECTIONS) удалены — данные приходят живыми; здесь только формы.
+
+export type TeamKind = "menu" | "classics" | "spirits" | "kitchen"
 
 export interface Staff {
   initials: string
   name: string
   role: string
   overall: number
-  sections: { menu: number; classics: number; spirits: number; kitchen: number; zero: number; zc: number }
-  /** короткая — desktop-колонка АКТИВНОСТЬ */
+  sections: Record<TeamKind, number>
+  /** короткая — desktop-колонка АКТИВНОСТЬ («СЕГОДНЯ» / «12 ДН») */
   activity: string
-  /** полная строка с родом — mobile-карточка («БЫЛ СЕГОДНЯ» / «БЫЛА ВЧЕРА») */
+  /** полная строка — mobile-карточка («БЫЛ СЕГОДНЯ» / «БЫЛ 12 ДН НАЗАД») */
   lastSeen: string
   activityAlarm?: boolean
   /** слабейший раздел (mobile-карточка) */
@@ -197,33 +212,23 @@ export interface Staff {
   admin?: boolean
 }
 
-// TEAM/TEAM_STATS/TEAM_AVG_SECTIONS — 100% демо (нет бэкенда для командного
-// прогресса, blueprint §F); намеренно НЕ конвертированы в Task 4 — команда-таб
-// либо получит реальный источник, либо будет скрыт отдельной задачей (§E.10).
-export const TEAM: Staff[] = [
-  { initials: "ДК", name: "Дэн", role: "СТАЖЁР · С 07-01", overall: 12, sections: { menu: 26, classics: 4, spirits: 10, kitchen: 16, zero: 17, zc: 6 }, activity: "СЕГОДНЯ", lastSeen: "БЫЛ СЕГОДНЯ", weak: "КЛАССИКА 4%" },
-  { initials: "СВ", name: "Стас", role: "БАР", overall: 28, sections: { menu: 43, classics: 30, spirits: 15, kitchen: 26, zero: 33, zc: 25 }, activity: "12 ДН", lastSeen: "БЫЛ 12 ДН НАЗАД", activityAlarm: true, weak: "СПИРИТЫ 15%" },
-  { initials: "РГ", name: "Рита", role: "EDITOR · БАР", overall: 45, sections: { menu: 61, classics: 38, spirits: 52, kitchen: 22, zero: 58, zc: 44 }, activity: "ВЧЕРА", lastSeen: "БЫЛА ВЧЕРА", weak: "КУХНЯ 22%" },
-  { initials: "МШ", name: "Марк", role: "БАР", overall: 58, sections: { menu: 78, classics: 45, spirits: 67, kitchen: 48, zero: 66, zc: 56 }, activity: "СЕГОДНЯ", lastSeen: "БЫЛ СЕГОДНЯ", weak: "КЛАССИКА 45%" },
-  { initials: "КР", name: "Кира", role: "БАР", overall: 64, sections: { menu: 100, classics: 51, spirits: 70, kitchen: 55, zero: 75, zc: 63 }, activity: "СЕГОДНЯ", lastSeen: "БЫЛА СЕГОДНЯ", weak: "КЛАССИКА 51%" },
-  { initials: "ОЛ", name: "Оля", role: "БАР · СТАРШАЯ", overall: 71, sections: { menu: 100, classics: 62, spirits: 74, kitchen: 68, zero: 83, zc: 50 }, activity: "СЕГОДНЯ", lastSeen: "БЫЛА СЕГОДНЯ", weak: "ZC 50%" },
-  { initials: "МК", name: "Майкл", role: "ADMIN", overall: 92, sections: { menu: 100, classics: 88, spirits: 95, kitchen: 72, zero: 100, zc: 100 }, activity: "СЕГОДНЯ", lastSeen: "БЫЛ СЕГОДНЯ", strongNote: "ВСЁ ≥80% КРОМЕ КУХНИ", admin: true },
-]
-
-export const TEAM_STATS = {
-  avg: 53,
-  avgDeltaPp: 6,
-  fullMenu: 3,
-  fullMenuNames: ["ОЛЯ", "КИРА", "МАЙКЛ"],
-  behind: 2,
-  behindNames: ["СТАС", "ДЭН"],
-  active: 6,
-  activeNote: "СТАС — 12 ДН НАЗАД",
-  staffCount: 7,
+export interface TeamStats {
+  avg: number
+  fullMenu: number
+  fullMenuNames: string[]
+  behind: number
+  behindNames: string[]
+  active: number
+  activeNote: string
+  staffCount: number
 }
 
-/** TEAM AVG по разделам (butter-подвал таблицы) */
-export const TEAM_AVG_SECTIONS = { menu: 73, classics: 45, spirits: 55, kitchen: 44, zero: 62, zc: 49 }
+export interface TeamData {
+  staff: Staff[]
+  stats: TeamStats
+  avgSections: Record<TeamKind, number>
+  positions: number
+}
 
 /* ---------- LIVE-прогресс (R27): «static − staticLearned(scope) + live(scope)»
  *  — сводка каталога примиряется с тоглами реальных позиций. С Task 4

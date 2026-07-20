@@ -191,7 +191,8 @@ export function MenuView({
             meta={[
               c.price != null ? `${c.price} ₽` : null,
               c.volume != null ? `${c.volume} МЛ` : null,
-              c.isAlcoholic ? `${c.abv}%` : "0%",
+              // алко без записанного ABV → чип не показываем (не «0%»); безалко → «0%»
+              c.isAlcoholic ? (c.abv != null ? `${c.abv}%` : null) : "0%",
             ]
               .filter(Boolean)
               .join(" · ")}
@@ -303,13 +304,19 @@ export function ClassicsView({
   const [openFams, setOpenFams] = React.useState<Set<string>>(new Set())
   const classics = SECTIONS.find((s) => s.id === "classics")!
 
-  const activeFam = FAMILIES.find((f) => f.code === family.toUpperCase())
+  const activeFam = FAMILIES.find((f) => f.title === family)
   const all = family === "Все"
-  // база: фильтр по спириту + поиску (семейство накладываем ниже)
+  // база: фильтр по спириту + поиску (семейство накладываем ниже). Поиск матчит
+  // имя, город/происхождение и вкус-дескрипторы — как старый фронт (искал по
+  // name + origin + descriptors, а не только по имени).
+  const ql = q.trim().toLowerCase()
   const base = CLASSICS.filter(
     (c) =>
       (spirit === "Все" || c.spirit === spirit) &&
-      (q === "" || c.name.toLowerCase().includes(q.toLowerCase()))
+      (ql === "" ||
+        c.name.toLowerCase().includes(ql) ||
+        c.city.toLowerCase().includes(ql) ||
+        c.descriptors.some((d) => d.toLowerCase().includes(ql)))
   )
   const rows = base.filter((c) => all || c.family === activeFam?.tint)
   const learnedCount = CLASSICS.filter((c) => learnedIds.has(c.id)).length
@@ -317,7 +324,9 @@ export function ClassicsView({
   // счётчик показывает текущее семейство); page выводит группу из c.family (R26.1)
   const flatDeck = FAMILIES.flatMap((fam) => base.filter((c) => c.family === fam.tint))
 
-  const familyOpts = [{ label: "Все" }, ...FAMILIES.map((f) => ({ label: cap(f.code), tint: f.tint }))]
+  // ярлык семейства = его title («Negroni & Friends»), а не cap(code)
+  // («Negroni») — совпадает с шапками групп и деталью (было расхождение)
+  const familyOpts = [{ label: "Все" }, ...FAMILIES.map((f) => ({ label: f.title, tint: f.tint }))]
 
   return (
     <div className="flex flex-col gap-3.5">
@@ -562,6 +571,8 @@ export function SpiritsView({
 }
 
 function SpiritRow({ s, on, onToggle, onOpen }: { s: Spirit; on: boolean; onToggle: () => void; onOpen: () => void }) {
+  // цена за порцию — старая карта показывала её в подписи; «· 550 ₽/30мл»
+  const priceStr = s.price != null ? ` · ${s.price} ₽${s.serving != null ? `/${s.serving}мл` : ""}` : ""
   return (
     <div
       role="button"
@@ -570,9 +581,22 @@ function SpiritRow({ s, on, onToggle, onOpen }: { s: Spirit; on: boolean; onTogg
       onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), onOpen())}
       className="flex min-h-[52px] cursor-pointer items-center gap-2.5 bg-card px-4 py-1.5 hover:bg-[#FFFDF0]"
     >
+      {/* тамб бутылки — только если фото задано (в проде пока нет; парити со
+          старой картой + готовность к фото бутылок, добавляемым в Фазе 2).
+          object-contain на белом — вертикальная бутылка не кропается/не ломает
+          строку при любом соотношении сторон. */}
+      {s.img && (
+        <img
+          src={s.img}
+          alt={s.name}
+          loading="lazy"
+          className="size-9 shrink-0 rounded-md border border-border bg-white object-contain"
+        />
+      )}
       <span className="min-w-0 flex-1">
-        <span className="block text-sm font-semibold">{s.name}</span>
-        <span className="block font-mono text-[9px] text-[#A1A1AA]">{s.meta}</span>
+        <span className="block truncate text-sm font-semibold">{s.name}</span>
+        <span className="block truncate font-mono text-[9px] text-[#A1A1AA]">{s.meta}{priceStr}</span>
+        {s.flavour && <span className="block truncate text-[10.5px] leading-[1.3] text-[#71717A]">{s.flavour}</span>}
       </span>
       <LearnedToggle learned={on} onChange={onToggle} label={s.name} />
     </div>
@@ -670,7 +694,13 @@ function DishCard({ d, learned, onToggle, onOpen }: { d: Dish; learned: boolean;
         </div>
         <span className="text-[11.5px] leading-[1.3] text-[#71717A]">{d.subtitle}</span>
         <span className="mt-0.5 font-mono text-[9.5px] text-[#71717A]">
-          {d.price} ₽ · {d.weight} Г · {d.timing} МИН
+          {[
+            d.price != null ? `${d.price} ₽` : null,
+            d.weight != null ? `${d.weight} Г` : null,
+            d.timing != null ? `${d.timing} МИН` : null,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
         </span>
       </div>
     </div>

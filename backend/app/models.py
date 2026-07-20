@@ -258,7 +258,9 @@ class KitchenCategory(Base):
     slug: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
     label: Mapped[str] = mapped_column(String(128), nullable=False)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
-    dishes: Mapped[list["KitchenDish"]] = relationship(back_populates="category", order_by="KitchenDish.sort_order")
+    # id tiebreak: every prod dish shares sort_order=0, so without it the
+    # within-category order is nondeterministic; id order matches old prod.
+    dishes: Mapped[list["KitchenDish"]] = relationship(back_populates="category", order_by="KitchenDish.sort_order, KitchenDish.id")
 
 
 class KitchenDish(Base):

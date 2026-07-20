@@ -13,7 +13,7 @@ import {
   type Route,
 } from "./shell"
 import { MenuView, ClassicsView, SpiritsView, KitchenView, ProgressView } from "./views"
-import { FamiliesPanel } from "./team-view"
+import { FamiliesPanel, TeamView } from "./team-view"
 import { CocktailDetail, ClassicDetail, SpiritDetail, DishDetail } from "./detail-sheet"
 import { totalLearnedLive, type Classic, type Cocktail, type Dish, type SectionId, type Spirit } from "./data"
 
@@ -152,6 +152,8 @@ export default function CocktailGuidePage({
         return <KitchenView learnedIds={learned} onToggle={toggleKitchen} onOpen={openDish} onOpenProgress={openProgress} />
       case "progress":
         return null // прогресс рендерит ProgressWithTeam (личный «Мой»)
+      case "team":
+        return <TeamView /> // прогресс команды — виден всем
       default:
         return null
     }

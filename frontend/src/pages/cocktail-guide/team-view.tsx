@@ -5,15 +5,13 @@ import { ProgressLevels } from "@/components/kollektiv/progress-levels"
 import { cn } from "@/lib/utils"
 
 import {
-  TEAM,
-  TEAM_AVG_SECTIONS,
-  TEAM_STATS,
   classicsLearnedLive,
   familyLearnedLive,
   type Classic,
   type Staff,
 } from "./data"
 import { useContent } from "@/data/ContentContext"
+import { useTeam } from "@/data/team"
 
 const pct = (l: number, t: number) => (t > 0 ? Math.round((l / t) * 100) : 0)
 
@@ -112,14 +110,16 @@ export function FamiliesPanel({
 
 /* ---------- 3s Прогресс команды (ADMIN) ---------- */
 
+// zero/zc убраны — их разделы слиты в Авторские (v2). 4 реальных раздела.
 const SECTION_COLS: { key: keyof Staff["sections"]; label: string }[] = [
   { key: "menu", label: "АВТОРСКИЕ" },
   { key: "classics", label: "КЛАССИКА" },
   { key: "spirits", label: "СПИРИТЫ" },
   { key: "kitchen", label: "КУХНЯ" },
-  { key: "zero", label: "БЕЗАЛКО" },
-  { key: "zc", label: "ZC" },
 ]
+
+// staff 1fr · overall 200 · 4 раздела · активность 110
+const GRID = "1fr 200px 84px 84px 72px 72px 110px"
 
 // R27.1: подстроки-списки имён капятся до 2 + «+N» (масштаб на 12 человек;
 // чип НЕ переносится). all → спец-слово (ВСЯ КОМАНДА ✓), пусто → emptyWord.
@@ -137,41 +137,45 @@ const levelFill = (v: number) => (v >= 80 ? "bg-profit" : v >= 40 ? "bg-butter" 
 const barFill = (v: number) => (weak(v) ? "bg-signal" : levelFill(v))
 
 export function TeamView() {
-  const rows = [...TEAM].sort((a, b) => a.overall - b.overall)
+  const { data, error, loading } = useTeam()
+  if (loading) return <div className="py-10 text-center font-mono text-[12px] text-[#A1A1AA]">Загрузка команды…</div>
+  if (error || !data) return <div className="py-10 text-center text-[13px] text-[#52525B]">Не удалось загрузить прогресс команды.</div>
+  const { staff, stats, avgSections, positions } = data
+  const rows = [...staff].sort((a, b) => a.overall - b.overall)
   return (
     <div className="flex flex-col gap-3.5" data-testid="cg-team">
       <div className="flex justify-end max-md:hidden">
         <span className="font-mono text-[11px] text-[#71717A]">
-          {TEAM_STATS.staffCount} СОТРУДНИКОВ · 186 ПОЗИЦИЙ В БАЗЕ
+          {stats.staffCount} СОТРУДНИКОВ · {positions} ПОЗИЦИЙ В БАЗЕ
         </span>
       </div>
 
       {/* статы 4× (mobile 2×2) */}
       <div className="grid grid-cols-4 gap-3 max-md:grid-cols-2">
-        <Stat inverse label="TEAM AVG" value={`${TEAM_STATS.avg}%`} chip={{ text: `+${TEAM_STATS.avgDeltaPp} PP ЗА МЕСЯЦ`, tone: "butter" }} />
+        <Stat inverse label="TEAM AVG" value={`${stats.avg}%`} />
         <Stat
           label="АВТОРСКИЕ ЦЕЛИКОМ"
-          value={<>{TEAM_STATS.fullMenu}<span className="text-[#A1A1AA]">/{TEAM_STATS.staffCount}</span></>}
-          note={capNames(TEAM_STATS.fullMenuNames, { all: TEAM_STATS.staffCount, allWord: "ВСЯ КОМАНДА ✓" })}
+          value={<>{stats.fullMenu}<span className="text-[#A1A1AA]">/{stats.staffCount}</span></>}
+          note={capNames(stats.fullMenuNames, { all: stats.staffCount, allWord: "ВСЯ КОМАНДА ✓", emptyWord: "НИКТО" })}
         />
         <Stat
           label="ОТСТАЮТ · <30%"
-          value={<span className="text-loss-foreground">{TEAM_STATS.behind}</span>}
+          value={<span className="text-loss-foreground">{stats.behind}</span>}
           // 0 отстающих → чипа нет, muted-подстрока НИКТО; иначе SIGNAL-чип 2 имени + «+N»
-          chip={TEAM_STATS.behind > 0 ? { text: capNames(TEAM_STATS.behindNames), tone: "loss" } : undefined}
-          note={TEAM_STATS.behind > 0 ? undefined : "НИКТО"}
+          chip={stats.behind > 0 ? { text: capNames(stats.behindNames), tone: "loss" } : undefined}
+          note={stats.behind > 0 ? undefined : "НИКТО"}
         />
         <Stat
           label="АКТИВНЫ · 7Д"
-          value={<>{TEAM_STATS.active}<span className="text-[#A1A1AA]">/{TEAM_STATS.staffCount}</span></>}
-          // всегда один худший; активны все → ВСЯ КОМАНДА ЗА НЕДЕЛЮ
-          note={TEAM_STATS.active >= TEAM_STATS.staffCount ? "ВСЯ КОМАНДА ЗА НЕДЕЛЮ" : TEAM_STATS.activeNote}
+          value={<>{stats.active}<span className="text-[#A1A1AA]">/{stats.staffCount}</span></>}
+          // активны все → ВСЯ КОМАНДА ЗА НЕДЕЛЮ; иначе note из адаптера
+          note={stats.active >= stats.staffCount ? "ВСЯ КОМАНДА ЗА НЕДЕЛЮ" : stats.activeNote}
         />
       </div>
 
       {/* desktop-таблица */}
       <div className="overflow-hidden rounded-[10px] border border-border bg-card max-md:hidden">
-        <div className="grid items-center gap-x-2 bg-primary px-3.5 py-2 font-mono text-[10px] tracking-[0.06em] text-primary-foreground" style={{ gridTemplateColumns: "1fr 200px 70px 84px 76px 66px 72px 50px 110px" }}>
+        <div className="grid items-center gap-x-2 bg-primary px-3.5 py-2 font-mono text-[10px] tracking-[0.06em] text-primary-foreground" style={{ gridTemplateColumns: GRID }}>
           <span>STAFF</span>
           <span>OVERALL ▲</span>
           {SECTION_COLS.map((c) => (
@@ -181,9 +185,9 @@ export function TeamView() {
         </div>
         {rows.map((s) => (
           <div
-            key={s.initials}
+            key={s.initials + s.name}
             className={cn("grid items-center gap-x-2 border-b border-divider px-3.5 py-[9px]", weak(s.overall) && "bg-[#FFF5F4]")}
-            style={{ gridTemplateColumns: "1fr 200px 70px 84px 76px 66px 72px 50px 110px" }}
+            style={{ gridTemplateColumns: GRID }}
           >
             <Avatar s={s} />
             <span className="flex items-center gap-2">
@@ -205,23 +209,23 @@ export function TeamView() {
             </span>
           </div>
         ))}
-        <div className="grid items-center gap-x-2 border-t border-border bg-butter px-3.5 py-[9px] font-bold" style={{ gridTemplateColumns: "1fr 200px 70px 84px 76px 66px 72px 50px 110px" }}>
+        <div className="grid items-center gap-x-2 border-t border-border bg-butter px-3.5 py-[9px] font-bold" style={{ gridTemplateColumns: GRID }}>
           <span className="text-[13px]">TEAM AVG</span>
-          <span className="font-mono text-[12px]">{TEAM_STATS.avg}%</span>
+          <span className="font-mono text-[12px]">{stats.avg}%</span>
           {SECTION_COLS.map((c) => (
-            <span key={c.key} className="text-right font-mono text-[12px]">{TEAM_AVG_SECTIONS[c.key]}</span>
+            <span key={c.key} className="text-right font-mono text-[12px]">{avgSections[c.key]}</span>
           ))}
           <span />
         </div>
       </div>
       <div className="font-mono text-[10px] text-[#A1A1AA] max-md:hidden">
-        КЛИК ПО СТРОКЕ → ДЕТАЛЬ СОТРУДНИКА: РАЗДЕЛЫ БАРАМИ + СПИСКИ ЗНАЮ/НЕ ЗНАЮ (ПАТТЕРН 3q) · ЗНАЧЕНИЯ КОЛОНОК — % РАЗДЕЛА
+        ЗНАЧЕНИЯ КОЛОНОК — % РАЗДЕЛА · АКТИВНОСТЬ — ПО ПОСЛЕДНЕЙ ОТМЕТКЕ «ЗНАЮ»
       </div>
 
       {/* mobile-карточки */}
       <div className="flex flex-col gap-2.5 md:hidden">
         {rows.map((s) => (
-          <div key={s.initials} className={cn("flex flex-col gap-2 rounded-[10px] border border-border bg-card p-3", weak(s.overall) && "bg-[#FFF5F4]")}>
+          <div key={s.initials + s.name} className={cn("flex flex-col gap-2 rounded-[10px] border border-border bg-card p-3", weak(s.overall) && "bg-[#FFF5F4]")}>
             <div className="flex items-center gap-2.5">
               <span className={cn("flex size-9 shrink-0 items-center justify-center rounded-full border border-border font-mono text-[10px] font-bold", s.admin ? "bg-primary text-primary-foreground" : "bg-muted")}>
                 {s.initials}

@@ -19,13 +19,17 @@ import { useContent } from "@/data/ContentContext"
 // Правый Sheet 500px остаётся каноном для админ-данных (Cost Control R23) —
 // в СПРАВОЧНИКЕ заменяется модалкой/шитом: узкий Sheet не работает для обучения.
 
-const Meta = ({ price, volume, abv, isAlcoholic }: { price?: number; volume?: number; abv: number; isAlcoholic: boolean }) => {
-  // Авторские в проде без цены/объёма — показываем только то, что есть, но ABV
-  // всегда (или «0%» у безалко). Иначе выходило «0 ₽ · 0 МЛ».
+const Meta = ({ price, volume, abv, isAlcoholic }: { price?: number; volume?: number; abv?: number; isAlcoholic: boolean }) => {
+  // Авторские в проде без цены/объёма — показываем только то, что есть. ABV:
+  // безалко → «0%»; алко с записанным ABV → «NN% ABV»; алко без ABV (напр.
+  // Undressed Negroni) → чип НЕ показываем (не врём «0% ABV»). Иначе выходило
+  // «0 ₽ · 0 МЛ» / «0% ABV».
   const parts: string[] = []
   if (price != null) parts.push(`${price} ₽`)
   if (volume != null) parts.push(`${volume} МЛ`)
-  parts.push(isAlcoholic ? `${abv}% ABV` : "0%")
+  if (!isAlcoholic) parts.push("0%")
+  else if (abv != null) parts.push(`${abv}% ABV`)
+  if (parts.length === 0) return null
   return (
     <span className="font-mono text-[11px] font-bold whitespace-nowrap md:text-[12px]">{parts.join(" · ")}</span>
   )
@@ -40,7 +44,9 @@ const Section = ({ title, children, desktop }: { title: string; children?: React
   children ? (
     <div className="flex flex-col gap-1">
       <Label>{title}</Label>
-      <span className={cn("leading-[1.55]", desktop ? "text-[14px] leading-[1.6]" : "text-[13px]")}>{children}</span>
+      {/* whitespace-pre-line: сохраняем переносы строк из прод-прозы (часть
+          drink_details/рецептов многострочные) — иначе схлопывалось в run-on */}
+      <span className={cn("leading-[1.55] whitespace-pre-line", desktop ? "text-[14px] leading-[1.6]" : "text-[13px]")}>{children}</span>
     </div>
   ) : null
 
@@ -145,18 +151,27 @@ const FactPlate = ({ children, desktop }: { children?: React.ReactNode; desktop?
     </div>
   ) : null
 
-/** ИСТОЧНИК — mono-ссылка ↗ (без протокола в подписи) */
-const SourceLink = ({ url }: { url?: string }) =>
-  url ? (
+/** ИСТОЧНИК — mono-ссылка ↗. sourceUrl в проде хранится С протоколом
+ *  (https://…, см. parse_spirit_origin) — href берём как есть; префикс
+ *  `https://` дописываем только если протокола нет (иначе выходил битый
+ *  двойной `https://https://…`). В подписи протокол+www отрезаем и даём
+ *  перенос (break-all + max-w-full), чтобы длинный путь не вылезал за край
+ *  узкой колонки-карточки. */
+const SourceLink = ({ url }: { url?: string }) => {
+  if (!url) return null
+  const href = /^https?:\/\//i.test(url) ? url : `https://${url}`
+  const label = url.replace(/^https?:\/\//i, "").replace(/^www\./i, "").replace(/\/+$/, "")
+  return (
     <a
-      href={`https://${url}`}
+      href={href}
       target="_blank"
       rel="noreferrer"
-      className="w-fit font-mono text-[10px] tracking-[0.02em] text-[#52525B] uppercase underline underline-offset-[3px]"
+      className="w-fit max-w-full font-mono text-[10px] tracking-[0.02em] break-all text-[#52525B] uppercase underline underline-offset-[3px]"
     >
-      {url} ↗
+      {label} ↗
     </a>
-  ) : null
+  )
+}
 
 /** КБЖУ мини-гридом §40: белые ячейки на #EDEDE8 gap-px; desktop 2×2 / mobile 4×1 */
 function NutritionGrid({ n, columns, caption }: { n: DishNutrition; columns: 2 | 4; caption?: string }) {
@@ -177,6 +192,10 @@ function NutritionGrid({ n, columns, caption }: { n: DishNutrition; columns: 2 |
           </div>
         ))}
       </div>
+      {/* «на 100 г» из старого шита — вторичная строка под гридом «на порцию» */}
+      {n.kcal100 != null && (
+        <span className="font-mono text-[9px] text-[#A1A1AA]">≈ {n.kcal100} ККАЛ / 100 Г</span>
+      )}
     </div>
   )
 }
@@ -459,9 +478,11 @@ export function ClassicDetail({ classic, open, onOpenChange, learned, onLearnedC
       {fam?.title ?? c.family.toUpperCase()}
     </span>
   )
+  // year/city/glass — часть классиков без года или города (18/67 без origin,
+  // 2/67 без года); склеиваем только заполненные, иначе висело «· ·»
   const subMeta = (
     <span className="font-mono text-[10px] text-[#71717A]">
-      {c.year} · {c.city.toUpperCase()} · {c.glass.toUpperCase()}
+      {[c.year, c.city ? c.city.toUpperCase() : "", c.glass ? c.glass.toUpperCase() : ""].filter(Boolean).join(" · ")}
     </span>
   )
 
@@ -588,8 +609,10 @@ export function SpiritDetail({ spirit, category, open, onOpenChange, learned, on
   if (!spirit) return null
   const s = spirit
   const abv = `${s.abv}% ABV`
-  const metaDesktop = [category, [s.country, s.region].filter(Boolean).join(", "), abv].filter(Boolean).join(" · ")
-  const metaMobile = [category, s.country, abv].filter(Boolean).join(" · ")
+  // цена за порцию — старая карта/шит показывали её; «550 ₽ / 30 мл»
+  const priceStr = s.price != null ? `${s.price} ₽${s.serving != null ? ` / ${s.serving} мл` : ""}` : null
+  const metaDesktop = [category, [s.country, s.region].filter(Boolean).join(", "), abv, priceStr].filter(Boolean).join(" · ")
+  const metaMobile = [category, s.country, abv, priceStr].filter(Boolean).join(" · ")
 
   const brandCountry =
     s.brand || s.country || s.region ? (
@@ -697,14 +720,21 @@ export interface DishDetailProps {
 export function DishDetail({ dish, open, onOpenChange, learned, onLearnedChange, nav }: DishDetailProps) {
   if (!dish) return null
   const d = dish
-  const meta = `${d.price} ₽ · ${d.weight} Г · ${d.timing} МИН`
+  // цена/вес/тайминг опциональны — склеиваем только заполненные (иначе «0 ₽»)
+  const meta = [
+    d.price != null ? `${d.price} ₽` : null,
+    d.weight != null ? `${d.weight} Г` : null,
+    d.timing != null ? `${d.timing} МИН` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ")
 
   const mobileHeader = (
     <>
       <div className="flex items-start justify-between gap-2.5">
         <div className="flex flex-col gap-1">
           <span className="text-[20px] leading-[1.1] font-bold">{d.name}</span>
-          <span className="font-mono text-[10px] text-[#71717A]">{d.category} · {meta}</span>
+          <span className="font-mono text-[10px] text-[#71717A]">{d.category}{meta ? ` · ${meta}` : ""}</span>
         </div>
         <CloseBtn onClick={() => onOpenChange(false)} />
       </div>
@@ -728,7 +758,7 @@ export function DishDetail({ dish, open, onOpenChange, learned, onLearnedChange,
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <span className="text-[24px] leading-[1.1] font-bold">{d.name}</span>
         <span className="text-[14px] text-[#71717A]">{d.subtitle}</span>
-        <span className="font-mono text-[12px] font-bold">{meta}</span>
+        {meta && <span className="font-mono text-[12px] font-bold">{meta}</span>}
       </div>
       <CloseBtn onClick={() => onOpenChange(false)} />
     </>

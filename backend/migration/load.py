@@ -214,7 +214,12 @@ def load(src_url, dest_url):
                     name=row["name"], img=row.get("img"), subtitle=row.get("tagline"),
                     is_alcoholic=False, is_zero_culture=False, abv=None, abv_raw=row.get("abv"),
                     price_amount=price_amt, price_raw=row.get("price"),
-                    glass_id=row.get("glass_id"), sort_order=row.get("sort_order", 0),
+                    # Merged-menu order: the three source tables each numbered
+                    # sort_order from 0, so a naive merge collides them and the
+                    # unified "Авторские" list is scrambled. Offset by source so
+                    # cocktails (0..) stay first, then zero (+1000), then zc
+                    # (+2000) — each keeps its own curated within-source order.
+                    glass_id=row.get("glass_id"), sort_order=1000 + row.get("sort_order", 0),
                     created_at=row["created_at"],
                 )
                 drink_slugs[_slugnorm(row["slug"])] = row["slug"]
@@ -243,7 +248,9 @@ def load(src_url, dest_url):
                     abv=abv, abv_raw=row.get("abv"),
                     price_amount=price_amt, price_raw=row.get("price"),
                     caffeine_level=row.get("caffeine_level"), is_carbonated=row.get("is_carbonated"),
-                    glass_id=row.get("glass_id"), sort_order=row.get("sort_order", 0),
+                    # +2000: zc_drinks sort after cocktails (0..) and zero (+1000)
+                    # in the merged menu; see the zero_cocktails offset note above.
+                    glass_id=row.get("glass_id"), sort_order=2000 + row.get("sort_order", 0),
                     created_at=row["created_at"],
                 )
                 drink_slugs[norm] = row["slug"]
@@ -334,6 +341,26 @@ def load(src_url, dest_url):
                 did = id_by_slug.get(ck_slug.get(r["cocktail_id"]))
                 if did:
                     s.add(m.DrinkFlavor(drink_id=did, flavor_id=r["flavor_id"], sort_order=r.get("sort_order", 0)))
+
+            # 7b) drink_spirits: an author drink's base spirit lived in prod ONLY
+            #     as a spirit-type tag (cocktail_tags → a tag whose key is also a
+            #     spirits-lookup key: gin/rum/bourbon/brandy/mezcal/vodka/…). The
+            #     v2 schema models this explicitly as DrinkSpirit, which drives
+            #     the Авторские spirit filter (bundle.filters.spirits) and the
+            #     spirit chip. Map by shared key (tag ids ≠ spirit ids). Style
+            #     tags (bitter/sour/sweet/…) have no spirits-lookup key and are
+            #     skipped — they stay in drink_tags. Same delete-then-insert
+            #     idempotency as tags/flavors above.
+            spirit_id_by_key = {r["key"]: r["id"] for r in src["spirits"]}
+            tag_key_by_id = {r["id"]: r["key"] for r in src["tags"]}
+            if cocktail_drink_ids:
+                s.query(m.DrinkSpirit).filter(m.DrinkSpirit.drink_id.in_(cocktail_drink_ids)) \
+                    .delete(synchronize_session=False)
+            for r in src["cocktail_tags"]:
+                did = id_by_slug.get(ck_slug.get(r["cocktail_id"]))
+                sid = spirit_id_by_key.get(tag_key_by_id.get(r["tag_id"]))
+                if did and sid:
+                    s.add(m.DrinkSpirit(drink_id=did, spirit_id=sid, sort_order=r.get("sort_order", 0)))
             s.flush()
 
             # 8) classics + links

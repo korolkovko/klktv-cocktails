@@ -17,13 +17,24 @@ def _num(x):
 def _serialize_drink(d: m.Drink) -> DrinkOut:
     spirits = [ds.spirit.label for ds in d.spirits]
     flavors = [df.flavor.label for df in d.flavors]
+    # descriptors = spirits (strong) + flavors, deduped case-insensitively:
+    # some drinks carry a "Джин"/"Ром" flavor that repeats the base-spirit
+    # label, which would otherwise show twice on the card (the detail sheet
+    # dedupes itself, the grid card doesn't).
+    seen = {s.upper() for s in spirits}
+    descriptors = [s.upper() for s in spirits]
+    for f in flavors:
+        fu = f.upper()
+        if fu not in seen:
+            seen.add(fu)
+            descriptors.append(fu)
     return DrinkOut(
         id=d.slug, name=d.name, logo=d.img, subtitle=d.subtitle,
         price=_num(d.price_amount),
         volume=d.volume_ml, abv=None if d.abv is None else float(d.abv),
         spirit=spirits[0] if spirits else "", spirits=spirits,
         glass=d.glass.label if d.glass else "",
-        descriptors=[s.upper() for s in spirits] + [f.upper() for f in flavors],
+        descriptors=descriptors,
         badge=d.badge.key.upper() if d.badge else None,
         recipe=d.recipe, garnish=d.garnish, pitch=d.pitch, photo=d.photo,
         about=d.about, naming=d.naming, faq=d.faq,
@@ -49,6 +60,7 @@ def _serialize_spirit(e: m.SpiritEntry, category_slug: str) -> SpiritEntryOut:
     return SpiritEntryOut(
         slug=e.slug, categorySlug=category_slug, name=e.name, img=e.img,
         abv=None if e.abv is None else float(e.abv), country=e.country,
+        price=_num(e.price_amount), serving=e.serving_ml,
         flavour=e.flavour, brand=e.brand, brandDetail=e.description,
         features=e.features, pairings=e.cocktail_pairings, fact=e.fact, sourceUrl=e.source_url,
     )
@@ -67,7 +79,8 @@ def _serialize_dish(k: m.KitchenDish, category_slug: str) -> KitchenDishOut:
         serving=k.serving, fact=k.interesting_facts,
         nutrition=DishNutritionOut(
             kcal=None if k.kcal_portion is None else round(float(k.kcal_portion)),
-            protein=_num(k.protein_g), fat=_num(k.fat_g), carb=_num(k.carb_g)),
+            protein=_num(k.protein_g), fat=_num(k.fat_g), carb=_num(k.carb_g),
+            kcal100=None if k.kcal_100g is None else round(float(k.kcal_100g))),
     )
 
 

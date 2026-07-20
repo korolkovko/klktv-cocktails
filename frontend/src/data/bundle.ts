@@ -73,6 +73,8 @@ export interface SpiritEntryOut {
   img: string | null
   abv: number | null
   country: string | null
+  price: number | null
+  serving: number | null
   flavour: string | null
   brand: string | null
   brandDetail: string | null
@@ -93,6 +95,7 @@ export interface DishNutritionOut {
   protein: number | null
   fat: number | null
   carb: number | null
+  kcal100: number | null
 }
 
 export interface KitchenDishOut {
