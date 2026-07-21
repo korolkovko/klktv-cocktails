@@ -1,6 +1,6 @@
 import * as React from "react"
 
-import { FilterChip } from "@/components/kollektiv/filter-chip"
+import { FilterChip, ChipRow } from "@/components/kollektiv/filter-chip"
 import { SearchInput } from "@/components/kollektiv/search-input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { MediaCard } from "@/components/kollektiv/media-card"
@@ -163,11 +163,11 @@ export function MenuView({
       <div className="md:hidden">
         <SearchBox placeholder="Найти коктейль…" value={q} onChange={setQ} />
       </div>
-      <div className="flex flex-wrap items-center gap-2">
+      <ChipRow aria-label="Фильтры авторских">
         <AxisSelect axis="Спирит" options={SPIRIT_FILTERS} active={spirit} onChange={setSpirit} />
         <AxisSelect axis="Бокал" options={GLASS_FILTERS} active={glass} onChange={setGlass} />
         <AxisSelect axis="Тип" options={["Все", "Алко", "Безалко"]} active={alcFilter} onChange={setAlcFilter} />
-      </div>
+      </ChipRow>
       <div className="max-md:hidden">
         <ProgressStrip
           learned={menu.learned - MENU.filter((c) => c.learned).length + learnedCount}
@@ -350,10 +350,10 @@ export function ClassicsView({
         unit={all ? "POSITIONS · ALL FAMILIES" : "POSITIONS"}
         search={<SearchBox placeholder="Найти классику…" value={q} onChange={setQ} />}
       />
-      <div className="flex flex-wrap items-center gap-2">
+      <ChipRow aria-label="Фильтры классики">
         <AxisSelect axis="Семейство" options={familyOpts} active={family} onChange={setFamily} tinted />
         <AxisSelect axis="Спирит" options={CLASSIC_SPIRITS} active={spirit} onChange={setSpirit} />
-      </div>
+      </ChipRow>
       <ProgressStrip
         learned={classics.learned - CLASSICS.filter((c) => c.learned).length + learnedCount}
         total={classics.total}
