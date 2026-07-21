@@ -1,5 +1,14 @@
 # klktv-cocktails v2 — Deploy runbook (Railway)
 
+> **AUTH UPDATE (2026-07-21): auth is a Bearer token, not a cookie.** Login returns a JWT in the
+> body; the SPA stores it in `localStorage` (`klktv_token`) and sends `Authorization: Bearer …`.
+> This replaced the HttpOnly cookie because the frontend and backend are on **different sites**, and
+> Safari/iOS blocks cross-site cookies (mobile login was broken). **Consequences for this runbook:**
+> the `COOKIE_SECURE`/`COOKIE_SAMESITE`/`COOKIE_DOMAIN` env vars below are now **no-ops** (harmless to
+> leave set); the only backend transport requirement is `CORS_ORIGINS` = the exact frontend origin so
+> the `Authorization` header passes CORS preflight. No domain/DNS change is needed for auth to work.
+> See the "Auth transport" note in `docs/STATUS.md` (2026-07-21 section).
+
 Chosen strategy (2026-07-20): **reuse the existing new DB (tokaido) as v2-prod**, deploy to a
 **staging URL first**, QA live, then switch the domain. The v2 backend + frontend Railway
 **services don't exist yet** — create them (the DB already exists). v1 stays live until the switch.
@@ -15,8 +24,9 @@ Legend: 🖐 = you do it in the Railway dashboard / shell (I can't). ✅ = alrea
                                                     └ Railway VOLUME mounted at UPLOAD_DIR
                                                       serves /static/img/<name>
 ```
-Two services + the existing DB. Cookies are cross-origin (`SameSite=none; Secure`), so CORS must
-name the exact frontend origin. Images are served by the backend from the volume.
+Two services + the existing DB. Auth is a **Bearer token** (JWT in `Authorization`, stored in the
+SPA's `localStorage`), so CORS must name the exact frontend origin (to allow the `Authorization`
+header on preflight). Images are served by the backend from the volume.
 
 ## Already prepared in the repo ✅
 
@@ -54,9 +64,9 @@ already in `origin/main`) — pushing `v2` exposes nothing new, but see Part G f
    |---|---|
    | `SECRET_KEY` | a fresh 64-char random (`python -c "import secrets;print(secrets.token_urlsafe(48))"`) — NOT the dev one |
    | `DATABASE_URL` | the tokaido Postgres URL (Railway can reference the DB service's connection var) |
-   | `CORS_ORIGINS` | the **staging** frontend URL for now (exact, no trailing slash) — you'll get it in Part B; set a placeholder, then update |
-   | `COOKIE_SECURE` | `true` |
-   | `COOKIE_SAMESITE` | `none` |
+   | `CORS_ORIGINS` | the **staging** frontend URL for now (exact, no trailing slash) — you'll get it in Part B; set a placeholder, then update. **This is the only transport var that matters now.** |
+   | `COOKIE_SECURE` | `true` — *no-op since the 2026-07-21 bearer switch; harmless to leave* |
+   | `COOKIE_SAMESITE` | `none` — *no-op since bearer switch; harmless* |
    | `UPLOAD_DIR` | `/app/uploads` |
    | `DEBUG` | `false` |
 
@@ -73,7 +83,7 @@ already in `origin/main`) — pushing `v2` exposes nothing new, but see Part G f
 ## Part C — Wire cross-origin 🖐
 
 1. Back on the **backend** service, set `CORS_ORIGINS` = the frontend staging URL from Part B (exact). Redeploy the backend.
-2. Sanity: from the staging frontend, log in → the `klktv_session` cookie is set and `/api/content` returns data (not 401). If login "succeeds" but every call is 401, it's almost always a cookie/CORS mismatch: confirm `COOKIE_SECURE=true`, `COOKIE_SAMESITE=none`, and `CORS_ORIGINS` exactly equals the frontend origin.
+2. Sanity: from the staging frontend, log in (**try a phone too** — that was the original bug) → `/api/content` returns data (not 401). The login response carries the JWT; the SPA stores it in `localStorage` (`klktv_token`) and sends `Authorization: Bearer …`. If login "succeeds" but every call is 401, it's a **CORS** mismatch (not cookies anymore): confirm `CORS_ORIGINS` **exactly** equals the frontend origin (scheme + host, no trailing slash) so the `Authorization` header passes preflight.
 
 ## Part D — Pre-go-live DB cleanup 🖐 (against tokaido, right before QA/switch)
 
@@ -109,5 +119,5 @@ v1 is untouched until Part F. To roll back: repoint `cocktails.klktv.tech` back 
 
 ## Env var reference
 
-**Backend:** `SECRET_KEY`, `DATABASE_URL`, `CORS_ORIGINS`, `COOKIE_SECURE=true`, `COOKIE_SAMESITE=none`, `UPLOAD_DIR=/app/uploads`, `DEBUG=false`. (`SRC_/DEST_DATABASE_URL` only for ETL, not the running app.)
+**Backend:** `SECRET_KEY`, `DATABASE_URL`, `CORS_ORIGINS`, `UPLOAD_DIR=/app/uploads`, `DEBUG=false`. (`COOKIE_SECURE`/`COOKIE_SAMESITE`/`COOKIE_DOMAIN` are **no-ops** since the 2026-07-21 bearer-token switch — safe to leave or drop. `SRC_/DEST_DATABASE_URL` only for ETL, not the running app.)
 **Frontend (build arg):** `VITE_API_URL`.

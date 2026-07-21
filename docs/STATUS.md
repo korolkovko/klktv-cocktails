@@ -47,13 +47,27 @@ Deploy decisions (owner): **reuse tokaido as v2-prod**, **staging-first then dom
 - Owner reported "деплой прошёл" — the two Railway services (backend + frontend) are up. A fresh `SECRET_KEY` was generated and set in Railway (NOT stored in this repo/git). Volume mount `/app/uploads`.
 - **Full runbook: `docs/DEPLOY.md`** (Part 0 push v2 → A backend → B frontend → C CORS → D prepare_prod → E QA → F domain switch → G password purge).
 
-## NEXT TASK (after compact) — POST-DEPLOY VERIFICATION, together
+## DONE (2026-07-21 session 4) — BEARER-TOKEN AUTH (mobile login fix) — commits `55348bc..4649338`
+
+**Bug (owner, on mobile only):** login failed on phones — wrong password gave the honest "неверный пароль", but the *correct* password just cleared the form and never let them in. **Root cause:** frontend (owner's domain) and backend (Railway `*.up.railway.app`) are different **sites** (`up.railway.app` is on the Public Suffix List, verified), so the HttpOnly auth **cookie was a third-party cookie → Safari/iOS blocks it by default** (ITP). Desktop Chrome still allowed it, so only mobile broke. Cookies fundamentally can't do cross-site auth on Safari.
+
+**Fix — switched auth transport from cookie → JWT in the `Authorization: Bearer` header** (the correct pattern for "frontend on my domain, backend on a different domain"; works on every browser, no DNS/domain change needed). Same JWT/`SECRET_KEY`/roles/`last_seen_at` — only the transport changed. Built via SDD (plan `docs/superpowers/plans/2026-07-21-bearer-token-auth.md`; 2 tasks + per-task reviews + opus final review = "READY TO MERGE").
+- **Backend:** `login` returns `{access_token, token_type:"bearer", user:{…}}` (no `Set-Cookie`); `get_current_user` reads `Authorization: Bearer` via `HTTPBearer`; `logout` = stateless 204 no-op. `COOKIE_*` constants left in `config.py` unused. **84 tests.**
+- **Frontend:** token stored in `localStorage` (`klktv_token`), attached by `lib/api.ts request()` + the admin multipart upload; `AuthContext` bootstraps from the token, clears token+user on 401, keeps a valid token on non-401 boot errors (Railway cold-start). `/static/img` untouched (public). **60 tests.**
+- **Tested off-prod:** all backend tests run against a **local pg18 replica of tokaido** (`backend/.env.test`, gitignored) — never the live DB. Ledger: `.superpowers/sdd/progress.md`.
+- **DEPLOY IMPACT:** no domain/DNS/volume change. Just **push `v2` → Railway rebuilds both services** → mobile login works (even on the current Railway staging URLs, since bearer doesn't care that they're different sites). Backend env: `COOKIE_*` are now no-ops; keep `CORS_ORIGINS` = exact frontend origin. Frontend: `VITE_API_URL` = backend URL (unchanged), rebuilt on push.
+
+## NEXT TASK — PUSH + VERIFY MOBILE, then finish post-deploy checklist
+
+**Immediate:** `git push origin v2` (owner to approve) → Railway auto-redeploys backend+frontend → **re-test login on a phone** at the frontend URL. Should now log in and stay in.
+
+## Post-deploy verification (together)
 
 First **gather from owner** (not yet recorded here): the backend URL, the frontend URL, whether it's on a staging subdomain or already `cocktails.klktv.tech`, whether `migration/prepare_prod.py` was run, and whether the volume is attached at `/app/uploads`.
 Then verify (checklist):
 1. `GET <backend>/health` → 200; `GET <backend>/api/content` → 401; `GET <backend>/static/img/pornstar.webp` → 200 (media auto-seeded to the volume).
 2. Frontend SPA loads; a deep link (e.g. `/classics`) refreshes without 404.
-3. Log in as **kolya** → cookie set and `/api/content` returns data (NOT 401). If login "works" but everything is 401 → cross-origin cookie/CORS mismatch (check `CORS_ORIGINS` == frontend origin exactly, `COOKIE_SECURE=true`, `COOKIE_SAMESITE=none`).
+3. Log in as **kolya** (on **mobile too** — that was the bug) → `/api/content` returns data (NOT 401). Auth is now a **Bearer token** (see the 2026-07-21 section below), not a cookie: the token is stored in `localStorage` (`klktv_token`) and sent as `Authorization: Bearer …`. If login "works" but everything is 401 → check `CORS_ORIGINS` == the frontend origin exactly (that's all the backend needs now; `COOKIE_*` no longer matter).
 4. Guest side: images load, filters work, Прогресс → Мой/Команда.
 5. **Админка** (`/admin` as kolya): create/edit/delete each type, upload a photo (lands on volume, shows in guide), Юзеры CRUD + self-protection. Reader → no «Админка», 403 on `/api/admin/*`.
 6. If staging: run `prepare_prod.py` (remove dev users), then switch `cocktails.klktv.tech` → v2 (DEPLOY.md Part F).
