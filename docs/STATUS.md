@@ -85,7 +85,8 @@ Remaining owner tasks: purge the 12 plaintext passwords from git history; option
 - **Media unification** (owner wants ALL media stored the same way): Option B — move all images into `frontend/public/` (static, survives Railway redeploys, no backend volume), re-path DB `/static/img/…` values, adjust `resolveImageUrl`. Kitchen photos are only local (`/tmp`) right now.
 - **Operational before cutover:** rotate + purge the 12 plaintext staff passwords from git history; `docker build` the frontend once (never run — no Docker in dev env); set frontend `VITE_API_URL` (build arg) + append its Railway domain to backend `CORS_ORIGINS`; remove the `v2tester` dev user.
 - **Phase 2:** rebuild admin/uploads/user-management on the kit (backend routers unmounted + still on old model names), then final ETL + cutover.
-- Minor backlog: rate-limit key-space cap, whole-Set progress rollback race, desktop popover a11y, manifest icons[], filter-pill auto-center, thin FE test coverage, History/timeline section (data preserved).
+- Minor backlog: rate-limit key-space cap, whole-Set progress rollback race, desktop popover a11y, thin FE test coverage, History/timeline section (data preserved). (DONE: manifest icons[]; filter-pill auto-center — now via kit §49 ChipRow.)
+- **2026-07-21 — cocktail-guide filters/search migrated to the kit** (§49 `filter-chip` + §51 `search-input` from `@kollektiv` registry `ui.klktv.tech`): retired hand-rolled `FilterRow`/`SearchBox` in `views.tsx` (kept as thin wrappers over `ChipRow`/`FilterChip` + `SearchInput`). Added `components/kollektiv/{filter-chip,search-input}.tsx` + `components/ui/kbd.tsx` + `pluralRu` in `lib/utils`. Chips: pill→R6, active=INK, autoscroll-to-active, a11y; search: ✕/Esc, iOS-zoom-fix. (Kit's own guide only migrated search — we also did chips, per owner.) Admin `EntityList` search is separate (Phase-2 kit redesign).
 
 ## Key coordinates
 

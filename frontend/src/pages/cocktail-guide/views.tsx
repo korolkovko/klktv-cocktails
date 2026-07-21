@@ -1,7 +1,7 @@
 import * as React from "react"
-import { Search } from "lucide-react"
 
-import { Input } from "@/components/ui/input"
+import { FilterChip, ChipRow } from "@/components/kollektiv/filter-chip"
+import { SearchInput } from "@/components/kollektiv/search-input"
 import { MediaCard } from "@/components/kollektiv/media-card"
 import { LearnedToggle } from "@/components/kollektiv/learned-toggle"
 import { ProgressStrip, ProgressTotal } from "@/components/kollektiv/progress-strip"
@@ -26,7 +26,12 @@ const pct = (l: number, t: number) => (t > 0 ? Math.round((l / t) * 100) : 0)
 
 /* ---------- общие детали ---------- */
 
-/** Ряд фильтров с mono-подписью оси: desktop-перенос / mobile-карусель с fade */
+/** Ряд фильтров раздела: mono-подпись оси + §49 ChipRow/FilterChip.
+ *  Чипы — active (INK) «один из N» (плоский переключатель вида списка, вкл.
+ *  дефолт «Все» — не applied/BUTTER, значения тут не выбираются). ChipRow даёт
+ *  desktop-перенос / mobile-карусель с автоскроллом к активному + fade-при-
+ *  оверфлоу. Тинтованные чипы (семейства) несут TintMarker. Пропы не менялись —
+ *  вызовы во всех вью прежние. */
 function FilterRow({
   axis,
   options,
@@ -48,44 +53,33 @@ function FilterRow({
           {axis}
         </span>
       )}
-      <div className="relative flex min-w-0 flex-1 flex-wrap gap-1.5 max-md:flex-nowrap max-md:overflow-x-auto max-md:pr-8 max-md:[scrollbar-width:none]">
+      <ChipRow role="radiogroup" aria-label={axis || "Фильтр"} className="min-w-0 flex-1">
         {opts.map((o) => {
           const on = active === o.label
           return (
-            <button
-              key={o.label}
-              type="button"
-              onClick={() => onChange(o.label)}
-              className={cn(
-                "inline-flex min-h-10 shrink-0 cursor-pointer items-center gap-[7px] rounded-full px-3.5 text-[13px] font-semibold whitespace-nowrap max-md:min-h-10 md:min-h-0 md:py-[5px]",
-                on ? "bg-primary text-primary-foreground" : "border border-border bg-card"
-              )}
-            >
+            <FilterChip key={o.label} active={on} onClick={() => onChange(o.label)}>
               {tinted && o.tint && <TintMarker tint={o.tint} size={9} onDark={on} />}
               {o.label}
-            </button>
+            </FilterChip>
           )
         })}
-        <span
-          aria-hidden
-          className="pointer-events-none absolute inset-y-0 right-0 hidden w-8 bg-gradient-to-r from-transparent to-[#FBFBF9] max-md:block"
-        />
-      </div>
+      </ChipRow>
     </div>
   )
 }
 
+// поиск раздела справочника — §51 SearchInput (inline); без «/» (несколько
+// разделов со своими поисками + mobile bottom-nav → глобальный хоткей не нужен,
+// поведение как было). Обёртка сохраняет прежний {placeholder,value,onChange}.
 function SearchBox({ placeholder, value, onChange }: { placeholder: string; value: string; onChange: (v: string) => void }) {
   return (
-    <div className="relative w-[220px] max-md:w-full">
-      <Search className="pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2 text-muted-foreground" />
-      <Input
-        placeholder={placeholder}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="h-9 pl-8 max-md:min-h-11 max-md:text-base"
-      />
-    </div>
+    <SearchInput
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      hotkey={false}
+      className="w-[220px] max-md:w-full"
+    />
   )
 }
 

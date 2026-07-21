@@ -32,3 +32,15 @@ const twMerge = extendTailwindMerge({
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
+
+// Русская плюрализация: forms = [1, 2–4, 5+] («ПОЗИЦИЯ», «ПОЗИЦИИ», «ПОЗИЦИЙ»).
+// Живёт в theme-lib кита — приезжает всем потребителям (не заводим отдельный
+// registry-файл ради трёх строк). Нужен §51 SearchInput («N СОВПАДЕНИЙ»).
+export function pluralRu(n: number, forms: [string, string, string]): string {
+  const t = n % 100
+  const o = n % 10
+  if (t >= 11 && t <= 14) return forms[2]
+  if (o === 1) return forms[0]
+  if (o >= 2 && o <= 4) return forms[1]
+  return forms[2]
+}

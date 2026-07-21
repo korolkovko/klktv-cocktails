@@ -361,6 +361,11 @@
   [data-slot='faceted-search-input']:focus-visible {
     box-shadow: none !important;
   }
+  /* §51 search-input (R34): ринг несёт КОРПУС (focus-within), не сам инпут —
+     иначе ринг обнял бы только текст-зону внутри корпуса, не всё поле */
+  [data-slot='search-input']:focus-visible {
+    box-shadow: none !important;
+  }
   /* пункты меню: фокус-индикация — CONCRETE-заливка (канон §18), не ринг;
      Radix фокусирует выбранный пункт при открытии — без этого INK-пилюля
      получала бы жёлтую рамку */
