@@ -4,16 +4,10 @@ from collections import defaultdict
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
 
-from app.auth import (
-    clear_auth_cookie,
-    create_access_token,
-    get_current_user,
-    set_auth_cookie,
-    verify_password,
-)
+from app.auth import create_access_token, get_current_user, verify_password
 from app.database import get_db
 from app.models import User
-from app.schemas import LoginRequest, UserResponse
+from app.schemas import LoginRequest, TokenResponse, UserResponse
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -41,8 +35,8 @@ def _clear_failures(key: tuple[str, str]) -> None:
     _FAILED_ATTEMPTS.pop(key, None)
 
 
-@router.post("/login", response_model=UserResponse)
-def login(req: LoginRequest, request: Request, response: Response, db: Session = Depends(get_db)):
+@router.post("/login", response_model=TokenResponse)
+def login(req: LoginRequest, request: Request, db: Session = Depends(get_db)):
     ip = request.client.host if request.client else "unknown"
     username = req.username.lower().strip()
     key = (ip, username)
@@ -53,29 +47,21 @@ def login(req: LoginRequest, request: Request, response: Response, db: Session =
     user = db.query(User).filter(User.username == username).first()
     if not user or not verify_password(req.password, user.password_hash):
         _record_failure(key)
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Неверный логин или пароль",
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Неверный логин или пароль")
 
     _clear_failures(key)
-    # «последний визит» (last_seen_at) обновляется в get_current_user на каждом
-    # авторизованном запросе — сразу после логина фронт дёргает /content и т.п.,
-    # так что отдельная запись здесь не нужна.
     token = create_access_token(user.id)
-    set_auth_cookie(response, token)
-    return UserResponse(username=user.username, name=user.name, role=user.role)
+    return TokenResponse(
+        access_token=token,
+        user=UserResponse(username=user.username, name=user.name, role=user.role),
+    )
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
-def logout(response: Response):
-    # Mutate and return the injected `response` (do not construct/return a new
-    # Response here) — FastAPI only merges headers/cookies set on the injected
-    # object when the handler doesn't return a fresh Response of its own;
-    # returning a new one silently drops the delete-cookie Set-Cookie header.
-    clear_auth_cookie(response)
-    response.status_code = status.HTTP_204_NO_CONTENT
-    return response
+def logout():
+    # Stateless bearer auth: client discards its token; nothing to clear
+    # server-side. Endpoint kept for API symmetry / future revocation.
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/me", response_model=UserResponse)

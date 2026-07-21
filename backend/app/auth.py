@@ -2,18 +2,12 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import bcrypt
-from fastapi import Cookie, Depends, HTTPException, Response, status
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
-from app.config import (
-    ACCESS_TOKEN_EXPIRE_HOURS,
-    COOKIE_DOMAIN,
-    COOKIE_NAME,
-    COOKIE_SAMESITE,
-    COOKIE_SECURE,
-    SECRET_KEY,
-)
+from app.config import ACCESS_TOKEN_EXPIRE_HOURS, SECRET_KEY
 from app.database import get_db
 from app.models import User
 
@@ -43,36 +37,16 @@ def decode_token(token: str) -> Optional[dict]:
         return None
 
 
-def set_auth_cookie(response: Response, token: str) -> None:
-    response.set_cookie(
-        key=COOKIE_NAME,
-        value=token,
-        max_age=ACCESS_TOKEN_EXPIRE_HOURS * 3600,
-        httponly=True,
-        secure=COOKIE_SECURE,
-        samesite=COOKIE_SAMESITE,
-        domain=COOKIE_DOMAIN,
-        path="/",
-    )
-
-
-def clear_auth_cookie(response: Response) -> None:
-    response.delete_cookie(
-        key=COOKIE_NAME,
-        domain=COOKIE_DOMAIN,
-        path="/",
-        secure=COOKIE_SECURE,
-        samesite=COOKIE_SAMESITE,
-    )
+_bearer = HTTPBearer(auto_error=False)
 
 
 def get_current_user(
-    session_token: Optional[str] = Cookie(default=None, alias=COOKIE_NAME),
+    creds: Optional[HTTPAuthorizationCredentials] = Depends(_bearer),
     db: Session = Depends(get_db),
 ) -> User:
-    if not session_token:
+    if creds is None or not creds.credentials:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
-    payload = decode_token(session_token)
+    payload = decode_token(creds.credentials)
     if not payload:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid session")
     try:

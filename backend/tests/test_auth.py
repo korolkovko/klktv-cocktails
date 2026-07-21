@@ -19,7 +19,7 @@ def _reset_rate_limiter():
 
 def test_malformed_token_is_401_not_500():
     with TestClient(app) as client:
-        client.cookies.set("klktv_session", "not.a.jwt")
+        client.headers.update({"Authorization": "Bearer not.a.jwt"})
         r = client.get("/api/auth/me")
         assert r.status_code == 401
 
@@ -39,3 +39,33 @@ def test_login_successes_do_not_trip_limiter():
         codes = [client.post("/api/auth/login", json={"username": SMOKE_USER, "password": SMOKE_PASS}).status_code
                  for _ in range(6)]
         assert codes == [200] * 6
+
+
+def test_login_returns_bearer_token_and_user():
+    with TestClient(app) as client:
+        r = client.post("/api/auth/login", json={"username": SMOKE_USER, "password": SMOKE_PASS})
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["token_type"] == "bearer"
+        assert isinstance(body["access_token"], str) and body["access_token"]
+        assert body["user"]["username"] == SMOKE_USER
+        assert "role" in body["user"]
+        # No cookie is set anymore
+        assert "set-cookie" not in {k.lower() for k in r.headers}
+
+
+def test_me_requires_bearer_header():
+    with TestClient(app) as client:
+        assert client.get("/api/auth/me").status_code == 401  # no header
+        token = client.post("/api/auth/login",
+                            json={"username": SMOKE_USER, "password": SMOKE_PASS}).json()["access_token"]
+        r = client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
+        assert r.status_code == 200
+        assert r.json()["username"] == SMOKE_USER
+
+
+def test_protected_endpoint_rejects_missing_and_bad_bearer():
+    with TestClient(app) as client:
+        assert client.get("/api/me/progress").status_code == 401           # missing
+        client.headers.update({"Authorization": "Bearer not.a.jwt"})
+        assert client.get("/api/me/progress").status_code == 401           # malformed

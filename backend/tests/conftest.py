@@ -117,6 +117,8 @@ def _admin_user():
 def login_client(client, username: str = SMOKE_USER, password: str = SMOKE_PASS):
     r = client.post("/api/auth/login", json={"username": username, "password": password})
     assert r.status_code == 200, r.text
+    token = r.json()["access_token"]
+    client.headers.update({"Authorization": f"Bearer {token}"})
     return client
 
 

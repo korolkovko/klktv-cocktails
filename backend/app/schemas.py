@@ -16,6 +16,12 @@ class UserResponse(BaseModel):
     role: str
 
 
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserResponse
+
+
 # ── Team progress (all authenticated users, not admin-only) ──
 
 class TeamMemberOut(BaseModel):
