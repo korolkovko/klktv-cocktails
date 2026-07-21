@@ -2,6 +2,7 @@ import * as React from "react"
 
 import { useAuth } from "@/auth/AuthContext"
 import { cn } from "@/lib/utils"
+import { Toaster } from "@/components/ui/sonner"
 
 import { adminApi, type AdminEntity } from "./api"
 import { EntityList, type EntityColumn } from "./components/EntityList"
@@ -305,6 +306,9 @@ export default function AdminPage() {
           onClose={() => setEditing(null)}
         />
       )}
+
+      {/* Kit toasts (sonner) — currently only the kit-based UsersPage uses them */}
+      <Toaster />
     </div>
   )
 }

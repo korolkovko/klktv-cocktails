@@ -1,30 +1,68 @@
-import { renderToStaticMarkup } from "react-dom/server"
 import { describe, expect, it } from "vitest"
 
 import {
   formatLastSeen,
+  identityOf,
+  initialsOf,
   isSelf,
   MIN_PASSWORD_LENGTH,
   toCreateBody,
   toUpdateBody,
-  UsersPage,
+  type UserOut,
 } from "./UsersPage"
 
-// Same lightweight approach as CategoriesTab.test.tsx (no jsdom/@testing-library
-// harness in this project yet). `UsersPage` fetches its rows in an effect,
-// which react-dom/server never runs, so the first render is always the
-// loading state — enough to assert the table shell (columns, create
-// affordance) without a fetch mock.
-describe("UsersPage (loading shell)", () => {
-  it("renders the table columns from the task-10 brief and a create button", () => {
-    const html = renderToStaticMarkup(<UsersPage currentUsername="kolya" />)
+// UsersPage is now built on the kit's §54 EntityTable (see block-users
+// reference). EntityTable/Fab/ResponsiveDialog/ResponsiveSelect all call
+// useIsMobile() unconditionally on every render, which reads
+// `window.matchMedia` with no lazy/SSR guard — and this project's vitest
+// suite runs in the plain "node" test environment (no jsdom/happy-dom
+// installed), so any renderToStaticMarkup of those components throws
+// "window is not defined". That's a gap in the test environment, not a
+// runtime bug (the browser always has window/matchMedia) — so instead of
+// rendering the page, the wiring logic that feeds EntityTable is pulled out
+// into pure, exported functions (identityOf/initialsOf) and asserted
+// directly here, same as the other UsersPage helpers below.
+const baseUser: UserOut = {
+  id: 1,
+  username: "editor1",
+  name: "Editor One",
+  role: "editor",
+  created_at: "2026-01-01T00:00:00Z",
+  last_seen_at: null,
+}
 
-    expect(html).toContain("Имя")
-    expect(html).toContain("Логин")
-    expect(html).toContain("Роль")
-    expect(html).toContain("Последний визит")
-    expect(html).toContain("Загрузка")
-    expect(html).toContain("Новый")
+describe("initialsOf (EntityTable identity avatar)", () => {
+  it("takes the first letter of the first two words of a display name", () => {
+    expect(initialsOf("Editor One")).toBe("EO")
+  })
+
+  it("falls back to the first two characters for a single-word name/username", () => {
+    expect(initialsOf("kolya")).toBe("KO")
+  })
+
+  it("renders a placeholder for a blank input", () => {
+    expect(initialsOf("   ")).toBe("?")
+  })
+})
+
+describe("identityOf (EntityTable identity mapping)", () => {
+  it("prefers the display name, falls back to the username, and prefixes sub with @", () => {
+    const id = identityOf(baseUser, "kolya")
+    expect(id.name).toBe("Editor One")
+    expect(id.sub).toBe("@editor1")
+    expect(id.initials).toBe("EO")
+    expect(id.accent).toBe(false)
+  })
+
+  it("falls back to the username when name is null", () => {
+    const id = identityOf({ ...baseUser, name: null }, "kolya")
+    expect(id.name).toBe("editor1")
+    expect(id.initials).toBe("ED")
+  })
+
+  it("accents the signed-in user's own row", () => {
+    const id = identityOf(baseUser, "editor1")
+    expect(id.accent).toBe(true)
   })
 })
 

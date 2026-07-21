@@ -17,6 +17,12 @@ const buttonVariants = cva(
           "btn-push border-border bg-secondary text-secondary-foreground shadow-hard",
         outline:
           "btn-push border-border bg-secondary text-secondary-foreground shadow-hard aria-expanded:bg-accent",
+        // quiet (R32 §09): утилитарный вес — белая + INK-рамка, БЕЗ тени и БЕЗ
+        // btn-push-сдвига. Ховер CONCRETE, active #E4E4DF. Правило веса: тень =
+        // у действия, которое КОММИТИТ (submit/CTA/destructive confirm); навигация
+        // и утилиты (back ←, ✕, «Отмена», повторяющиеся контролы) — quiet.
+        quiet:
+          "border-border bg-secondary text-secondary-foreground hover:bg-muted active:bg-[#E4E4DF]",
         tertiary:
           "border-divider-strong bg-muted text-foreground hover:bg-[#E4E4DF]",
         ghost:

@@ -1,26 +1,49 @@
 import * as React from "react"
+import { Plus } from "lucide-react"
+import { toast } from "sonner"
+
+import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Fab } from "@/components/kollektiv/fab"
+import { FilterChip } from "@/components/kollektiv/filter-chip"
+import { ConfirmDialog } from "@/components/kollektiv/confirm-dialog"
+import { ResponsiveDialog } from "@/components/adapters/responsive-dialog"
+import { ResponsiveSelect } from "@/components/adapters/responsive-select"
+import {
+  EntityTable,
+  EntityMeta,
+  RoleBadge,
+  type EntityAction,
+  type EntityColumn,
+} from "@/components/kollektiv/entity-table"
 
 import { adminApi } from "../api"
-import { EditorShell } from "../components/EditorShell"
-import { SelectField, TextField } from "../components/FormFields"
 
-// "Юзеры" tab body (Task 10, admin-only — see AdminPage.tsx's `adminOnly`
-// gate on this tab). Self-contained like CategoriesTab (Task 9): owns its
-// own list fetch + inline create/edit modal instead of going through
-// AdminPage's generic EntityList+EditorShell wiring. Row/request shapes
-// mirror backend/app/routers/admin_users.py's UserOut/UserCreateIn/
-// UserUpdateIn one-for-one. `UserOut` never carries `password_hash` — never
-// display or round-trip one here.
+// "Юзеры" tab body (rebuilt onto the kit's §54 EntityTable — see the
+// block-users reference impl for the pattern this follows: EntityTable +
+// toolbar (search + role select-chip) + CTA/FAB "+ Юзер" + row-clickable
+// form §50 (ResponsiveDialog) + ConfirmDialog for delete-from-form + a fire
+// (ArcadeButton, hold 3s) row action for the irreversible delete. Our model
+// is simpler than block-users' demo data (no telegram/invited/disabled) —
+// only self-protection carries over as a row/form state.
+//
+// Row/request shapes mirror backend/app/routers/admin_users.py's
+// UserOut/UserCreateIn/UserUpdateIn one-for-one. `UserOut` never carries
+// `password_hash` — never display or round-trip one here.
 //
 // The identifier for PATCH/DELETE is the username (adminApi.update/remove's
 // generic `key` param), not the numeric `id` — admin_users.py's `_resolve`
-// accepts either, but username is stable across edits (id would work too,
-// username was picked since it's what's shown/typed elsewhere on this page).
+// accepts either, but username is stable across edits and is what's shown
+// everywhere on this page.
 //
 // Self-protection is enforced server-side (can't delete/demote self, can't
 // strand the last admin) — this component additionally hides those
-// affordances client-side for the signed-in user's own row (task-10 brief),
-// so the UI never even offers an action the backend would 400 on.
+// affordances client-side for the signed-in user's own row (belt-and-
+// suspenders): the row gets EntityTable's "self" rowState (no ⋯ menu, just
+// a "СЕБЯ НЕЛЬЗЯ" note) and the edit form disables the role select + hides
+// the delete button.
 export type Role = "admin" | "editor" | "reader"
 
 export interface UserOut {
@@ -51,16 +74,29 @@ const ROLE_OPTIONS: { value: Role; label: string }[] = [
   { value: "reader", label: "Читатель" },
 ]
 
-const ROLE_LABEL: Record<string, string> = Object.fromEntries(ROLE_OPTIONS.map((o) => [o.value, o.label]))
+const ROLE_LABEL = Object.fromEntries(ROLE_OPTIONS.map((o) => [o.value, o.label])) as Record<Role, string>
+
+// RoleBadge tone per the task brief: admin → ink (weightiest), editor →
+// butter (management-ish), reader → muted (default/lowest).
+const ROLE_TONE: Record<Role, "ink" | "butter" | "muted"> = {
+  admin: "ink",
+  editor: "butter",
+  reader: "muted",
+}
+
+const ROLE_FILTER_OPTIONS: { value: Role | "all"; label: string }[] = [
+  { value: "all", label: "Все роли" },
+  ...ROLE_OPTIONS,
+]
 
 // Matches admin_users.py's UserCreateIn/UserUpdateIn `password` min_length.
 export const MIN_PASSWORD_LENGTH = 4
 
 // Exported for tests: mirrors the backend's self-protection checks
 // (admin_users.py `update_user`/`delete_user`: can't delete/demote yourself)
-// so the UI never offers an action the backend would reject. Used both to
-// hide the row-level "Удалить" button and to lock the role selector when
-// editing your own account.
+// so the UI never offers an action the backend would reject. Used to hide
+// the row's fire/delete action, to give the row EntityTable's "self"
+// rowState, and to lock the role selector when editing your own account.
 export function isSelf(username: string, currentUsername: string | null | undefined): boolean {
   return currentUsername != null && username === currentUsername
 }
@@ -78,6 +114,36 @@ export function formatLastSeen(iso: string | null): string {
   if (days === 1) return "вчера"
   if (days < 7) return `${days} дн назад`
   return new Date(iso).toLocaleDateString("ru-RU")
+}
+
+// Exported for tests: 2-letter avatar initials from a display name (or,
+// failing that, the username) — feeds EntityTable's identity().initials.
+export function initialsOf(nameOrUsername: string): string {
+  const trimmed = nameOrUsername.trim()
+  if (!trimmed) return "?"
+  const parts = trimmed.split(/\s+/)
+  if (parts.length > 1) return (parts[0][0] + parts[1][0]).toUpperCase()
+  return trimmed.slice(0, 2).toUpperCase()
+}
+
+// Exported for tests: the identity mapping fed to EntityTable's `identity`
+// prop, pulled out as a pure function. This is deliberately NOT exercised
+// via a full renderToStaticMarkup of <UsersPage> — EntityTable/Fab/
+// ResponsiveDialog/ResponsiveSelect all call useIsMobile() unconditionally
+// on every render, which reads `window.matchMedia` with no lazy/SSR guard;
+// this project's vitest suite runs in the plain "node" test environment
+// (no jsdom/happy-dom installed), so any render of those components throws
+// "window is not defined". That's a test-environment gap, not a runtime bug
+// — the browser always has window/matchMedia — but it means the wiring
+// logic here is tested as pure functions instead of via rendering.
+export function identityOf(u: UserOut, currentUsername?: string | null) {
+  const name = u.name || u.username
+  return {
+    name,
+    sub: `@${u.username}`,
+    initials: initialsOf(name),
+    accent: isSelf(u.username, currentUsername),
+  }
 }
 
 interface UserForm {
@@ -103,8 +169,7 @@ export function toCreateBody(form: UserForm): UserCreateIn {
   }
 }
 
-// Exported so UsersPage.test.tsx can assert the edit body's core rules
-// (task-10 brief):
+// Exported so UsersPage.test.tsx can assert the edit body's core rules:
 // - a blank password field means "keep current password" — omit the key
 //   entirely rather than sending an empty string (the backend's
 //   `if data.password:` would treat "" the same as omitted, but omitting is
@@ -124,22 +189,29 @@ export function toUpdateBody(form: UserForm): UserUpdateIn {
 
 type Editing = { mode: "new" } | { mode: "edit"; row: UserOut } | null
 
+interface ConfirmState {
+  title: React.ReactNode
+  description?: React.ReactNode
+  confirmLabel: React.ReactNode
+  onConfirm: () => void
+}
+
 export function UsersPage({ currentUsername }: { currentUsername?: string | null }) {
   const [rows, setRows] = React.useState<UserOut[]>([])
   const [loading, setLoading] = React.useState(true)
-  const [error, setError] = React.useState<string | null>(null)
   const [editing, setEditing] = React.useState<Editing>(null)
   const [form, setForm] = React.useState<UserForm>(BLANK_FORM)
   const [saving, setSaving] = React.useState(false)
-  const [formError, setFormError] = React.useState<string | null>(null)
+  const [search, setSearch] = React.useState("")
+  const [roleFilter, setRoleFilter] = React.useState<Role | "all">("all")
+  const [confirm, setConfirm] = React.useState<ConfirmState | null>(null)
 
   const load = React.useCallback(async () => {
     setLoading(true)
-    setError(null)
     try {
       setRows(await adminApi.list<UserOut>("users"))
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Не удалось загрузить пользователей")
+      toast.error(e instanceof Error ? e.message : "Не удалось загрузить пользователей")
     } finally {
       setLoading(false)
     }
@@ -151,13 +223,11 @@ export function UsersPage({ currentUsername }: { currentUsername?: string | null
 
   function openNew() {
     setForm(BLANK_FORM)
-    setFormError(null)
     setEditing({ mode: "new" })
   }
 
   function openEdit(row: UserOut) {
     setForm(fromRow(row))
-    setFormError(null)
     setEditing({ mode: "edit", row })
   }
 
@@ -165,33 +235,45 @@ export function UsersPage({ currentUsername }: { currentUsername?: string | null
     setForm((f) => ({ ...f, [key]: value }))
   }
 
-  async function handleDelete(row: UserOut) {
-    if (isSelf(row.username, currentUsername)) return // hidden in the UI too; belt-and-suspenders
-    if (!window.confirm(`Удалить пользователя «${row.name || row.username}»? Это необратимо.`)) return
-    setError(null)
+  // Shared by the row's fire action (⋯ → Удалить, arcade hold-3s — no extra
+  // confirm needed, the hold IS the confirm) and the form footer's
+  // ConfirmDialog-gated delete.
+  async function performDelete(row: UserOut) {
     try {
       await adminApi.remove("users", row.username)
+      toast.success(`Удалено · ${row.name || row.username}`)
       if (editing?.mode === "edit" && editing.row.username === row.username) setEditing(null)
       await load()
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Не удалось удалить пользователя")
+      toast.error(e instanceof Error ? e.message : "Не удалось удалить пользователя")
     }
+  }
+
+  function deleteFromForm(row: UserOut) {
+    setEditing(null)
+    setConfirm({
+      title: `Удалить · ${row.name || row.username}?`,
+      description: "Запись пользователя будет удалена безвозвратно.",
+      confirmLabel: "Удалить",
+      onConfirm: () => void performDelete(row),
+    })
   }
 
   async function handleSave() {
     if (!editing) return
     setSaving(true)
-    setFormError(null)
     try {
       if (editing.mode === "new") {
         await adminApi.create("users", toCreateBody(form))
+        toast.success(`Юзер создан · ${form.username}`)
       } else {
         await adminApi.update("users", editing.row.username, toUpdateBody(form))
+        toast.success(`Сохранено · ${form.name || editing.row.username}`)
       }
       setEditing(null)
       await load()
     } catch (e) {
-      setFormError(e instanceof Error ? e.message : "Не удалось сохранить")
+      toast.error(e instanceof Error ? e.message : "Не удалось сохранить")
     } finally {
       setSaving(false)
     }
@@ -206,134 +288,238 @@ export function UsersPage({ currentUsername }: { currentUsername?: string | null
         ? form.password.trim().length > 0 && form.password.trim().length < MIN_PASSWORD_LENGTH
         : true
 
+  const q = search.trim().toLowerCase()
+  const filteredRows = rows.filter((u) => {
+    if (q && !((u.name ?? "").toLowerCase().includes(q) || u.username.toLowerCase().includes(q))) return false
+    if (roleFilter !== "all" && u.role !== roleFilter) return false
+    return true
+  })
+
+  const columns: EntityColumn<UserOut>[] = [
+    {
+      key: "role",
+      label: "РОЛЬ",
+      width: 132,
+      render: (u) => <RoleBadge tone={ROLE_TONE[u.role]}>{ROLE_LABEL[u.role]}</RoleBadge>,
+    },
+    {
+      key: "last",
+      label: "ПОСЛЕДНИЙ ВИЗИТ",
+      width: 140,
+      mobile: "sub",
+      render: (u) => <EntityMeta>{formatLastSeen(u.last_seen_at)}</EntityMeta>,
+      subText: (u) => formatLastSeen(u.last_seen_at),
+    },
+  ]
+
+  const actions: EntityAction<UserOut>[] = [
+    { label: "Изменить", onSelect: (u) => openEdit(u) },
+    {
+      label: "Удалить",
+      fire: true,
+      fireSublabel: "HOLD 3 SEC · NO UNDO",
+      show: (u) => !isSelf(u.username, currentUsername),
+      onSelect: (u) => void performDelete(u),
+    },
+  ]
+
+  function resetFilters() {
+    setSearch("")
+    setRoleFilter("all")
+  }
+
   return (
     <div>
-      {error && (
-        <div className="mb-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          {error}
-        </div>
-      )}
-
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <p className="text-xs text-gray-400">Пользователи админки — доступ к этой вкладке только у роли «admin».</p>
-        <button
-          type="button"
-          onClick={openNew}
-          className="shrink-0 rounded bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-gray-700"
-        >
-          + Новый
-        </button>
-      </div>
-
-      <div className="overflow-x-auto rounded border border-gray-200">
-        <table className="w-full min-w-max text-left text-sm">
-          <thead className="bg-gray-50 text-xs font-medium text-gray-500">
-            <tr>
-              <th className="px-3 py-2">Имя</th>
-              <th className="px-3 py-2">Логин</th>
-              <th className="px-3 py-2">Роль</th>
-              <th className="px-3 py-2">Последний визит</th>
-              <th className="px-3 py-2 text-right">Действия</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {loading && (
-              <tr>
-                <td colSpan={5} className="px-3 py-6 text-center text-gray-400">
-                  Загрузка…
-                </td>
-              </tr>
-            )}
-            {!loading && rows.length === 0 && (
-              <tr>
-                <td colSpan={5} className="px-3 py-6 text-center text-gray-400">
-                  Ничего не найдено
-                </td>
-              </tr>
-            )}
-            {!loading &&
-              rows.map((row) => (
-                <tr key={row.username} className="hover:bg-gray-50">
-                  <td className="px-3 py-2 align-top">{row.name || "—"}</td>
-                  <td className="px-3 py-2 align-top text-gray-500">{row.username}</td>
-                  <td className="px-3 py-2 align-top">{ROLE_LABEL[row.role] ?? row.role}</td>
-                  <td className="px-3 py-2 align-top text-gray-500">{formatLastSeen(row.last_seen_at)}</td>
-                  <td className="px-3 py-2 text-right align-top">
-                    <div className="inline-flex gap-3">
-                      <button
-                        type="button"
-                        onClick={() => openEdit(row)}
-                        className="text-xs font-medium text-gray-600 underline hover:text-gray-900"
-                      >
-                        Изменить
-                      </button>
-                      {!isSelf(row.username, currentUsername) && (
-                        <button
-                          type="button"
-                          onClick={() => void handleDelete(row)}
-                          className="text-xs font-medium text-red-600 underline hover:text-red-800"
-                        >
-                          Удалить
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-          </tbody>
-        </table>
-      </div>
-
-      {editing && (
-        <EditorShell
-          title={editing.mode === "new" ? "Новый: Юзер" : `Редактирование: ${form.name || form.username}`}
-          onClose={() => setEditing(null)}
-          onSave={handleSave}
-          saving={saving}
-          saveDisabled={saveDisabled}
-          onDelete={editing.mode === "edit" && !editingSelf ? () => handleDelete(editing.row) : undefined}
-        >
-          {formError && (
-            <div className="mb-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {formError}
+      <EntityTable
+        rows={filteredRows}
+        rowKey={(u) => u.username}
+        data-testid="users-table"
+        identity={(u) => identityOf(u, currentUsername)}
+        identityLabel="ПОЛЬЗОВАТЕЛЬ"
+        columns={columns}
+        actions={actions}
+        rowState={(u) => (isSelf(u.username, currentUsername) ? "self" : undefined)}
+        selfNote="СЕБЯ НЕЛЬЗЯ"
+        onRowClick={(u) => openEdit(u)}
+        search={{
+          value: search,
+          onChange: setSearch,
+          placeholder: `Поиск ${rows.length} юзеров…`,
+        }}
+        filters={
+          <ChipMenu
+            value={roleFilter}
+            options={ROLE_FILTER_OPTIONS}
+            onChange={(v) => setRoleFilter(v as Role | "all")}
+            label="Роль"
+          />
+        }
+        cta={<Button onClick={openNew}>+ Юзер</Button>}
+        emptyState={
+          loading ? (
+            <div className="px-4 py-12 text-center font-mono text-[11px] tracking-[0.06em] text-muted-foreground">
+              Загрузка…
             </div>
-          )}
-          <div className="space-y-4">
-            <TextField
-              label="Логин"
-              value={form.username}
-              onChange={(v) => set("username", v)}
-              disabled={editing.mode === "edit"}
-              required
-              maxLength={64}
-              hint={editing.mode === "edit" ? "Логин — идентификатор записи, не редактируется" : undefined}
-            />
-            <TextField label="Имя" value={form.name} onChange={(v) => set("name", v)} maxLength={128} />
-            <SelectField
-              label="Роль"
-              value={form.role}
-              onChange={(v) => set("role", v as Role)}
-              options={ROLE_OPTIONS}
-              disabled={editingSelf}
-              hint={editingSelf ? "Нельзя снять с себя роль admin" : undefined}
-            />
-            <TextField
-              type="password"
-              label={editing.mode === "new" ? "Пароль" : "Новый пароль"}
-              value={form.password}
-              onChange={(v) => set("password", v)}
-              placeholder={
-                editing.mode === "new" ? `минимум ${MIN_PASSWORD_LENGTH} символа` : "оставьте пустым, чтобы не менять"
-              }
-              hint={
-                editing.mode === "edit"
-                  ? "Пусто — пароль не меняется"
-                  : `минимум ${MIN_PASSWORD_LENGTH} символа`
-              }
-            />
+          ) : (
+            <div className="flex flex-col items-center gap-2 px-4 py-12 text-center">
+              <span className="font-mono text-[11px] tracking-[0.06em] text-muted-foreground">
+                НИКОГО НЕ НАШЛОСЬ
+              </span>
+              <Button variant="secondary" size="sm" onClick={resetFilters}>
+                Сбросить фильтры
+              </Button>
+            </div>
+          )
+        }
+      />
+
+      {/* mobile: «+ Юзер» = FAB §37 (desktop — CTA в тулбаре, не рендерится на мобилке) */}
+      <Fab
+        icon={<Plus className="size-[22px]" strokeWidth={1.75} />}
+        aria-label="Новый юзер"
+        onClick={openNew}
+      />
+
+      {/* форма §50 (FORM 620) — строка кликабельна → сюда; логин read-only на edit */}
+      <ResponsiveDialog
+        open={editing !== null}
+        onOpenChange={(o) => !o && setEditing(null)}
+        title={
+          editing
+            ? editing.mode === "new"
+              ? "Новый юзер"
+              : `Изменить · ${editing.row.name || editing.row.username}`
+            : ""
+        }
+        contentClassName="sm:max-w-[620px]"
+        footer={
+          <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:items-center">
+            {editing?.mode === "edit" && !editingSelf && (
+              <Button
+                variant="destructive"
+                onClick={() => deleteFromForm(editing.row)}
+                className="sm:mr-auto max-md:w-full"
+              >
+                Удалить
+              </Button>
+            )}
+            <Button variant="quiet" onClick={() => setEditing(null)} className="max-md:w-full">
+              Отмена
+            </Button>
+            <Button onClick={() => void handleSave()} disabled={saveDisabled || saving} className="max-md:w-full">
+              Сохранить
+            </Button>
           </div>
-        </EditorShell>
-      )}
+        }
+      >
+        {editing && (
+          <div className="flex flex-col gap-4 py-1">
+            <Field label="Логин">
+              <Input
+                value={form.username}
+                onChange={(e) => set("username", e.target.value)}
+                readOnly={editing.mode === "edit"}
+                disabled={editing.mode === "edit"}
+                className="font-mono"
+                maxLength={64}
+              />
+              {editing.mode === "edit" && <FieldHint>идентификатор записи — не меняется</FieldHint>}
+            </Field>
+            <Field label="Имя">
+              <Input value={form.name} onChange={(e) => set("name", e.target.value)} maxLength={128} />
+            </Field>
+            <Field label="Роль">
+              <ResponsiveSelect
+                label="Роль"
+                options={ROLE_OPTIONS}
+                value={form.role}
+                onValueChange={(v) => set("role", v as Role)}
+                disabled={editingSelf}
+              />
+              {editingSelf && <FieldHint>Нельзя снять с себя роль admin</FieldHint>}
+            </Field>
+            <Field label={editing.mode === "new" ? "Пароль" : "Новый пароль"}>
+              <Input
+                type="password"
+                value={form.password}
+                onChange={(e) => set("password", e.target.value)}
+                placeholder={
+                  editing.mode === "new" ? `минимум ${MIN_PASSWORD_LENGTH} символа` : "пусто = не меняется"
+                }
+              />
+            </Field>
+          </div>
+        )}
+      </ResponsiveDialog>
+
+      {/* удаление — confirm §50 (форма → сюда; ⋯-действие в строке — аркада, без этого шага) */}
+      <ConfirmDialog
+        open={confirm !== null}
+        onOpenChange={(o) => !o && setConfirm(null)}
+        title={confirm?.title ?? ""}
+        description={confirm?.description}
+        confirmLabel={confirm?.confirmLabel ?? "Удалить"}
+        destructive
+        onConfirm={() => confirm?.onConfirm()}
+      />
     </div>
+  )
+}
+
+// поле формы
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="font-mono text-[10px] tracking-[0.06em] text-[#52525B]">{label}</label>
+      {children}
+    </div>
+  )
+}
+function FieldHint({ children }: { children: React.ReactNode }) {
+  return <span className="font-mono text-[10px] text-[#A1A1AA]">{children}</span>
+}
+
+// select-чип (Роль ▾) — Popover + FilterChip select; applied (butter) при не-дефолте.
+// Copied from the kit's block-users reference (bu-page.tsx's ChipMenu).
+function ChipMenu({
+  value,
+  options,
+  onChange,
+  label,
+}: {
+  value: string
+  options: { value: string; label: string }[]
+  onChange: (v: string) => void
+  label: string
+}) {
+  const [open, setOpen] = React.useState(false)
+  const current = options.find((o) => o.value === value)
+  const isDefault = value === options[0]?.value
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <FilterChip select applied={!isDefault}>
+          {isDefault ? label : current?.label}
+        </FilterChip>
+      </PopoverTrigger>
+      <PopoverContent align="start" sideOffset={4} className="w-48 p-1">
+        {options.map((o) => (
+          <button
+            key={o.value}
+            type="button"
+            onClick={() => {
+              onChange(o.value)
+              setOpen(false)
+            }}
+            className={cn(
+              "flex min-h-9 w-full items-center rounded-md px-2.5 text-left text-[13px] font-semibold",
+              o.value === value ? "bg-primary text-primary-foreground" : "hover:bg-accent"
+            )}
+          >
+            {o.label}
+          </button>
+        ))}
+      </PopoverContent>
+    </Popover>
   )
 }
