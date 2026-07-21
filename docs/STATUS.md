@@ -57,9 +57,16 @@ Deploy decisions (owner): **reuse tokaido as v2-prod**, **staging-first then dom
 - **Tested off-prod:** all backend tests run against a **local pg18 replica of tokaido** (`backend/.env.test`, gitignored) — never the live DB. Ledger: `.superpowers/sdd/progress.md`.
 - **DEPLOY IMPACT:** no domain/DNS/volume change. Just **push `v2` → Railway rebuilds both services** → mobile login works (even on the current Railway staging URLs, since bearer doesn't care that they're different sites). Backend env: `COOKIE_*` are now no-ops; keep `CORS_ORIGINS` = exact frontend origin. Frontend: `VITE_API_URL` = backend URL (unchanged), rebuilt on push.
 
-## NEXT TASK — PUSH + VERIFY MOBILE, then finish post-deploy checklist
+## DEPLOYED + MOBILE VERIFIED (2026-07-21) — live URLs
 
-**Immediate:** `git push origin v2` (owner to approve) → Railway auto-redeploys backend+frontend → **re-test login on a phone** at the frontend URL. Should now log in and stay in.
+- **Frontend (live):** `https://frontend-v2-production-d7bb.up.railway.app` — new bearer bundle confirmed (`klktv_token`, no `credentials:include`).
+- **Backend (live, the one the frontend is baked to via `VITE_API_URL`):** `https://backend-v2-production-4c1e.up.railway.app` — new bearer code confirmed (bad-bearer → `"Invalid session"`, no-header → `"Not authenticated"`).
+- **Mobile login now works** (owner confirmed on a phone). `v2` pushed to `origin/v2` @ `a9e9190`; Railway auto-redeployed both.
+- ⚠️ **Stale duplicate service:** `https://backend-production-be66.up.railway.app` is a SECOND backend still on the OLD cookie code and NOT used by the frontend. Owner to verify in the Railway dashboard and delete if unneeded (avoids confusion / wasted resources). This URL was mistakenly given as "the backend" at first — the real one is `…4c1e`.
+
+## NEXT — finish post-deploy checklist (together)
+
+Immediate deploy done. Remaining: run the verification checklist below on the live URLs.
 
 ## Post-deploy verification (together)
 
