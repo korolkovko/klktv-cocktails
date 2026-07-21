@@ -47,14 +47,6 @@ function BottleIcon() {
   )
 }
 
-function Wordmark({ size = 17 }: { size?: number }) {
-  return (
-    <span className="font-mono font-extrabold tracking-[-0.02em]" style={{ fontSize: size }}>
-      KOLLEKTIV<span className="text-signal">®</span>
-    </span>
-  )
-}
-
 /** «МК» из «Майкл» / «nkorolkov» из юзернейма без имени — 2 буквы для аватар-чипа */
 function userInitials(user: User) {
   const base = (user.name?.trim() || user.username).trim()
@@ -80,10 +72,7 @@ export function CocktailDesktopHeader({
   return (
     <div className="flex items-center justify-between border-b border-border bg-card px-6 py-3.5 max-md:hidden">
       <div className="flex items-center gap-6">
-        <span className="flex items-center gap-2">
-          <img src="/logo.svg" alt="" aria-hidden="true" className="h-7 w-auto" />
-          <Wordmark />
-        </span>
+        <img src="/logo.png" alt="Kollektiv" className="h-8 w-auto" />
         <nav className="flex gap-1 text-[13px] font-semibold">
           {DESKTOP_TABS.map((t) => (
             <button
@@ -172,11 +161,8 @@ export function CocktailMobileHeader({
     route === "progress" ? "Прогресс" : SECTIONS.find((s) => s.id === route)?.label ?? "Авторские"
   return (
     <div className="flex items-center justify-between border-b border-border bg-card px-4 py-3 pt-[calc(12px+env(safe-area-inset-top))] md:hidden">
-      <span className="inline-flex items-baseline gap-2.5 min-w-0">
-        <span className="inline-flex items-center gap-1.5">
-          <img src="/logo.svg" alt="" aria-hidden="true" className="h-[17px] w-auto" />
-          <Wordmark size={15} />
-        </span>
+      <span className="inline-flex items-center gap-2 min-w-0">
+        <img src="/logo.png" alt="Kollektiv" className="h-7 w-auto shrink-0" />
         <span className="truncate text-[13px] font-semibold text-[#52525B]">· {label}</span>
       </span>
       <button
@@ -357,4 +343,4 @@ export function CocktailBottomNav({
   )
 }
 
-export { Wordmark, X }
+export { X }
