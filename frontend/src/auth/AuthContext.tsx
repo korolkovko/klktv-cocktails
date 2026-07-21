@@ -38,8 +38,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     api
       .get<User>("/api/auth/me")
       .then(setUser)
-      .catch(() => {
-        setToken(null)
+      .catch((err: unknown) => {
+        // Only a 401 proves the token is actually invalid — drop it then.
+        // A transient boot error (e.g. a Railway backend cold-start 502/503
+        // or a network blip) must NOT wipe a still-valid token, or the user
+        // is bounced to a needless re-login; a refresh once the backend is up
+        // recovers the session. Mirrors the global 401 handler's semantics.
+        if ((err as { status?: number })?.status === 401) setToken(null)
         setUser(null)
       })
       .finally(() => setLoading(false))
