@@ -65,6 +65,12 @@ export function LoginPage() {
         className="flex w-[340px] max-w-full flex-col gap-4 rounded-2xl border border-border bg-background p-7 shadow-card"
       >
         <div className="flex flex-col items-center gap-1.5">
+          <img
+            src="/logo.svg"
+            alt=""
+            aria-hidden="true"
+            className="mb-1.5 h-14 w-auto"
+          />
           <div className="text-center text-[22px] leading-none font-bold tracking-tight">
             Kollektiv<span className="align-super text-[11px] text-signal">®</span>
           </div>

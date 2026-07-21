@@ -80,7 +80,10 @@ export function CocktailDesktopHeader({
   return (
     <div className="flex items-center justify-between border-b border-border bg-card px-6 py-3.5 max-md:hidden">
       <div className="flex items-center gap-6">
-        <Wordmark />
+        <span className="flex items-center gap-2">
+          <img src="/logo.svg" alt="" aria-hidden="true" className="h-7 w-auto" />
+          <Wordmark />
+        </span>
         <nav className="flex gap-1 text-[13px] font-semibold">
           {DESKTOP_TABS.map((t) => (
             <button
@@ -170,7 +173,10 @@ export function CocktailMobileHeader({
   return (
     <div className="flex items-center justify-between border-b border-border bg-card px-4 py-3 pt-[calc(12px+env(safe-area-inset-top))] md:hidden">
       <span className="inline-flex items-baseline gap-2.5 min-w-0">
-        <Wordmark size={15} />
+        <span className="inline-flex items-center gap-1.5">
+          <img src="/logo.svg" alt="" aria-hidden="true" className="h-[17px] w-auto" />
+          <Wordmark size={15} />
+        </span>
         <span className="truncate text-[13px] font-semibold text-[#52525B]">· {label}</span>
       </span>
       <button
