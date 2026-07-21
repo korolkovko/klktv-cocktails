@@ -1,5 +1,30 @@
 export const BASE = import.meta.env.VITE_API_URL ?? ""
 
+// JWT bearer token store — auth switched from an HttpOnly session cookie to
+// a JWT in the `Authorization` header (fixes cross-site-cookie login
+// failures on mobile Safari). Persisted to localStorage so a reload doesn't
+// log the user out; kept in a module-level variable for synchronous reads.
+const TOKEN_KEY = "klktv_token"
+let token: string | null = null
+try {
+  token = localStorage.getItem(TOKEN_KEY)
+} catch {
+  token = null
+}
+
+export function setToken(t: string | null) {
+  token = t
+  try {
+    if (t) localStorage.setItem(TOKEN_KEY, t)
+    else localStorage.removeItem(TOKEN_KEY)
+  } catch {
+    /* ignore storage errors (private mode / disabled) */
+  }
+}
+export function getToken(): string | null {
+  return token
+}
+
 // Global "on unauthorized" hook — lets AuthContext learn about a 401 from
 // any API call (not just the initial /api/auth/me probe) so an expired
 // session bounces the user back to LoginPage instead of silently failing.
@@ -15,10 +40,12 @@ export function notifyUnauthorized() {
 }
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const headers: Record<string, string> = {}
+  if (body !== undefined) headers["Content-Type"] = "application/json"
+  if (token) headers["Authorization"] = `Bearer ${token}`
   const res = await fetch(BASE + path, {
     method,
-    credentials: "include",
-    headers: body !== undefined ? { "Content-Type": "application/json" } : undefined,
+    headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
   })
   if (res.status === 204) return null as T

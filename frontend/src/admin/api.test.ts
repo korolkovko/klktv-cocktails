@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { adminApi } from "./api"
+import { setToken } from "@/lib/api"
 
 // `.env.local` sets VITE_API_URL for local dev (loaded by Vite/vitest too),
 // so build expected URLs off the same base the client itself reads instead
@@ -21,10 +22,12 @@ describe("adminApi", () => {
   beforeEach(() => {
     fetchMock = vi.fn()
     vi.stubGlobal("fetch", fetchMock)
+    setToken(null)
   })
 
   afterEach(() => {
     vi.unstubAllGlobals()
+    setToken(null)
   })
 
   it("list(entity) issues GET /api/admin/<entity>", async () => {
@@ -32,7 +35,7 @@ describe("adminApi", () => {
     await adminApi.list("kitchen-dishes")
     expect(fetchMock).toHaveBeenCalledWith(
       `${BASE}/api/admin/kitchen-dishes`,
-      expect.objectContaining({ method: "GET", credentials: "include" })
+      expect.objectContaining({ method: "GET" })
     )
   })
 
@@ -94,6 +97,7 @@ describe("adminApi", () => {
   })
 
   it("uploadImage(file) posts multipart/form-data to /api/admin/uploads/image", async () => {
+    setToken("t123")
     fetchMock.mockResolvedValue(
       jsonResponse({ url: "/static/img/x-abc123.webp", filename: "x-abc123.webp", size: 456 }, 201)
     )
@@ -103,7 +107,7 @@ describe("adminApi", () => {
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
     expect(url).toBe(`${BASE}/api/admin/uploads/image`)
     expect(init.method).toBe("POST")
-    expect(init.credentials).toBe("include")
+    expect((init.headers as Record<string, string>)["Authorization"]).toBe("Bearer t123")
     expect(init.body).toBeInstanceOf(FormData)
     expect((init.body as FormData).get("file")).toBe(file)
     expect(result).toEqual({ url: "/static/img/x-abc123.webp", filename: "x-abc123.webp", size: 456 })

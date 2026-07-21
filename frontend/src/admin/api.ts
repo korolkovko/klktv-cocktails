@@ -10,9 +10,9 @@
 //
 // `uploadImage` is the one non-JSON call (multipart/form-data), so it
 // bypasses `api` and talks to `fetch` directly — mirrors lib/api.ts's own
-// request() shape (credentials include, 401 -> global handler, thrown Error
-// carries the JSON body's `detail` when present).
-import { api, BASE, notifyUnauthorized } from "@/lib/api"
+// request() shape (Authorization: Bearer header, 401 -> global handler,
+// thrown Error carries the JSON body's `detail` when present).
+import { api, BASE, notifyUnauthorized, getToken } from "@/lib/api"
 
 export type AdminEntity =
   | "drinks"
@@ -60,9 +60,12 @@ export const adminApi = {
   uploadImage: async (file: File): Promise<UploadImageResult> => {
     const form = new FormData()
     form.append("file", file)
+    const headers: Record<string, string> = {}
+    const t = getToken()
+    if (t) headers["Authorization"] = `Bearer ${t}`
     const res = await fetch(`${BASE}/api/admin/uploads/image`, {
       method: "POST",
-      credentials: "include",
+      headers,
       body: form,
     })
     const data: unknown = await res.json().catch(() => null)
