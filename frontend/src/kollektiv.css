@@ -323,6 +323,13 @@
   * {
     @apply border-border outline-ring/50;
   }
+  /* R36.5 канон (PWA/iOS): html И body несут ОДИН фон — иначе область над шапкой
+     (safe-area / статус-бар) и оверскролл проваливаются в прозрачный html
+     («полоса чужого оттенка над шапкой»). Фон на html держит цвет канваса
+     постоянным при любой позиции body (vaul лочит скролл через position:fixed). */
+  html {
+    @apply bg-background;
+  }
   body {
     @apply bg-background text-foreground font-sans;
     font-size: 14px;
