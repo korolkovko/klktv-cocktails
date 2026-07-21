@@ -1,7 +1,8 @@
 import * as React from "react"
 
-import { FilterChip, ChipRow } from "@/components/kollektiv/filter-chip"
+import { FilterChip } from "@/components/kollektiv/filter-chip"
 import { SearchInput } from "@/components/kollektiv/search-input"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { MediaCard } from "@/components/kollektiv/media-card"
 import { LearnedToggle } from "@/components/kollektiv/learned-toggle"
 import { ProgressStrip, ProgressTotal } from "@/components/kollektiv/progress-strip"
@@ -26,13 +27,12 @@ const pct = (l: number, t: number) => (t > 0 ? Math.round((l / t) * 100) : 0)
 
 /* ---------- общие детали ---------- */
 
-/** Ряд фильтров раздела: mono-подпись оси + §49 ChipRow/FilterChip.
- *  Чипы — active (INK) «один из N» (плоский переключатель вида списка, вкл.
- *  дефолт «Все» — не applied/BUTTER, значения тут не выбираются). ChipRow даёт
- *  desktop-перенос / mobile-карусель с автоскроллом к активному + fade-при-
- *  оверфлоу. Тинтованные чипы (семейства) несут TintMarker. Пропы не менялись —
- *  вызовы во всех вью прежние. */
-function FilterRow({
+/** §49 select-чип фильтра как ДРОПДАУН (композиция warehouse ChipMenu):
+ *  дефолт — «Ось ▾» (плоский select-чип); выбранное — «Ось: Значение» applied
+ *  (BUTTER) + ✕ сброса в «Все». Список опций — Popover (desktop + mobile).
+ *  Тинтованные оси (семейства) несут TintMarker на выбранном чипе и в списке.
+ *  opts[0] у всех осей = «Все» (mapBundle префиксит), значит это цель сброса. */
+function AxisSelect({
   axis,
   options,
   active,
@@ -46,38 +46,58 @@ function FilterRow({
   tinted?: boolean
 }) {
   const opts = options.map((o) => (typeof o === "string" ? { label: o } : o))
+  const [open, setOpen] = React.useState(false)
+  const isDefault = active === opts[0]?.label
+  const cur = opts.find((o) => o.label === active)
   return (
-    <div className="flex items-center gap-2.5">
-      {axis && (
-        <span className="w-[42px] shrink-0 font-mono text-[9px] font-bold tracking-[0.08em] text-[#A1A1AA]">
-          {axis}
-        </span>
-      )}
-      <ChipRow role="radiogroup" aria-label={axis || "Фильтр"} className="min-w-0 flex-1">
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <FilterChip
+          select={isDefault}
+          applied={!isDefault}
+          onRemove={isDefault ? undefined : () => onChange(opts[0].label)}
+        >
+          {tinted && !isDefault && cur?.tint && <TintMarker tint={cur.tint} size={9} />}
+          {isDefault ? axis : `${axis}: ${cur?.label}`}
+        </FilterChip>
+      </PopoverTrigger>
+      <PopoverContent align="start" sideOffset={4} className="max-h-[min(60vh,20rem)] w-52 overflow-y-auto p-1">
         {opts.map((o) => {
-          const on = active === o.label
+          const on = o.label === active
           return (
-            <FilterChip key={o.label} active={on} onClick={() => onChange(o.label)}>
+            <button
+              key={o.label}
+              type="button"
+              onClick={() => {
+                onChange(o.label)
+                setOpen(false)
+              }}
+              className={cn(
+                "flex min-h-9 w-full cursor-pointer items-center gap-2 rounded-md px-2.5 text-left text-[13px] font-semibold",
+                on ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+              )}
+            >
               {tinted && o.tint && <TintMarker tint={o.tint} size={9} onDark={on} />}
               {o.label}
-            </FilterChip>
+            </button>
           )
         })}
-      </ChipRow>
-    </div>
+      </PopoverContent>
+    </Popover>
   )
 }
 
-// поиск раздела справочника — §51 SearchInput (inline); без «/» (несколько
-// разделов со своими поисками + mobile bottom-nav → глобальный хоткей не нужен,
-// поведение как было). Обёртка сохраняет прежний {placeholder,value,onChange}.
+// поиск раздела справочника — §51 SearchInput (inline). Хоткей «/» включён
+// (дефолт inline): сам компонент показывает kbd-хинт только на desktop
+// (max-md:hidden), а «/»-listener на мобилке инертен (нет клавиши) — т.е.
+// фича естественно desktop-only. В каждый момент виден один раздел = один
+// поиск, конфликта нет. Обёртка сохраняет прежний {placeholder,value,onChange}.
 function SearchBox({ placeholder, value, onChange }: { placeholder: string; value: string; onChange: (v: string) => void }) {
   return (
     <SearchInput
       value={value}
       onChange={onChange}
       placeholder={placeholder}
-      hotkey={false}
       className="w-[220px] max-md:w-full"
     />
   )
@@ -143,10 +163,10 @@ export function MenuView({
       <div className="md:hidden">
         <SearchBox placeholder="Найти коктейль…" value={q} onChange={setQ} />
       </div>
-      <div className="flex flex-col gap-2">
-        <FilterRow axis="SPIRIT" options={SPIRIT_FILTERS} active={spirit} onChange={setSpirit} />
-        <FilterRow axis="GLASS" options={GLASS_FILTERS} active={glass} onChange={setGlass} />
-        <FilterRow axis="ТИП" options={["Все", "Алко", "Безалко"]} active={alcFilter} onChange={setAlcFilter} />
+      <div className="flex flex-wrap items-center gap-2">
+        <AxisSelect axis="Спирит" options={SPIRIT_FILTERS} active={spirit} onChange={setSpirit} />
+        <AxisSelect axis="Бокал" options={GLASS_FILTERS} active={glass} onChange={setGlass} />
+        <AxisSelect axis="Тип" options={["Все", "Алко", "Безалко"]} active={alcFilter} onChange={setAlcFilter} />
       </div>
       <div className="max-md:hidden">
         <ProgressStrip
@@ -330,9 +350,9 @@ export function ClassicsView({
         unit={all ? "POSITIONS · ALL FAMILIES" : "POSITIONS"}
         search={<SearchBox placeholder="Найти классику…" value={q} onChange={setQ} />}
       />
-      <div className="flex flex-col gap-2">
-        <FilterRow axis="FAMILY" options={familyOpts} active={family} onChange={setFamily} tinted />
-        <FilterRow axis="SPIRIT" options={CLASSIC_SPIRITS} active={spirit} onChange={setSpirit} />
+      <div className="flex flex-wrap items-center gap-2">
+        <AxisSelect axis="Семейство" options={familyOpts} active={family} onChange={setFamily} tinted />
+        <AxisSelect axis="Спирит" options={CLASSIC_SPIRITS} active={spirit} onChange={setSpirit} />
       </div>
       <ProgressStrip
         learned={classics.learned - CLASSICS.filter((c) => c.learned).length + learnedCount}
@@ -526,7 +546,7 @@ export function SpiritsView({
           </button>
         </div>
         <div className="min-w-0 flex-1">
-          <FilterRow axis="" options={categoryOptions} active={cat} onChange={setCat} />
+          <AxisSelect axis="Категория" options={categoryOptions} active={cat} onChange={setCat} />
         </div>
       </div>
       <ProgressStrip learned={stripLearned} total={spirits.total} onOpen={onOpenProgress} />
@@ -811,4 +831,4 @@ function cap(s: string) {
   return s.charAt(0) + s.slice(1).toLowerCase()
 }
 
-export { FilterRow, SearchBox, FamilyTheory, ClassicRow, pct, cap }
+export { AxisSelect, SearchBox, FamilyTheory, ClassicRow, pct, cap }
