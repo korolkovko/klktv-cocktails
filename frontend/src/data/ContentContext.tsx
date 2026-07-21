@@ -5,6 +5,7 @@
 
 import * as React from "react"
 import { api } from "@/lib/api"
+import { GuideSkeleton } from "@/components/guide-skeleton"
 import type { ContentBundle } from "./bundle"
 import { mapBundle } from "./mapBundle"
 import { buildSpiritKeyMaps } from "./spiritKeys"
@@ -26,7 +27,7 @@ export function ContentProvider({ children }: { children: React.ReactNode }) {
       .catch(setError)
   }, [])
   if (error) return <div className="p-6 font-mono text-sm">Не удалось загрузить данные. Обновите страницу.</div>
-  if (!state) return null
+  if (!state) return <GuideSkeleton />
   return <Ctx.Provider value={state}>{children}</Ctx.Provider>
 }
 export function useContent() {

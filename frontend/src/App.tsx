@@ -6,7 +6,12 @@ import { AuthGate } from '@/auth/AuthGate'
 import { ContentProvider } from '@/data/ContentContext'
 import { ProgressProvider } from '@/data/ProgressContext'
 import { useUrlRoute } from '@/lib/useUrlRoute'
-import AdminPage from '@/admin/AdminPage'
+import { Skeleton } from '@/components/ui/skeleton'
+
+// Админка — editor-only и весит ~200K исходников; грузим её ОТДЕЛЬНЫМ чанком
+// (lazy import), чтобы readers (большинство) не тянули редакторский UI в
+// основном бандле. Чанк подгружается только при заходе на /admin.
+const AdminPage = React.lazy(() => import('@/admin/AdminPage'))
 
 function isAdminPath(pathname: string) {
   return pathname === '/admin' || pathname.startsWith('/admin/')
@@ -35,7 +40,18 @@ function Shell() {
   }, [onAdminPath, isReader])
 
   if (onAdminPath && !isReader) {
-    return <AdminPage />
+    return (
+      <React.Suspense
+        fallback={
+          <div className="flex flex-col gap-3 p-6">
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-64 w-full" />
+          </div>
+        }
+      >
+        <AdminPage />
+      </React.Suspense>
+    )
   }
 
   return (
