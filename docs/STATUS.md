@@ -101,9 +101,33 @@ Remaining owner tasks: purge the 12 plaintext passwords from git history; option
   - Test suites: backend `uv run pytest -q` (needs the env); frontend `npm run build && npm run test`.
 - **Docs:** audit → `docs/audit/`; specs → `docs/superpowers/specs/`; plans + blueprints → `docs/superpowers/plans/`; live progress ledger (gitignored) → `.superpowers/sdd/progress.md`; cross-session memory → the project memory dir (`MEMORY.md`).
 
+## DONE (2026-07-22 session 5) — KIT ALIGNMENT + ADMIN PHASE 1 (commits `7cd9448..115ce41`, all deployed)
+
+All on branch `v2`, pushed to `origin/v2`, verified live on prod:
+- **Brand:** new coat-of-arms logo + favicon/PWA icons (sources in `frontend/brand/`, raster served from `frontend/public/`), removed the `Kollektiv®` wordmark from login+headers (logo only), title/PWA name → "University of Kollektiv".
+- **Cocktail-guide filters/search → kit:** §51 `search-input` (via a `SearchBox` wrapper, `/`-hotkey ON = desktop-only) + filters as **§49 select-chip dropdowns** (`AxisSelect` = FilterChip select/applied + Popover; Авторские=Спирит/Бокал/Тип, Классика=Семейство/Спирит, Спириты=Категория; `options[0]`="Все"=reset). Dropdown row wrapped in kit `ChipRow` (mobile h-scroll + fade). Added `components/kollektiv/{filter-chip,search-input}.tsx`, `components/ui/{kbd,popover}.tsx`, `pluralRu` in `lib/utils`.
+- **Perf:** loading **skeletons** (`@kollektiv/skeleton` + `components/guide-skeleton.tsx` in AuthGate/ContentProvider, was blank `null`) + **code-split admin** (`React.lazy(AdminPage)` + Suspense in App.tsx).
+- **Admin kit-redesign Phase 1 = Users** (§54 EntityTable; block-users pattern) — see the ADMIN section below.
+- **Top-strip fix:** `html { @apply bg-background }` (R36.5 canon — was only on `body`) + `--desk: var(--background)` (uniform desktop backdrop, no grey band; owner kept the canvas floating-card).
+
+## ADMIN KIT-REDESIGN — Phase 1 (Users) DONE; Phase 2 (content) is the NEXT DEV TASK
+
+The admin (built "functional, not kit" in session 2) is being redesigned onto the kit. **Owner explicitly wants this continued after the compact ("после переделаем админку").**
+
+**Phase 1 (Users) — DONE** (commit `c6f8584`): `admin/editors/UsersPage.tsx` rebuilt on **§54 `EntityTable`** following the kit's `block-users`. Laid the shared kit foundation (all placed in `frontend/src/components/`): `kollektiv/{entity-table,arcade-button,confirm-dialog,fab}.tsx`, `adapters/{action-sheet,responsive-dialog,responsive-select}.tsx`, `ui/{dropdown-menu,select,sonner}.tsx`, `lib/use-long-press.ts`, `sonner` npm dep, Button `quiet` variant. `<Toaster/>` in AdminPage.
+
+**Phase 2 — content entities (drinks/classics/spirits/kitchen/families/categories):** convert each admin list → `EntityTable`, each editor → §50 form (`ResponsiveDialog`) or §52 `DetailSheet` (drinks/classics have big field sets + image + relations → likely DetailSheet). Per-entity design calls (which columns to show; how fields/photo/relations lay out) — do per canon, show each to owner. **Phase 3:** admin shell (tabs → `page-frame`/`header-menu`). Current admin: `frontend/src/admin/` — `AdminPage.tsx` (7 tabs), `api.ts` (`adminApi` list/get/create/update/remove + uploadImage), `components/` (old EditorShell/EntityList/FormFields — being retired), `editors/` (Drink/Classic/Spirit/Kitchen/Family/Categories/Users).
+
+**Kit access (WebFetch 403s on `ui.klktv.tech` — use `curl -A "<browser UA>"`):** registry index `https://ui.klktv.tech/r/registry.json`; component/block `https://ui.klktv.tech/r/{name}.json` (extract `.files[].content` → write to `.path`, resolve `.registryDependencies` + npm `.dependencies`); docs `https://ui.klktv.tech/{canon.md,changelog.md,llms.txt}`. Kit is `@kollektiv` in `frontend/components.json`. Reference block: `block-users`; boundary §54 entity-table (identity+attrs+actions, no totals/scroll/sort) vs §53 fin-table (report). Read `canon.md` + `changelog.md` first each time (kit changes often; BREAKING marked).
+
+**Test limit:** kit components call `useIsMobile()`/`window.matchMedia` unguarded; this repo's vitest runs plain node (no jsdom) → cannot `renderToStaticMarkup` any kit page. Test kit-page logic as **pure functions** (see UsersPage.tsx's `identityOf`/`initialsOf`/`toCreateBody`/…). Build (`tsc`) still typechecks everything.
+
 ## How to resume after the compact
 
-1. Read this file + `.superpowers/sdd/progress.md` (full task-by-task record) + the memory `MEMORY.md`.
-2. Trust git + the ledger over recalled context. `git log --oneline main..HEAD` shows all v2 work.
-3. If the local servers aren't running, restart per "Local dev run" above.
-4. Start the **data-parity audit** (see above), then media unification, then Phase 2.
+1. Read this file top→bottom, then `.superpowers/sdd/progress.md` (task-by-task ledger) + memory `MEMORY.md` → `project-state-v2.md`.
+2. Trust git + the ledger over recalled context. Branch **`v2` @ `115ce41`**, synced to `origin/v2`; `git log --oneline main..HEAD` = all v2 work. Railway **auto-deploys on push to `v2`**.
+3. **Everything through 2026-07-22 is DEPLOYED to prod.** Live: frontend `https://frontend-v2-production-d7bb.up.railway.app`, backend **`https://backend-v2-production-4c1e.up.railway.app`** (the one the frontend uses — NOT the stale `backend-production-be66` duplicate, owner to delete). Auth = **bearer JWT** in localStorage `klktv_token` (not cookies).
+4. **NEXT DEV TASK = ADMIN REDESIGN PHASE 2** (content entities → EntityTable + §50/§52 forms) — full plan in the "ADMIN KIT-REDESIGN" section above.
+5. **FE deploy/verify loop:** edit → `cd frontend && npm run build && npm run test && npm run lint` (all must pass; ~60-65 tests) → commit → `git push origin v2` (owner approves each push) → Railway rebuilds ~40-80s → verify by polling the live bundle/CSS hash + grepping markers with `curl` (WebFetch 403s on the kit site). Admin code is in the lazy `AdminPage-*.js` chunk.
+6. Backend tests off-prod (if ever needed): spin an ephemeral local pg18 replica (was set up via `pg_dump` of tokaido → `backend/.env.test` on `127.0.0.1:55432`; it's gone after reboot — recreate per the DEPLOY/testing notes). Frontend-only admin work needs no backend.
+7. Owner-side pending (not dev tasks): post-deploy checklist (login `kolya`, Админка CRUD, reader→403); delete stale `be66` backend; domain cutover to `cocktails.klktv.tech`; purge the 12 plaintext passwords from git history.
