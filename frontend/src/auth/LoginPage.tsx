@@ -58,11 +58,11 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-desk p-4 max-md:bg-background">
+    <div className="flex min-h-dvh flex-col items-center overflow-y-auto bg-desk p-4 max-md:bg-background">
       <form
         onSubmit={handleSubmit}
         noValidate
-        className="flex w-[340px] max-w-full flex-col gap-4 rounded-2xl border border-border bg-background p-7 shadow-card"
+        className="my-auto flex w-[340px] max-w-full flex-col gap-4 rounded-2xl border border-border bg-background p-7 shadow-card"
       >
         <div className="flex flex-col items-center gap-2">
           <img src="/logo.png" alt="Kollektiv" className="h-14 w-auto max-w-full" />
