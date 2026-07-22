@@ -636,9 +636,11 @@ export function KitchenPage() {
               <span className="font-mono text-[11px] tracking-[0.06em] text-muted-foreground">
                 НИЧЕГО НЕ НАШЛОСЬ
               </span>
-              <Button variant="secondary" size="sm" onClick={resetFilters}>
-                Сбросить фильтры
-              </Button>
+              {(search || categoryFilter !== "all") && (
+                <Button variant="secondary" size="sm" onClick={resetFilters}>
+                  Сбросить фильтры
+                </Button>
+              )}
             </div>
           )
         }
