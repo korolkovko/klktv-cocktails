@@ -2,12 +2,9 @@ import * as React from "react"
 import { Plus } from "lucide-react"
 import { toast } from "sonner"
 
-import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Fab } from "@/components/kollektiv/fab"
-import { FilterChip } from "@/components/kollektiv/filter-chip"
 import { ConfirmDialog } from "@/components/kollektiv/confirm-dialog"
 import { ResponsiveDialog } from "@/components/adapters/responsive-dialog"
 import { ResponsiveSelect } from "@/components/adapters/responsive-select"
@@ -20,6 +17,8 @@ import {
 } from "@/components/kollektiv/entity-table"
 
 import { adminApi } from "../api"
+import { Field, FieldHint } from "../components/kit/form"
+import { ChipMenu } from "../components/kit/chip-menu"
 
 // "Юзеры" tab body (rebuilt onto the kit's §54 EntityTable — see the
 // block-users reference impl for the pattern this follows: EntityTable +
@@ -463,63 +462,5 @@ export function UsersPage({ currentUsername }: { currentUsername?: string | null
         onConfirm={() => confirm?.onConfirm()}
       />
     </div>
-  )
-}
-
-// поле формы
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label className="font-mono text-[10px] tracking-[0.06em] text-[#52525B]">{label}</label>
-      {children}
-    </div>
-  )
-}
-function FieldHint({ children }: { children: React.ReactNode }) {
-  return <span className="font-mono text-[10px] text-[#A1A1AA]">{children}</span>
-}
-
-// select-чип (Роль ▾) — Popover + FilterChip select; applied (butter) при не-дефолте.
-// Copied from the kit's block-users reference (bu-page.tsx's ChipMenu).
-function ChipMenu({
-  value,
-  options,
-  onChange,
-  label,
-}: {
-  value: string
-  options: { value: string; label: string }[]
-  onChange: (v: string) => void
-  label: string
-}) {
-  const [open, setOpen] = React.useState(false)
-  const current = options.find((o) => o.value === value)
-  const isDefault = value === options[0]?.value
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <FilterChip select applied={!isDefault}>
-          {isDefault ? label : current?.label}
-        </FilterChip>
-      </PopoverTrigger>
-      <PopoverContent align="start" sideOffset={4} className="w-48 p-1">
-        {options.map((o) => (
-          <button
-            key={o.value}
-            type="button"
-            onClick={() => {
-              onChange(o.value)
-              setOpen(false)
-            }}
-            className={cn(
-              "flex min-h-9 w-full items-center rounded-md px-2.5 text-left text-[13px] font-semibold",
-              o.value === value ? "bg-primary text-primary-foreground" : "hover:bg-accent"
-            )}
-          >
-            {o.label}
-          </button>
-        ))}
-      </PopoverContent>
-    </Popover>
   )
 }
