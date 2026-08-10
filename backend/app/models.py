@@ -32,6 +32,14 @@ class Glass(Base):
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
 
 
+class IceType(Base):
+    __tablename__ = "ice_types"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    key: Mapped[str] = mapped_column(String(32), unique=True, nullable=False, index=True)
+    label: Mapped[str] = mapped_column(String(64), nullable=False)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+
 class Spirit(Base):
     __tablename__ = "spirits"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -112,6 +120,8 @@ class Drink(Base):
     is_carbonated: Mapped[bool | None] = mapped_column(Boolean)
     glass_id: Mapped[int | None] = mapped_column(ForeignKey("glasses.id", ondelete="SET NULL"))
     badge_id: Mapped[int | None] = mapped_column(ForeignKey("badges.id", ondelete="SET NULL"))
+    ice_id: Mapped[int | None] = mapped_column(ForeignKey("ice_types.id", ondelete="SET NULL"))
+    is_hot: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     recipe: Mapped[str | None] = mapped_column(Text)
     garnish: Mapped[str | None] = mapped_column(Text)
     pitch: Mapped[str | None] = mapped_column(Text)
@@ -120,10 +130,12 @@ class Drink(Base):
     faq: Mapped[str | None] = mapped_column(Text)
     photo: Mapped[str | None] = mapped_column(String(256))
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    is_archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     glass: Mapped["Glass | None"] = relationship()
     badge: Mapped["Badge | None"] = relationship()
+    ice: Mapped["IceType | None"] = relationship()
     tags: Mapped[list["DrinkTag"]] = relationship(back_populates="drink", cascade="all, delete-orphan", order_by="DrinkTag.sort_order")
     flavors: Mapped[list["DrinkFlavor"]] = relationship(back_populates="drink", cascade="all, delete-orphan", order_by="DrinkFlavor.sort_order")
     spirits: Mapped[list["DrinkSpirit"]] = relationship(back_populates="drink", cascade="all, delete-orphan", order_by="DrinkSpirit.sort_order")
@@ -182,6 +194,7 @@ class Classic(Base):
     history: Mapped[str | None] = mapped_column(Text)
     for_whom: Mapped[str | None] = mapped_column(Text)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    is_archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     family: Mapped["Family"] = relationship(back_populates="classics")
@@ -251,6 +264,7 @@ class SpiritEntry(Base):
     cocktail_pairings: Mapped[str | None] = mapped_column(Text)
     fact: Mapped[str | None] = mapped_column(Text)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    is_archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     category: Mapped["SpiritCategory"] = relationship(back_populates="entries")
@@ -294,6 +308,7 @@ class KitchenDish(Base):
     serving: Mapped[str | None] = mapped_column(Text)
     interesting_facts: Mapped[str | None] = mapped_column(Text)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    is_archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     category: Mapped["KitchenCategory"] = relationship(back_populates="dishes")
