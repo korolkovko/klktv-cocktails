@@ -34,6 +34,7 @@ def _serialize_drink(d: m.Drink) -> DrinkOut:
         volume=d.volume_ml, abv=None if d.abv is None else float(d.abv),
         spirit=spirits[0] if spirits else "", spirits=spirits,
         glass=d.glass.label if d.glass else "",
+        ice=d.ice.label if d.ice else None,
         descriptors=descriptors,
         badge=d.badge.key.upper() if d.badge else None,
         recipe=d.recipe, garnish=d.garnish, pitch=d.pitch, photo=d.photo,
@@ -89,7 +90,7 @@ def get_content(db: Session = Depends(get_db)):
     drinks = db.scalars(select(m.Drink).options(
         selectinload(m.Drink.spirits).selectinload(m.DrinkSpirit.spirit),
         selectinload(m.Drink.flavors).selectinload(m.DrinkFlavor.flavor),
-        selectinload(m.Drink.glass), selectinload(m.Drink.badge),
+        selectinload(m.Drink.glass), selectinload(m.Drink.badge), selectinload(m.Drink.ice),
         selectinload(m.Drink.details),
     ).where(m.Drink.is_archived == false()).order_by(m.Drink.sort_order, m.Drink.name)).all()
 

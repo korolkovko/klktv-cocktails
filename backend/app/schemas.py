@@ -60,6 +60,7 @@ class DrinkOut(BaseModel):
     spirit: str = ""
     spirits: list[str] = []
     glass: str = ""
+    ice: str | None = None
     descriptors: list[str] = []
     badge: str | None = None
     recipe: str | None = None

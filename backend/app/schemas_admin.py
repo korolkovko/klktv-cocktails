@@ -6,6 +6,24 @@ consumer `app/schemas.py` — admin shapes edit raw/typed pairs (e.g.
 from pydantic import BaseModel, Field
 
 
+# ── Dictionaries (glasses / badges / ice types) ───────────────
+# Flat key/label/sort_order lookups, each with its own admin CRUD screen
+# (unlike spirits/flavors/tags/descriptors, which stay get-or-create-only
+# off the drink/classic write path). `key` is optional on write — the
+# server derives it from `label` via `_slugify` when omitted (see
+# app/routers/admin.py's `_register_lookup_routes`).
+
+class LookupWriteIn(BaseModel):
+    key: str | None = Field(default=None, max_length=32)
+    label: str = Field(max_length=64)
+    sort_order: int = 0
+
+
+class LookupAdminOut(LookupWriteIn):
+    id: int
+    key: str = Field(max_length=32)
+
+
 # ── Drinks ───────────────────────────────────────────────────
 
 class DrinkDetailIn(BaseModel):
@@ -26,6 +44,7 @@ class DrinkWriteIn(BaseModel):
     volume_ml: int | None = None
     glass: str | None = Field(default=None, max_length=32)   # glass key (get-or-create)
     badge: str | None = Field(default=None, max_length=32)   # badge key (get-or-create)
+    ice: str | None = Field(default=None, max_length=32)     # ice-type key (strict — must exist)
     sort_order: int = 0
     is_alcoholic: bool = True
     is_zero_culture: bool = False

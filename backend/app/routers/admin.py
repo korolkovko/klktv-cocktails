@@ -8,6 +8,9 @@ simple without a separate lookup-management screen.
 This module starts with Drinks (the CRUD template); Tasks 3–6 append
 classics/spirits/kitchen/families endpoints to this same router.
 """
+import hashlib
+import re
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session, selectinload
@@ -21,6 +24,7 @@ from app.schemas_admin import (
     KitchenCategoryAdminOut, KitchenCategoryWriteIn, KitchenDishAdminOut, KitchenDishWriteIn,
     FamilyAdminOut, FamilyWriteIn,
     CategoryAdminOut, CategoryPatchIn, CategoryReorderIn,
+    LookupAdminOut, LookupWriteIn,
 )
 
 # migration.parsers are pure functions (no I/O) — safe to import into the app.
@@ -109,6 +113,123 @@ def _get_family_or_400(db: Session, key: str) -> m.Family:
     return obj
 
 
+def _get_ice_or_400(db: Session, key: str) -> m.IceType:
+    # Unlike glass/badge, ice is a *strict* reference on the drink write
+    # path (not get-or-create) — editors pick from the ice-types dictionary
+    # (managed below) rather than free-typing a new one from the drink form.
+    key = key.strip()
+    if not key:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Ice type key must not be blank")
+    obj = db.scalar(select(m.IceType).where(m.IceType.key == key))
+    if not obj:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=f"unknown ice type: {key}")
+    return obj
+
+
+# ── Dictionaries (glasses / badges / ice types) ────────────
+# Flat key/label/sort_order lookups, each with its own admin CRUD screen —
+# unlike the get-or-create-only lookups above (spirits/tags/flavors/
+# descriptors), these get real list/create/rename/delete endpoints so the
+# editor can curate a fixed vocabulary. `key` is optional on write; the
+# server derives it from `label` when omitted.
+
+_CYRILLIC_TRANSLIT = {
+    "а": "a", "б": "b", "в": "v", "г": "g", "д": "d", "е": "e", "ё": "yo",
+    "ж": "zh", "з": "z", "и": "i", "й": "y", "к": "k", "л": "l", "м": "m",
+    "н": "n", "о": "o", "п": "p", "р": "r", "с": "s", "т": "t", "у": "u",
+    "ф": "f", "х": "h", "ц": "ts", "ч": "ch", "ш": "sh", "щ": "sch", "ъ": "",
+    "ы": "y", "ь": "", "э": "e", "ю": "yu", "я": "ya",
+}
+
+
+def _slugify(label: str) -> str:
+    """Derive a short, DB-safe key from a label: lowercase, transliterate
+    Cyrillic letter-by-letter to Latin, then collapse anything outside
+    [a-z0-9] to single hyphens. Falls back to a short deterministic hash
+    suffix when that leaves nothing (e.g. an all-emoji/punctuation label)
+    — a lookup `key` must never end up blank. Truncated to fit the `key`
+    column (String(32)); a resulting collision with an existing key is
+    still handled by the normal 409-on-duplicate check, same as any other
+    slug/key field in this router."""
+    s = "".join(_CYRILLIC_TRANSLIT.get(ch, ch) for ch in label.strip().lower())
+    s = re.sub(r"[^a-z0-9]+", "-", s).strip("-")
+    if not s:
+        s = "x" + hashlib.sha1(label.encode("utf-8")).hexdigest()[:8]
+    return s[:32]
+
+
+# (model, url path segment, human name for error messages, drink FK column)
+_LOOKUP_DICTIONARIES = (
+    (m.Glass, "glasses", "Glass", m.Drink.glass_id),
+    (m.Badge, "badges", "Badge", m.Drink.badge_id),
+    (m.IceType, "ice-types", "Ice type", m.Drink.ice_id),
+)
+
+
+def _register_lookup_routes(model, path: str, name: str, drink_fk_col) -> None:
+    def _to_out(obj) -> LookupAdminOut:
+        return LookupAdminOut(id=obj.id, key=obj.key, label=obj.label, sort_order=obj.sort_order)
+
+    def _get_or_404(db: Session, key: str):
+        obj = db.scalar(select(model).where(model.key == key))
+        if not obj:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"{name} not found")
+        return obj
+
+    def _resolve_key(db: Session, data: LookupWriteIn, *, current: str | None = None) -> str:
+        key = (data.key or _slugify(data.label)).strip()
+        if not key:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=f"{name} key must not be blank")
+        if key != current and db.scalar(select(model).where(model.key == key)):
+            raise HTTPException(status.HTTP_409_CONFLICT, detail=f"{name} with this key already exists")
+        return key
+
+    @router.get(f"/{path}", response_model=list[LookupAdminOut], name=f"list_{path}")
+    def _list(db: Session = Depends(get_db)):
+        rows = db.scalars(select(model).order_by(model.sort_order, model.label)).all()
+        return [_to_out(r) for r in rows]
+
+    @router.get(f"/{path}/{{key}}", response_model=LookupAdminOut, name=f"get_{path}")
+    def _get(key: str, db: Session = Depends(get_db)):
+        return _to_out(_get_or_404(db, key))
+
+    @router.post(f"/{path}", status_code=status.HTTP_201_CREATED, response_model=LookupAdminOut, name=f"create_{path}")
+    def _create(data: LookupWriteIn, db: Session = Depends(get_db)):
+        key = _resolve_key(db, data)
+        obj = model(key=key, label=data.label, sort_order=data.sort_order)
+        db.add(obj)
+        db.commit()
+        db.refresh(obj)
+        return _to_out(obj)
+
+    @router.patch(f"/{path}/{{key}}", response_model=LookupAdminOut, name=f"update_{path}")
+    def _update(key: str, data: LookupWriteIn, db: Session = Depends(get_db)):
+        obj = _get_or_404(db, key)
+        obj.key = _resolve_key(db, data, current=key)
+        obj.label = data.label
+        obj.sort_order = data.sort_order
+        db.commit()
+        db.refresh(obj)
+        return _to_out(obj)
+
+    @router.delete(f"/{path}/{{key}}", status_code=status.HTTP_204_NO_CONTENT, name=f"delete_{path}")
+    def _delete(key: str, db: Session = Depends(get_db)):
+        obj = _get_or_404(db, key)
+        in_use = db.scalar(select(func.count()).select_from(m.Drink).where(drink_fk_col == obj.id))
+        if in_use:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                detail=f"{name} '{key}' still used by {in_use} drink{'' if in_use == 1 else 's'} — "
+                       f"change or remove them first",
+            )
+        db.delete(obj)
+        db.commit()
+
+
+for _model, _path, _name, _fk in _LOOKUP_DICTIONARIES:
+    _register_lookup_routes(_model, _path, _name, _fk)
+
+
 # ── Drinks ────────────────────────────────────────────────
 
 _DRINK_OPTIONS = (
@@ -118,6 +239,7 @@ _DRINK_OPTIONS = (
     selectinload(m.Drink.details),
     selectinload(m.Drink.glass),
     selectinload(m.Drink.badge),
+    selectinload(m.Drink.ice),
 )
 
 
@@ -134,6 +256,7 @@ def _to_admin_out(obj: m.Drink) -> DrinkAdminOut:
         price_currency=obj.price_currency, volume_ml=obj.volume_ml,
         glass=obj.glass.key if obj.glass else None,
         badge=obj.badge.key if obj.badge else None,
+        ice=obj.ice.key if obj.ice else None,
         sort_order=obj.sort_order,
         is_alcoholic=obj.is_alcoholic, is_zero_culture=obj.is_zero_culture,
         caffeine_level=obj.caffeine_level, is_carbonated=obj.is_carbonated,
@@ -164,6 +287,8 @@ def _apply_drink(db: Session, obj: m.Drink, data: DrinkWriteIn) -> None:
     obj.glass_id = g.id if g else None
     b = _get_or_create_badge(db, data.badge) if data.badge else None
     obj.badge_id = b.id if b else None
+    ice = _get_ice_or_400(db, data.ice) if data.ice else None
+    obj.ice_id = ice.id if ice else None
     db.flush()
     # rebuild relations (delete-then-insert), mirroring the ETL
     for tbl in (m.DrinkSpirit, m.DrinkFlavor, m.DrinkTag, m.DrinkDetail):
