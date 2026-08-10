@@ -41,6 +41,7 @@ class DrinkWriteIn(BaseModel):
     flavors: list[str] = []         # flavor labels
     tags: list[str] = []            # tag keys
     details: list[DrinkDetailIn] = []
+    is_archived: bool = False
 
 
 class DrinkAdminOut(DrinkWriteIn):
@@ -66,6 +67,7 @@ class ClassicWriteIn(BaseModel):
     spirits: list[str] = []         # spirit keys
     descriptors: list[str] = []     # descriptor labels
     related_drinks: list[str] = []  # drink slugs (unknown ones are skipped)
+    is_archived: bool = False
 
 
 class ClassicAdminOut(ClassicWriteIn):
@@ -101,6 +103,7 @@ class SpiritEntryWriteIn(BaseModel):
     fact: str | None = None          # Text
     source_url: str | None = None    # Text
     sort_order: int = 0
+    is_archived: bool = False
 
 
 class SpiritEntryAdminOut(SpiritEntryWriteIn):
@@ -143,6 +146,7 @@ class KitchenDishWriteIn(BaseModel):
     serving: str | None = None       # Text
     interesting_facts: str | None = None  # Text
     sort_order: int = 0
+    is_archived: bool = False
 
 
 class KitchenDishAdminOut(KitchenDishWriteIn):

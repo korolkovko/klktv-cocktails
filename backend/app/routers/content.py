@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from sqlalchemy import select, func
+from sqlalchemy import select, func, false
 from sqlalchemy.orm import Session, selectinload
 from app.database import get_db
 from app.auth import get_current_user
@@ -91,29 +91,33 @@ def get_content(db: Session = Depends(get_db)):
         selectinload(m.Drink.flavors).selectinload(m.DrinkFlavor.flavor),
         selectinload(m.Drink.glass), selectinload(m.Drink.badge),
         selectinload(m.Drink.details),
-    ).order_by(m.Drink.sort_order, m.Drink.name)).all()
+    ).where(m.Drink.is_archived == false()).order_by(m.Drink.sort_order, m.Drink.name)).all()
 
     classics = db.scalars(select(m.Classic).options(
         selectinload(m.Classic.family), selectinload(m.Classic.glass),
         selectinload(m.Classic.spirits).selectinload(m.ClassicSpirit.spirit),
         selectinload(m.Classic.descriptors).selectinload(m.ClassicDescriptor.descriptor),
         selectinload(m.Classic.related_drinks).selectinload(m.ClassicRelatedDrink.drink),
-    ).order_by(m.Classic.sort_order, m.Classic.name)).all()
+    ).where(m.Classic.is_archived == false()).order_by(m.Classic.sort_order, m.Classic.name)).all()
 
     families = db.scalars(select(m.Family).order_by(m.Family.sort_order)).all()
-    fam_counts = dict(db.execute(select(m.Classic.family_id, func.count()).group_by(m.Classic.family_id)).all())
+    fam_counts = dict(db.execute(
+        select(m.Classic.family_id, func.count())
+        .where(m.Classic.is_archived == false())
+        .group_by(m.Classic.family_id)
+    ).all())
 
     spirit_cats = db.scalars(select(m.SpiritCategory).options(
         selectinload(m.SpiritCategory.entries)).order_by(m.SpiritCategory.sort_order)).all()
     kitchen_cats = db.scalars(select(m.KitchenCategory).options(
         selectinload(m.KitchenCategory.dishes)).order_by(m.KitchenCategory.sort_order)).all()
 
-    # sections (catalog counts; learned omitted)
+    # sections (catalog counts; learned omitted) — archived rows excluded
     counts = {
-        "menu": db.scalar(select(func.count()).select_from(m.Drink)),
-        "classics": db.scalar(select(func.count()).select_from(m.Classic)),
-        "spirits": db.scalar(select(func.count()).select_from(m.SpiritEntry)),
-        "kitchen": db.scalar(select(func.count()).select_from(m.KitchenDish)),
+        "menu": db.scalar(select(func.count()).select_from(m.Drink).where(m.Drink.is_archived == false())),
+        "classics": db.scalar(select(func.count()).select_from(m.Classic).where(m.Classic.is_archived == false())),
+        "spirits": db.scalar(select(func.count()).select_from(m.SpiritEntry).where(m.SpiritEntry.is_archived == false())),
+        "kitchen": db.scalar(select(func.count()).select_from(m.KitchenDish).where(m.KitchenDish.is_archived == false())),
     }
     cats = db.scalars(select(m.Category).where(m.Category.kind.in_(list(counts)),
         m.Category.is_visible).order_by(m.Category.sort_order)).all()
@@ -137,8 +141,8 @@ def get_content(db: Session = Depends(get_db)):
         families=[FamilyOut(tint=f.key, code=f.key.upper(), title=f.label, logic=f.logic,
                             evolution=f.evolution, tip=f.tip, total=fam_counts.get(f.id, 0)) for f in families],
         spiritCategories=[SpiritCategoryOut(slug=sc.slug, label=sc.label, isArchived=sc.is_archived) for sc in spirit_cats],
-        spirits=[_serialize_spirit(e, sc.slug) for sc in spirit_cats for e in sc.entries],
+        spirits=[_serialize_spirit(e, sc.slug) for sc in spirit_cats for e in sc.entries if not e.is_archived],
         kitchenCategories=[KitchenCategoryOut(slug=kc.slug, label=kc.label) for kc in kitchen_cats],
-        kitchen=[_serialize_dish(dish, kc.slug) for kc in kitchen_cats for dish in kc.dishes],
+        kitchen=[_serialize_dish(dish, kc.slug) for kc in kitchen_cats for dish in kc.dishes if not dish.is_archived],
         filters=FiltersOut(spirits=menu_spirits, glasses=menu_glasses, classicSpirits=classic_spirits),
     )

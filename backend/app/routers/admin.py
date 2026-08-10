@@ -143,6 +143,7 @@ def _to_admin_out(obj: m.Drink) -> DrinkAdminOut:
         flavors=[df.flavor.label for df in obj.flavors],
         tags=[dt.tag.key for dt in obj.tags],
         details=[{"label": dd.label, "text": dd.text, "sort_order": dd.sort_order} for dd in obj.details],
+        is_archived=obj.is_archived,
     )
 
 
@@ -154,6 +155,7 @@ def _apply_drink(db: Session, obj: m.Drink, data: DrinkWriteIn) -> None:
     obj.abv = abv; obj.abv_raw = data.abv_raw
     obj.price_amount = price; obj.price_raw = data.price_raw; obj.price_currency = data.price_currency
     obj.volume_ml = data.volume_ml; obj.sort_order = data.sort_order
+    obj.is_archived = data.is_archived
     obj.is_alcoholic = data.is_alcoholic; obj.is_zero_culture = data.is_zero_culture
     obj.caffeine_level = data.caffeine_level; obj.is_carbonated = data.is_carbonated
     obj.recipe = data.recipe; obj.garnish = data.garnish; obj.pitch = data.pitch
@@ -263,6 +265,7 @@ def _to_classic_admin_out(obj: m.Classic) -> ClassicAdminOut:
         spirits=[cs.spirit.key for cs in obj.spirits],
         descriptors=[cd.descriptor.label for cd in obj.descriptors],
         related_drinks=[cr.drink.slug for cr in obj.related_drinks],
+        is_archived=obj.is_archived,
     )
 
 
@@ -272,6 +275,7 @@ def _apply_classic(db: Session, obj: m.Classic, data: ClassicWriteIn) -> None:
     obj.year = data.year; obj.origin = data.origin; obj.composition = data.composition
     obj.garnish = data.garnish; obj.history = data.history; obj.for_whom = data.for_whom
     obj.sort_order = data.sort_order
+    obj.is_archived = data.is_archived
     g = _get_or_create_glass(db, data.glass) if data.glass else None
     obj.glass_id = g.id if g else None
     db.flush()
@@ -464,6 +468,7 @@ def _to_spirit_admin_out(obj: m.SpiritEntry) -> SpiritEntryAdminOut:
         flavour=obj.flavour, brand=obj.brand, country=obj.country, description=obj.description,
         features=obj.features, cocktail_pairings=obj.cocktail_pairings, fact=obj.fact,
         source_url=obj.source_url, sort_order=obj.sort_order,
+        is_archived=obj.is_archived,
     )
 
 
@@ -479,6 +484,7 @@ def _apply_spirit(db: Session, obj: m.SpiritEntry, data: SpiritEntryWriteIn) -> 
     obj.description = data.description
     obj.features = data.features; obj.cocktail_pairings = data.cocktail_pairings; obj.fact = data.fact
     obj.source_url = data.source_url; obj.sort_order = data.sort_order
+    obj.is_archived = data.is_archived
 
 
 def _get_spirit_or_404(db: Session, slug: str) -> m.SpiritEntry:
@@ -652,6 +658,7 @@ def _to_kitchen_dish_admin_out(obj: m.KitchenDish) -> KitchenDishAdminOut:
         fat_g=_num(obj.fat_g), carb_g=_num(obj.carb_g), kcal_100g=_num(obj.kcal_100g),
         serving=obj.serving, interesting_facts=obj.interesting_facts,
         sort_order=obj.sort_order,
+        is_archived=obj.is_archived,
     )
 
 
@@ -677,6 +684,7 @@ def _apply_kitchen_dish(db: Session, obj: m.KitchenDish, data: KitchenDishWriteI
     obj.fat_g = nutrition["fat_g"]; obj.carb_g = nutrition["carb_g"]; obj.kcal_100g = nutrition["kcal_100g"]
     obj.serving = data.serving; obj.interesting_facts = data.interesting_facts
     obj.sort_order = data.sort_order
+    obj.is_archived = data.is_archived
 
 
 def _get_kitchen_dish_or_404(db: Session, slug: str) -> m.KitchenDish:
