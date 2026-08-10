@@ -62,7 +62,7 @@ tables.
 """
 import re
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, select, text
 from sqlalchemy.orm import Session
 
 from app import models as m
@@ -195,6 +195,26 @@ def load(src_url, dest_url):
             existing_by_slug = {d.slug: d for d in s.query(m.Drink).all()}
             drink_slugs = {}  # normalized slug -> canonical slug already accounted for
 
+            # `drinks.category_id` is NOT NULL with no server default (see
+            # alembic/versions/4965637287ea_drink_categories_drinks_category_id.py),
+            # but none of the three legacy source tables below (cocktails/
+            # zero_cocktails/zc_drinks) has a category concept of its own —
+            # unlike spirit_entries/kitchen_dishes further down, which carry
+            # their own source `category_id`. Every author drink this ETL
+            # writes lands in one default "Основные" drink-category. That
+            # migration's data seed already creates this row in every real
+            # deploy, but get-or-create it here too so the ETL stays robust
+            # even against a freshly-created schema (e.g. a fresh test DB)
+            # where the row doesn't exist yet.
+            default_drink_category = s.scalar(
+                select(m.DrinkCategory).where(m.DrinkCategory.slug == "osnovnye")
+            )
+            if default_drink_category is None:
+                default_drink_category = m.DrinkCategory(slug="osnovnye", label="Основные", sort_order=0)
+                s.add(default_drink_category)
+                s.flush()
+            default_drink_category_id = default_drink_category.id
+
             for row in src["cocktails"]:
                 abv, _ = parse_abv(row.get("abv"))
                 # Cocktails are author drinks: default to alcoholic. A blank/
@@ -206,6 +226,7 @@ def load(src_url, dest_url):
                 _upsert_drink(
                     existing_by_slug, s, row["slug"],
                     name=row["name"], img=row.get("img"), subtitle=row.get("tagline"),
+                    category_id=default_drink_category_id,
                     is_alcoholic=is_alc, is_zero_culture=False, abv=abv, abv_raw=row.get("abv"),
                     glass_id=row.get("glass_id"), badge_id=row.get("badge_id"),
                     sort_order=row.get("sort_order", 0), created_at=row["created_at"],
@@ -219,6 +240,7 @@ def load(src_url, dest_url):
                 _upsert_drink(
                     existing_by_slug, s, row["slug"],
                     name=row["name"], img=row.get("img"), subtitle=row.get("tagline"),
+                    category_id=default_drink_category_id,
                     is_alcoholic=False, is_zero_culture=False, abv=None, abv_raw=row.get("abv"),
                     price_amount=price_amt, price_raw=row.get("price"),
                     # Merged-menu order: the three source tables each numbered
@@ -251,6 +273,7 @@ def load(src_url, dest_url):
                 _upsert_drink(
                     existing_by_slug, s, row["slug"],
                     name=row["name"], img=row.get("img"), subtitle=row.get("tagline"),
+                    category_id=default_drink_category_id,
                     is_alcoholic=bool(row.get("is_alcoholic")), is_zero_culture=True,
                     abv=abv, abv_raw=row.get("abv"),
                     price_amount=price_amt, price_raw=row.get("price"),

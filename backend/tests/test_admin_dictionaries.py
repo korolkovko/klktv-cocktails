@@ -50,6 +50,32 @@ def test_delete_ice_type_in_use_conflicts(editor_client):
         editor_client.delete("/api/admin/ice-types/test-ice-inuse")
 
 
+def test_delete_glass_in_use_by_classic_conflicts(editor_client):
+    # glasses are shared between drinks.glass_id and classics.glass_id (both
+    # ON DELETE SET NULL) — the in-use guard must count classics too, not
+    # just drinks, or a glass used by zero drinks but one classic would pass
+    # the "0 references" check and its deletion would silently NULL that
+    # classic's glass.
+    assert editor_client.post(
+        "/api/admin/glasses", json={"key": "test-glass-classic-inuse", "label": "Тест Бокал"}
+    ).status_code == 201
+    try:
+        p = {
+            "slug": "test-classic-glass-inuse", "name": "Тест Классик Бокал",
+            "family": "negroni", "glass": "test-glass-classic-inuse",
+        }
+        assert editor_client.post("/api/admin/classics", json=p).status_code == 201
+        try:
+            r = editor_client.delete("/api/admin/glasses/test-glass-classic-inuse")
+            assert r.status_code == 409, r.text
+        finally:
+            editor_client.delete("/api/admin/classics/test-classic-glass-inuse")
+        # no longer referenced -> delete now succeeds
+        assert editor_client.delete("/api/admin/glasses/test-glass-classic-inuse").status_code == 204
+    finally:
+        editor_client.delete("/api/admin/glasses/test-glass-classic-inuse")
+
+
 def test_dictionaries_require_editor(reader_client):
     for e in ("glasses", "badges", "ice-types"):
         assert reader_client.get(f"/api/admin/{e}").status_code == 403

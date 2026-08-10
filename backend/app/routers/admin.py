@@ -159,15 +159,21 @@ def _slugify(label: str) -> str:
     return s[:32]
 
 
-# (model, url path segment, human name for error messages, drink FK column)
+# (model, url path segment, human name for error messages, referencing FKs).
+# `fk_refs` is a tuple of (owning model, FK column) pairs — most lookups are
+# referenced from a single place (Drink.*), but `glasses` is shared: both
+# `drinks.glass_id` and `classics.glass_id` point at it, so the in-use guard
+# below must sum references across every owner, not just Drink, or a glass
+# used only by a classic would pass the "0 references" check and its
+# deletion would silently NULL that classic's glass_id (ON DELETE SET NULL).
 _LOOKUP_DICTIONARIES = (
-    (m.Glass, "glasses", "Glass", m.Drink.glass_id),
-    (m.Badge, "badges", "Badge", m.Drink.badge_id),
-    (m.IceType, "ice-types", "Ice type", m.Drink.ice_id),
+    (m.Glass, "glasses", "Glass", ((m.Drink, m.Drink.glass_id), (m.Classic, m.Classic.glass_id))),
+    (m.Badge, "badges", "Badge", ((m.Drink, m.Drink.badge_id),)),
+    (m.IceType, "ice-types", "Ice type", ((m.Drink, m.Drink.ice_id),)),
 )
 
 
-def _register_lookup_routes(model, path: str, name: str, drink_fk_col) -> None:
+def _register_lookup_routes(model, path: str, name: str, fk_refs) -> None:
     def _to_out(obj) -> LookupAdminOut:
         return LookupAdminOut(id=obj.id, key=obj.key, label=obj.label, sort_order=obj.sort_order)
 
@@ -216,19 +222,24 @@ def _register_lookup_routes(model, path: str, name: str, drink_fk_col) -> None:
     @router.delete(f"/{path}/{{key}}", status_code=status.HTTP_204_NO_CONTENT, name=f"delete_{path}")
     def _delete(key: str, db: Session = Depends(get_db)):
         obj = _get_or_404(db, key)
-        in_use = db.scalar(select(func.count()).select_from(m.Drink).where(drink_fk_col == obj.id))
+        # Sum references across every owning table (see _LOOKUP_DICTIONARIES
+        # comment) — a glass referenced only by a classic must still 409.
+        in_use = sum(
+            db.scalar(select(func.count()).select_from(owner).where(fk_col == obj.id))
+            for owner, fk_col in fk_refs
+        )
         if in_use:
             raise HTTPException(
                 status.HTTP_409_CONFLICT,
-                detail=f"{name} '{key}' still used by {in_use} drink{'' if in_use == 1 else 's'} — "
+                detail=f"{name} '{key}' still used by {in_use} record{'' if in_use == 1 else 's'} — "
                        f"change or remove them first",
             )
         db.delete(obj)
         db.commit()
 
 
-for _model, _path, _name, _fk in _LOOKUP_DICTIONARIES:
-    _register_lookup_routes(_model, _path, _name, _fk)
+for _model, _path, _name, _fk_refs in _LOOKUP_DICTIONARIES:
+    _register_lookup_routes(_model, _path, _name, _fk_refs)
 
 
 # ── Drink categories ──────────────────────────────────────
