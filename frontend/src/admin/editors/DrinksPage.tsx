@@ -25,6 +25,7 @@ import {
   TextField,
 } from "../components/kit/form"
 import { ImageField } from "../components/kit/image-field"
+import { MultiImageField } from "../components/kit/multi-image-field"
 import { RelationTags } from "../components/kit/relation-tags"
 import { DictionaryField } from "../components/kit/dictionary-field"
 import { ChipMenu } from "../components/kit/chip-menu"
@@ -52,7 +53,7 @@ export interface DrinkWriteIn {
   category: string // drink-category slug (must exist; not get-or-created)
   name: string
   img: string | null
-  photo: string | null
+  photos: string[] // ordered photo urls (see DrinkPhoto); [0] is primary
   subtitle: string | null
   abv_raw: string | null
   price_raw: string | null
@@ -84,6 +85,7 @@ export interface DrinkAdminOut extends DrinkWriteIn {
   id: number
   abv: number | null
   price_amount: number | null
+  photo: string | null // primary = photos[0] if any; read-only, list/card thumbnail
 }
 
 // Drink categories (task B) — a strict dictionary like glasses/badges/ice
@@ -157,7 +159,7 @@ interface DrinkForm {
   category: string
   name: string
   img: string | null
-  photo: string | null
+  photos: string[]
   subtitle: string
   abv_raw: string
   price_raw: string
@@ -193,7 +195,7 @@ const BLANK_FORM: DrinkForm = {
   category: "",
   name: "",
   img: null,
-  photo: null,
+  photos: [],
   subtitle: "",
   abv_raw: "",
   price_raw: "",
@@ -230,7 +232,7 @@ export function fromAdminOut(row: DrinkAdminOut): DrinkForm {
     category: row.category,
     name: row.name,
     img: row.img,
-    photo: row.photo,
+    photos: row.photos ?? [],
     subtitle: row.subtitle ?? "",
     abv_raw: row.abv_raw ?? "",
     price_raw: row.price_raw ?? "",
@@ -266,7 +268,7 @@ export function toWriteIn(form: DrinkForm): DrinkWriteIn {
     category: form.category,
     name: form.name.trim(),
     img: form.img,
-    photo: form.photo,
+    photos: form.photos,
     subtitle: form.subtitle.trim() || null,
     abv_raw: form.abv_raw.trim() || null,
     price_raw: form.price_raw.trim() || null,
@@ -842,10 +844,14 @@ export function DrinksPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <ImageField label="Логотип" value={form.img} onChange={(v) => set("img", v)} />
-              <ImageField label="Фото коктейля" value={form.photo} onChange={(v) => set("photo", v)} />
-            </div>
+            <ImageField label="Логотип" value={form.img} onChange={(v) => set("img", v)} />
+
+            <MultiImageField
+              label="Фото коктейля"
+              value={form.photos}
+              onChange={(v) => set("photos", v)}
+              hint="Первое фото — обложка карточки коктейля; порядок задаётся стрелками"
+            />
 
             <div className="grid grid-cols-2 gap-3">
               <NumberField

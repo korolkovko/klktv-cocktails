@@ -23,6 +23,7 @@ function makeRow(overrides: Partial<DrinkAdminOut> = {}): DrinkAdminOut {
     name: "Олд Фешн",
     img: null,
     photo: null,
+    photos: [],
     subtitle: null,
     abv_raw: "40%",
     abv: 40,
@@ -101,6 +102,7 @@ describe("DrinksPage full-body threading", () => {
   it("threads every field (including details[] and relations) unchanged on load->save", () => {
     const row = makeRow({
       category: "osnovnye",
+      photos: ["/static/img/a.webp", "/static/img/b.webp"],
       subtitle: "Классика",
       volume_ml: 300,
       glass: "rocks",
@@ -120,14 +122,16 @@ describe("DrinksPage full-body threading", () => {
     })
     const form = fromAdminOut(row)
     expect(form.category).toBe("osnovnye")
+    expect(form.photos).toEqual(["/static/img/a.webp", "/static/img/b.webp"])
     const body = toWriteIn(form)
     expect(body.category).toBe("osnovnye")
+    expect(body.photos).toEqual(["/static/img/a.webp", "/static/img/b.webp"])
     expect(body).toEqual({
       slug: row.slug,
       category: row.category,
       name: row.name,
       img: row.img,
-      photo: row.photo,
+      photos: row.photos,
       subtitle: row.subtitle,
       abv_raw: row.abv_raw,
       price_raw: row.price_raw,
