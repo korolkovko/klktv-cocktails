@@ -10,6 +10,7 @@
 
 export interface DrinkOut {
   id: string
+  categorySlug: string
   name: string
   logo: string | null
   subtitle: string | null
@@ -35,6 +36,11 @@ export interface DrinkOut {
   caffeineLevel: number | null
   isCarbonated: boolean | null
   details: { label: string; text: string }[]
+}
+
+export interface DrinkCategoryOut {
+  slug: string
+  label: string
 }
 
 export interface OurAnswerOut {
@@ -134,6 +140,7 @@ export interface FiltersOut {
 
 export interface ContentBundleOut {
   sections: SectionOut[]
+  drinkCategories: DrinkCategoryOut[]
   drinks: DrinkOut[]
   classics: ClassicOut[]
   families: FamilyOut[]

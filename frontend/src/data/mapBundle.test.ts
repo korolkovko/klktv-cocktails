@@ -13,9 +13,14 @@ const bundle: ContentBundle = {
     { id: "spirits", label: "Спириты", total: 3 },
     { id: "kitchen", label: "Кухня", total: 2 },
   ],
+  drinkCategories: [
+    { slug: "signature", label: "Авторские" },
+    { slug: "zero-culture", label: "Zero Culture" },
+  ],
   drinks: [
     {
       id: "pussy-power",
+      categorySlug: "signature",
       name: "Пусси Пауэр",
       logo: "/cocktails/pussy-power.webp",
       subtitle: "Джин-тоник, который передумал",
@@ -44,6 +49,7 @@ const bundle: ContentBundle = {
     },
     {
       id: "virgin-mule",
+      categorySlug: "zero-culture",
       name: "Вёрджин Мул",
       logo: "/cocktails/virgin-mule.webp",
       subtitle: "Безалкогольный мул",
@@ -203,6 +209,15 @@ describe("mapBundle", () => {
     expect(nonAlc).toBeDefined()
     expect(nonAlc?.isAlcoholic).toBe(false)
     expect(nonAlc?.isZeroCulture).toBe(true)
+  })
+
+  it("maps categorySlug onto each drink and passes drinkCategories through as DRINK_CATEGORIES", () => {
+    expect(kit.MENU.find((c) => c.id === "pussy-power")?.categorySlug).toBe("signature")
+    expect(kit.MENU.find((c) => c.id === "virgin-mule")?.categorySlug).toBe("zero-culture")
+    expect(kit.DRINK_CATEGORIES).toEqual([
+      { slug: "signature", label: "Авторские" },
+      { slug: "zero-culture", label: "Zero Culture" },
+    ])
   })
 
   it("groups SPIRIT_GROUPS by category with correct total, and derives SPIRIT_GROUPS_ARCHIVED", () => {

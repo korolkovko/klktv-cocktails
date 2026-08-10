@@ -33,8 +33,19 @@ export interface Section {
 
 export type MenuBadge = "HOT" | "BOTTLED" | "PREMIUM" | "ONESIP"
 
+/** Task B4: категория авторского напитка (§54 admin «Категории напитков») —
+ *  Авторские группируются в секции по ней, как Кухня группируется по
+ *  KitchenCategory; порядок = порядок drinkCategories в бандле (бэкенд
+ *  уже сортирует по sort_order). */
+export interface DrinkCategory {
+  slug: string
+  label: string
+}
+
 export interface Cocktail {
   id: string
+  /** slug категории (группировка в MenuView секциями — см. DrinkCategory) */
+  categorySlug: string
   name: string
   logo: string
   subtitle: string

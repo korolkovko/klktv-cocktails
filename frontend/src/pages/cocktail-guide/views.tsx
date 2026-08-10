@@ -133,7 +133,7 @@ export function MenuView({
   onOpen: (c: Cocktail, deck: Cocktail[]) => void
   onOpenProgress: () => void
 }) {
-  const { MENU, SPIRIT_FILTERS, GLASS_FILTERS, SECTIONS } = useContent()
+  const { MENU, DRINK_CATEGORIES, SPIRIT_FILTERS, GLASS_FILTERS, SECTIONS } = useContent()
   const [q, setQ] = React.useState("")
   const [spirit, setSpirit] = React.useState("Все")
   const [glass, setGlass] = React.useState("Все")
@@ -188,45 +188,68 @@ export function MenuView({
           onOpen={onOpenProgress}
         />
       </div>
-      <div className="grid grid-cols-3 gap-3 max-lg:grid-cols-2 max-md:grid-cols-1" data-testid="cg-menu-grid">
-        {rows.map((c) => (
-          <MediaCard
-            key={c.id}
-            image={c.logo}
-            name={c.name}
-            badge={
-              // Красный HOT-чип теперь гейтится isHot (бэкенд смигрировал старый
-              // badge==="HOT" в это поле) — badge остаётся для прочих бейджей.
-              c.isHot
-                ? { label: "HOT", tone: "hot" }
-                : c.badge
-                  ? { label: c.badge, tone: c.badge === "ONESIP" ? "butter" : "ink" }
-                  : !c.isAlcoholic
-                    ? { label: "0%", tone: "ink" }
-                    : undefined
-            }
-            subtitle={c.subtitle}
-            meta={[
-              c.price != null ? `${c.price} ₽` : null,
-              c.volume != null ? `${c.volume} МЛ` : null,
-              // алко без записанного ABV → чип не показываем (не «0%»); безалко → «0%»
-              c.isAlcoholic ? (c.abv != null ? `${c.abv}%` : null) : "0%",
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-            descriptors={c.descriptors.slice(0, 3).join(" · ")}
-            learned={learnedIds.has(c.id)}
-            onLearnedChange={() => onToggle(c.id)}
-            onClick={() => onOpen(c, rows)}
-          />
-        ))}
+      {/* Task B4: секции по категории напитка (mirror KitchenView) — «колода»
+          флеш-карточек onOpen(c, rows) остаётся ПЛОСКОЙ в порядке rows (не
+          перегруппированной по секциям), как и в KitchenView.onOpen(d, rows) —
+          тот же прецедент в этом файле, листание идёт по общему фильтрованному
+          списку, а не «внутри секции». */}
+      <div className="flex flex-col gap-4" data-testid="cg-menu-groups">
+        {DRINK_CATEGORIES.map((cat) => {
+          const items = rows.filter((c) => c.categorySlug === cat.slug)
+          if (items.length === 0) return null
+          return (
+            <div key={cat.slug} className="flex flex-col gap-1.5">
+              <span className="px-0.5 font-mono text-[9.5px] font-bold tracking-[0.08em] text-[#A1A1AA]">
+                {cat.label} · {items.length}
+              </span>
+              <div className="grid grid-cols-3 gap-3 max-lg:grid-cols-2 max-md:grid-cols-1">
+                {items.map((c) => (
+                  <MenuCard key={c.id} c={c} learned={learnedIds.has(c.id)} onToggle={() => onToggle(c.id)} onOpen={() => onOpen(c, rows)} />
+                ))}
+              </div>
+            </div>
+          )
+        })}
         {rows.length === 0 && (
-          <div className="col-span-full py-10 text-center text-[13px] text-[#52525B]">
+          <div className="py-10 text-center text-[13px] text-[#52525B]">
             Такого коктейля нет, но мы можем придумать.
           </div>
         )}
       </div>
     </div>
+  )
+}
+
+function MenuCard({ c, learned, onToggle, onOpen }: { c: Cocktail; learned: boolean; onToggle: () => void; onOpen: () => void }) {
+  return (
+    <MediaCard
+      image={c.logo}
+      name={c.name}
+      badge={
+        // Красный HOT-чип теперь гейтится isHot (бэкенд смигрировал старый
+        // badge==="HOT" в это поле) — badge остаётся для прочих бейджей.
+        c.isHot
+          ? { label: "HOT", tone: "hot" }
+          : c.badge
+            ? { label: c.badge, tone: c.badge === "ONESIP" ? "butter" : "ink" }
+            : !c.isAlcoholic
+              ? { label: "0%", tone: "ink" }
+              : undefined
+      }
+      subtitle={c.subtitle}
+      meta={[
+        c.price != null ? `${c.price} ₽` : null,
+        c.volume != null ? `${c.volume} МЛ` : null,
+        // алко без записанного ABV → чип не показываем (не «0%»); безалко → «0%»
+        c.isAlcoholic ? (c.abv != null ? `${c.abv}%` : null) : "0%",
+      ]
+        .filter(Boolean)
+        .join(" · ")}
+      descriptors={c.descriptors.slice(0, 3).join(" · ")}
+      learned={learned}
+      onLearnedChange={onToggle}
+      onClick={onOpen}
+    />
   )
 }
 

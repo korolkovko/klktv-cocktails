@@ -30,6 +30,7 @@ import type {
   Spirit,
   Dish,
   DishNutrition,
+  DrinkCategory,
   KitchenCategory,
   Section,
   SectionId,
@@ -46,6 +47,9 @@ import { resolveImageUrl } from "@/lib/img"
 
 export interface KitData {
   MENU: Cocktail[]
+  /** порядок как в bundle.drinkCategories (бэкенд сортирует по sort_order) —
+   *  MenuView проходит по этому массиву и группирует MENU по categorySlug. */
+  DRINK_CATEGORIES: DrinkCategory[]
   CLASSICS: Classic[]
   FAMILIES: Family[]
   SPIRIT_GROUPS: SpiritGroup[]
@@ -67,6 +71,7 @@ export interface KitData {
 function mapCocktail(d: ContentBundle["drinks"][number]): Cocktail {
   return {
     id: d.id,
+    categorySlug: d.categorySlug,
     name: d.name,
     logo: resolveImageUrl(d.logo) ?? "",
     subtitle: d.subtitle ?? "",
@@ -220,6 +225,10 @@ export function mapBundle(bundle: ContentBundle): KitData {
   )
 
   const MENU = bundle.drinks.map(mapCocktail)
+  const DRINK_CATEGORIES: DrinkCategory[] = bundle.drinkCategories.map((dc) => ({
+    slug: dc.slug,
+    label: dc.label,
+  }))
   const CLASSICS = bundle.classics.map(mapClassic)
   const FAMILIES = bundle.families.map(mapFamily)
   const SPIRIT_GROUPS = buildSpiritGroups(bundle, false)
@@ -250,6 +259,7 @@ export function mapBundle(bundle: ContentBundle): KitData {
 
   return {
     MENU,
+    DRINK_CATEGORIES,
     CLASSICS,
     FAMILIES,
     SPIRIT_GROUPS,
