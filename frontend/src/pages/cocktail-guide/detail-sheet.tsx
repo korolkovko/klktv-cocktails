@@ -137,11 +137,73 @@ const NonAlcIndicators = ({ caffeineLevel, isCarbonated }: { caffeineLevel: numb
   ) : null
 
 /** Фото напитка/блюда 4:3 R16 INK-рамка — только если задано (нет фото → нет
- *  блока, без пустых плейсхолдеров юзеру, R25) */
+ *  блока, без пустых плейсхолдеров юзеру, R25). Блюдо продолжает использовать
+ *  эту (единичную, object-cover) рамку — галерея (PhotoGallery ниже) заменила
+ *  её только у коктейля, для которого бэкенд отдаёт массив photos. */
 const Photo = ({ src, alt }: { src?: string; alt: string }) =>
   src ? (
     <img src={src} alt={alt} className="aspect-[4/3] w-full rounded-2xl border border-border object-cover" />
   ) : null
+
+/** Task C4: галерея фото коктейля — горизонтальный snap-scroll трек +
+ *  точки-индикаторы под ним; один слайд → без точек и без скролл-аффорданса
+ *  (просто статичный кадр). Кадр ПОРТРЕТНЫЙ 3:4 + object-contain на
+ *  нейтральном фоне (в отличие от Photo/BottlePhoto выше: намеренно НЕ
+ *  4:3/object-cover) — так безопасно для любой ориентации кадра: вертикали
+ *  заполняют рамку, редкие горизонтали леттербоксятся по центру, ничего не
+ *  кропается. ТОЧНЫЙ аспект (3:4) — рабочее значение по умолчанию, не
+ *  финальное: владелец сверит его на реальных фото и донастроит отдельным
+ *  коммитом (см. C4 brief, Step 3). Нет фото → блока нет, без плейсхолдера
+ *  (R25). Без новых npm-зависимостей — чистый CSS scroll-snap +
+ *  onScroll-хендлер для активной точки. */
+function PhotoGallery({ photos, alt }: { photos?: string[]; alt: string }) {
+  const list = photos ?? []
+  const trackRef = React.useRef<HTMLDivElement | null>(null)
+  const [active, setActive] = React.useState(0)
+
+  const onScroll = () => {
+    const el = trackRef.current
+    if (!el) return
+    const i = Math.round(el.scrollLeft / Math.max(1, el.clientWidth))
+    setActive(Math.min(list.length - 1, Math.max(0, i)))
+  }
+
+  if (list.length === 0) return null
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div
+        ref={trackRef}
+        onScroll={list.length > 1 ? onScroll : undefined}
+        className={cn(
+          "flex w-full snap-x snap-mandatory overflow-y-hidden rounded-2xl border border-border [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+          list.length > 1 ? "overflow-x-auto" : "overflow-x-hidden"
+        )}
+      >
+        {list.map((src, i) => (
+          <div key={`${src}-${i}`} className="aspect-[3/4] w-full shrink-0 snap-center bg-[#EDEDE8]">
+            <img
+              src={src}
+              alt={list.length > 1 ? `${alt} — фото ${i + 1} из ${list.length}` : alt}
+              className="h-full w-full object-contain"
+            />
+          </div>
+        ))}
+      </div>
+      {list.length > 1 && (
+        <div className="flex justify-center gap-1.5" role="tablist" aria-label="Фото коктейля">
+          {list.map((_, i) => (
+            <span
+              key={i}
+              aria-hidden="true"
+              className={cn("h-1.5 w-1.5 rounded-full transition-colors", i === active ? "bg-foreground" : "bg-[#D4D4CE]")}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 /** Фото бутылки спирита — fit contain (вертикальная, не кропать); нет — нет блока */
 const BottlePhoto = ({ src, alt, h }: { src?: string; alt: string; h: number }) =>
@@ -389,7 +451,7 @@ export function CocktailDetail({ cocktail, open, onOpenChange, learned, onLearne
         <Meta price={c.price} volume={c.volume} abv={c.abv} isAlcoholic={c.isAlcoholic} />
         {hotBadge && <span className="rounded-[4px] bg-signal px-1.5 py-px font-mono text-[9px] font-bold text-white">HOT</span>}
       </div>
-      <Photo src={c.photo} alt={c.name} />
+      <PhotoGallery photos={c.photos} alt={c.name} />
       <FlavorChips spirits={spirits} descriptors={c.descriptors} />
       <NonAlcIndicators caffeineLevel={c.caffeineLevel} isCarbonated={c.isCarbonated} />
       <div className="border-t border-divider" />
@@ -429,7 +491,7 @@ export function CocktailDetail({ cocktail, open, onOpenChange, learned, onLearne
       </div>
       <GlassGarnish glass={c.glass} garnish={c.garnish} ice={c.ice} />
       <NonAlcIndicators caffeineLevel={c.caffeineLevel} isCarbonated={c.isCarbonated} />
-      {c.photo && <Photo src={c.photo} alt={c.name} />}
+      <PhotoGallery photos={c.photos} alt={c.name} />
       <div className="mt-auto">
         <LearnedToggle variant="cta" learned={learned} onChange={onLearnedChange} />
       </div>

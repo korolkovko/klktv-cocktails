@@ -68,6 +68,16 @@ export interface KitData {
   CLASSICS_TOTAL: number
 }
 
+/** Task C4: normalize a drink's gallery photo list — prefer the ordered
+ *  `photos` (backend's `drink_photos` rows, sort_order asc); fall back to a
+ *  single-item list from the legacy `photo` column when `photos` is empty,
+ *  so drinks photographed before the multi-photo gallery still render one
+ *  slide instead of none. Pure + exported (no URL resolution) so it's
+ *  unit-testable without touching `import.meta.env`. */
+export function normalizeDrinkPhotos(photos: string[], photo: string | null): string[] {
+  return photos.length > 0 ? photos : photo ? [photo] : []
+}
+
 function mapCocktail(d: ContentBundle["drinks"][number]): Cocktail {
   return {
     id: d.id,
@@ -97,6 +107,12 @@ function mapCocktail(d: ContentBundle["drinks"][number]): Cocktail {
     garnish: d.garnish ?? undefined,
     pitch: d.pitch ?? undefined,
     photo: resolveImageUrl(d.photo),
+    // Task C4: ordered gallery (detail carousel) — [photo] fallback keeps
+    // pre-gallery drinks (drink_photos empty, legacy `photo` column set)
+    // showing their one photo instead of an empty gallery.
+    photos: normalizeDrinkPhotos(d.photos, d.photo)
+      .map((p) => resolveImageUrl(p))
+      .filter((p): p is string => Boolean(p)),
     about: d.about ?? undefined,
     naming: d.naming ?? undefined,
     faq: d.faq ?? undefined,

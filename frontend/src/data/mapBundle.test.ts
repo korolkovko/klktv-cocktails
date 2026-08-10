@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
-import { mapBundle } from "./mapBundle"
+import { mapBundle, normalizeDrinkPhotos } from "./mapBundle"
 import type { ContentBundle } from "./bundle"
+import { resolveImageUrl } from "@/lib/img"
 
 // Hand-built minimal bundle covering: one alcoholic + one non-alcoholic
 // drink, one classic with ourAnswers, two spirits in one category (plus
@@ -36,7 +37,10 @@ const bundle: ContentBundle = {
       recipe: "Джин, кордиал юдзу-имбирь.",
       garnish: "Ветка розмарина",
       pitch: null,
-      photo: null,
+      // Task C4: multi-photo gallery drink — photo mirrors the backend
+      // invariant photo === photos[0].
+      photo: "/cocktails/pussy-power-1.webp",
+      photos: ["/cocktails/pussy-power-1.webp", "/cocktails/pussy-power-2.webp"],
       about: null,
       naming: null,
       faq: null,
@@ -65,7 +69,11 @@ const bundle: ContentBundle = {
       recipe: null,
       garnish: null,
       pitch: null,
-      photo: null,
+      // Task C4: legacy single-photo drink — no drink_photos rows yet
+      // (photos: []), only the old `photo` column — mapBundle must fall
+      // back to [photo] so this still renders one gallery slide.
+      photo: "/cocktails/virgin-mule-1.webp",
+      photos: [],
       about: null,
       naming: null,
       faq: null,
@@ -262,6 +270,19 @@ describe("mapBundle", () => {
     expect(nonHot?.ice).toBeUndefined()
   })
 
+  it("maps photos through as an ordered gallery, resolving each url", () => {
+    const gallery = kit.MENU.find((c) => c.id === "pussy-power")
+    expect(gallery?.photos).toEqual([
+      resolveImageUrl("/cocktails/pussy-power-1.webp"),
+      resolveImageUrl("/cocktails/pussy-power-2.webp"),
+    ])
+  })
+
+  it("falls back to a single-item [photo] gallery when photos is empty (legacy single-photo drinks)", () => {
+    const legacySingle = kit.MENU.find((c) => c.id === "virgin-mule")
+    expect(legacySingle?.photos).toEqual([resolveImageUrl("/cocktails/virgin-mule-1.webp")])
+  })
+
   it("maps dish nutrition to undefined when all macros are null, and to an object otherwise", () => {
     const tako = kit.DISHES.find((d) => d.id === "tako")
     const edamame = kit.DISHES.find((d) => d.id === "edamame")
@@ -294,5 +315,20 @@ describe("mapBundle", () => {
     expect(kit.GLASS_FILTERS[0]).toBe("Все")
     expect(kit.CLASSIC_SPIRITS[0]).toBe("Все")
     expect(kit.SPIRIT_CATEGORIES).toEqual(["Все", "Джин"])
+  })
+})
+
+describe("normalizeDrinkPhotos", () => {
+  it("prefers the ordered photos array when non-empty", () => {
+    expect(normalizeDrinkPhotos(["a", "b"], "legacy")).toEqual(["a", "b"])
+  })
+
+  it("falls back to [photo] when photos is empty but photo is set", () => {
+    expect(normalizeDrinkPhotos([], "legacy")).toEqual(["legacy"])
+  })
+
+  it("returns [] when both photos and photo are empty/null", () => {
+    expect(normalizeDrinkPhotos([], null)).toEqual([])
+    expect(normalizeDrinkPhotos([], "")).toEqual([])
   })
 })

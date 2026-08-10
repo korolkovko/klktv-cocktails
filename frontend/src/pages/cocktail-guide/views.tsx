@@ -223,7 +223,9 @@ export function MenuView({
 function MenuCard({ c, learned, onToggle, onOpen }: { c: Cocktail; learned: boolean; onToggle: () => void; onOpen: () => void }) {
   return (
     <MediaCard
-      image={c.logo}
+      // Task C4: карточка предпочитает первое фото галереи (реальный кадр
+      // напитка), падая на легаси logo, когда фото ещё не загружены
+      image={c.photos?.[0] ?? c.logo}
       name={c.name}
       badge={
         // Красный HOT-чип теперь гейтится isHot (бэкенд смигрировал старый

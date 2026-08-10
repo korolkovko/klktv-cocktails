@@ -78,8 +78,15 @@ export interface Cocktail {
   recipe?: string
   garnish?: string
   pitch?: string
-  /** фото напитка 4:3 (url); нет — блок отсутствует, без плейсхолдера */
+  /** фото напитка 4:3 (url); нет — блок отсутствует, без плейсхолдера
+   *  (карточка списка/шапка детали — легаси `logo`, не путать с этим полем) */
   photo?: string
+  /** Task C4: галерея фото детали (url, порядок как в админке) — карусель
+   *  3:4 object-contain (см. PhotoGallery в detail-sheet.tsx); карточка
+   *  списка использует photos[0] ?? logo. Пусто/undefined — блока нет, без
+   *  плейсхолдера. mapBundle.ts фолбэчит на [photo] для старых напитков без
+   *  записей в drink_photos. */
+  photos?: string[]
   about?: string
   naming?: string
   faq?: string

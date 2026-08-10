@@ -27,6 +27,10 @@ export interface DrinkOut {
   garnish: string | null
   pitch: string | null
   photo: string | null
+  /** Task C4: ordered gallery photo urls (backend's `drink_photos`, sort_order
+   *  asc) — `photo` above is `photos[0]` for card back-compat, wire always
+   *  sends this (defaults to `[]`). */
+  photos: string[]
   about: string | null
   naming: string | null
   faq: string | null
