@@ -10,6 +10,7 @@ import { ResponsiveDialog } from "@/components/adapters/responsive-dialog"
 import {
   EntityTable,
   EntityMeta,
+  RoleBadge,
   type EntityAction,
   type EntityColumn,
 } from "@/components/kollektiv/entity-table"
@@ -25,6 +26,7 @@ import {
 import { ImageField } from "../components/kit/image-field"
 import { RelationTags } from "../components/kit/relation-tags"
 import { ChipMenu } from "../components/kit/chip-menu"
+import { ArchiveFilter, matchesArchiveView, type ArchiveView } from "../components/kit/archive-filter"
 
 // "Коктейли" tab — the FLAGSHIP content page (Phase 2), ported onto the kit
 // EntityTable/ResponsiveDialog rhythm established by FamiliesPage (the
@@ -70,6 +72,7 @@ export interface DrinkWriteIn {
   flavors: string[]
   tags: string[]
   details: DrinkDetailIn[]
+  is_archived: boolean
 }
 
 export interface DrinkAdminOut extends DrinkWriteIn {
@@ -142,6 +145,7 @@ interface DrinkForm {
   flavors: string[]
   tags: string[]
   details: DrinkDetailIn[]
+  is_archived: boolean
 }
 
 const BLANK_FORM: DrinkForm = {
@@ -171,6 +175,7 @@ const BLANK_FORM: DrinkForm = {
   flavors: [],
   tags: [],
   details: [],
+  is_archived: false,
 }
 
 // Exported (alongside the tri-state helpers above) so DrinksPage.test.tsx
@@ -205,6 +210,7 @@ export function fromAdminOut(row: DrinkAdminOut): DrinkForm {
     flavors: row.flavors,
     tags: row.tags,
     details: row.details,
+    is_archived: row.is_archived ?? false,
   }
 }
 
@@ -236,6 +242,7 @@ export function toWriteIn(form: DrinkForm): DrinkWriteIn {
     flavors: form.flavors,
     tags: form.tags,
     details: form.details,
+    is_archived: form.is_archived,
   }
 }
 
@@ -330,6 +337,7 @@ export function DrinksPage() {
   const [saving, setSaving] = React.useState(false)
   const [search, setSearch] = React.useState("")
   const [alcFilter, setAlcFilter] = React.useState<AlcFilter>("all")
+  const [archiveView, setArchiveView] = React.useState<ArchiveView>("active")
   const [confirm, setConfirm] = React.useState<ConfirmState | null>(null)
 
   const load = React.useCallback(async () => {
@@ -381,6 +389,18 @@ export function DrinksPage() {
     })
   }
 
+  // Full-body PATCH with only the flag flipped — same "thread every loaded
+  // field through unchanged" rule as handleSave.
+  async function performArchiveToggle(row: DrinkAdminOut) {
+    try {
+      await adminApi.update("drinks", row.slug, { ...toWriteIn(fromAdminOut(row)), is_archived: !row.is_archived })
+      toast.success(row.is_archived ? `Возвращён из архива · ${row.name || row.slug}` : `В архив · ${row.name || row.slug}`)
+      await load()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Не удалось изменить статус архива")
+    }
+  }
+
   async function handleSave() {
     if (!editing) return
     setSaving(true)
@@ -407,6 +427,7 @@ export function DrinksPage() {
 
   const q = search.trim().toLowerCase()
   const filteredRows = rows.filter((d) => {
+    if (!matchesArchiveView(d.is_archived, archiveView)) return false
     if (
       q &&
       !(
@@ -438,10 +459,26 @@ export function DrinksPage() {
       mobile: "hidden",
       render: (d) => <EntityMeta>{d.price_raw ?? "—"}</EntityMeta>,
     },
+    {
+      key: "status",
+      label: "СТАТУС",
+      width: 88,
+      render: (d) => (d.is_archived ? <RoleBadge tone="muted">архив</RoleBadge> : null),
+    },
   ]
 
   const actions: EntityAction<DrinkAdminOut>[] = [
     { label: "Изменить", onSelect: (d) => openEdit(d) },
+    {
+      label: "В архив",
+      show: (d) => !d.is_archived,
+      onSelect: (d) => void performArchiveToggle(d),
+    },
+    {
+      label: "Вернуть",
+      show: (d) => d.is_archived,
+      onSelect: (d) => void performArchiveToggle(d),
+    },
     {
       label: "Удалить",
       fire: true,
@@ -453,6 +490,7 @@ export function DrinksPage() {
   function resetFilters() {
     setSearch("")
     setAlcFilter("all")
+    setArchiveView("active")
   }
 
   const parsedAbv = editing?.mode === "edit" ? editing.row.abv : null
@@ -485,12 +523,15 @@ export function DrinksPage() {
           placeholder: `Поиск ${rows.length} коктейлей…`,
         }}
         filters={
-          <ChipMenu
-            value={alcFilter}
-            options={ALC_FILTER_OPTIONS}
-            onChange={(v) => setAlcFilter(v as AlcFilter)}
-            label="Алк"
-          />
+          <>
+            <ChipMenu
+              value={alcFilter}
+              options={ALC_FILTER_OPTIONS}
+              onChange={(v) => setAlcFilter(v as AlcFilter)}
+              label="Алк"
+            />
+            <ArchiveFilter value={archiveView} onChange={setArchiveView} />
+          </>
         }
         cta={<Button onClick={openNew}>+ Коктейль</Button>}
         emptyState={
@@ -503,7 +544,7 @@ export function DrinksPage() {
               <span className="font-mono text-[11px] tracking-[0.06em] text-muted-foreground">
                 НИЧЕГО НЕ НАШЛОСЬ
               </span>
-              {(search || alcFilter !== "all") && (
+              {(search || alcFilter !== "all" || archiveView !== "active") && (
                 <Button variant="secondary" size="sm" onClick={resetFilters}>
                   Сбросить фильтры
                 </Button>
@@ -622,6 +663,13 @@ export function DrinksPage() {
                 onChange={(v) => set("sort_order", v ?? 0)}
               />
             </div>
+
+            <CheckboxField
+              label="В архиве"
+              checked={form.is_archived}
+              onChange={(v) => set("is_archived", v)}
+              hint="Архивные коктейли скрыты из меню по умолчанию"
+            />
 
             <div className="grid grid-cols-2 gap-3">
               <TextField

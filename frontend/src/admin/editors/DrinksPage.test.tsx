@@ -46,6 +46,7 @@ function makeRow(overrides: Partial<DrinkAdminOut> = {}): DrinkAdminOut {
     flavors: [],
     tags: [],
     details: [],
+    is_archived: false,
     ...overrides,
   }
 }
@@ -141,6 +142,25 @@ describe("DrinksPage full-body threading", () => {
       flavors: row.flavors,
       tags: row.tags,
       details: row.details,
+      is_archived: row.is_archived,
     })
+  })
+})
+
+// A3 (archive): is_archived must thread through the same full-record PATCH,
+// in both directions (default false and an explicitly archived row).
+describe("DrinksPage is_archived threading", () => {
+  it("defaults a non-archived row's flag to false", () => {
+    const row = makeRow({ is_archived: false })
+    const form = fromAdminOut(row)
+    expect(form.is_archived).toBe(false)
+    expect(toWriteIn(form).is_archived).toBe(false)
+  })
+
+  it("threads an archived row's flag through unchanged", () => {
+    const row = makeRow({ is_archived: true })
+    const form = fromAdminOut(row)
+    expect(form.is_archived).toBe(true)
+    expect(toWriteIn(form).is_archived).toBe(true)
   })
 })

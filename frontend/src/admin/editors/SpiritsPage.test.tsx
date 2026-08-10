@@ -30,6 +30,7 @@ function makeRow(overrides: Partial<SpiritEntryAdminOut> = {}): SpiritEntryAdmin
     fact: null,
     source_url: null,
     sort_order: 0,
+    is_archived: false,
     ...overrides,
   }
 }
@@ -68,6 +69,25 @@ describe("SpiritsPage full-body round-trip", () => {
       fact: "Выдержка 7 лет",
       source_url: "https://example.com/havana-club-7",
       sort_order: 2,
+      is_archived: false,
     })
+  })
+})
+
+// A3 (archive): is_archived must thread through the same full-body PATCH,
+// in both directions (default false and an explicitly archived row).
+describe("SpiritsPage is_archived threading", () => {
+  it("defaults a loaded row's undefined-ish archive flag to false", () => {
+    const row = makeRow({ is_archived: false })
+    const form = fromAdminOut(row)
+    expect(form.is_archived).toBe(false)
+    expect(toWriteIn(form).is_archived).toBe(false)
+  })
+
+  it("threads an archived row's flag through unchanged", () => {
+    const row = makeRow({ is_archived: true })
+    const form = fromAdminOut(row)
+    expect(form.is_archived).toBe(true)
+    expect(toWriteIn(form).is_archived).toBe(true)
   })
 })

@@ -20,6 +20,7 @@ import { adminApi } from "../api"
 import { CheckboxField, NumberField, SelectField, TextArea, TextField } from "../components/kit/form"
 import { ImageField } from "../components/kit/image-field"
 import { ChipMenu } from "../components/kit/chip-menu"
+import { ArchiveFilter, matchesArchiveView, type ArchiveView } from "../components/kit/archive-filter"
 
 // "Спириты" tab — rebuilt onto the kit's §54 EntityTable (Phase 2), following
 // the FamiliesPage/UsersPage rhythm: EntityTable + toolbar (search + category
@@ -59,6 +60,7 @@ export interface SpiritEntryWriteIn {
   fact: string | null
   source_url: string | null
   sort_order: number
+  is_archived: boolean
 }
 
 export interface SpiritEntryAdminOut extends SpiritEntryWriteIn {
@@ -95,6 +97,7 @@ interface SpiritForm {
   fact: string
   source_url: string
   sort_order: number
+  is_archived: boolean
 }
 
 const BLANK_FORM: SpiritForm = {
@@ -113,6 +116,7 @@ const BLANK_FORM: SpiritForm = {
   fact: "",
   source_url: "",
   sort_order: 0,
+  is_archived: false,
 }
 
 // Exported so SpiritsPage.test.tsx can assert the load->save round-trip
@@ -134,6 +138,7 @@ export function fromAdminOut(row: SpiritEntryAdminOut): SpiritForm {
     fact: row.fact ?? "",
     source_url: row.source_url ?? "",
     sort_order: row.sort_order,
+    is_archived: row.is_archived ?? false,
   }
 }
 
@@ -154,6 +159,7 @@ export function toWriteIn(form: SpiritForm): SpiritEntryWriteIn {
     fact: form.fact.trim() || null,
     source_url: form.source_url.trim() || null,
     sort_order: form.sort_order,
+    is_archived: form.is_archived,
   }
 }
 
@@ -186,6 +192,7 @@ export function SpiritsPage() {
   const [saving, setSaving] = React.useState(false)
   const [search, setSearch] = React.useState("")
   const [categoryFilter, setCategoryFilter] = React.useState("all")
+  const [archiveView, setArchiveView] = React.useState<ArchiveView>("active")
   const [confirm, setConfirm] = React.useState<ConfirmState | null>(null)
 
   const loadSpirits = React.useCallback(async () => {
@@ -257,6 +264,19 @@ export function SpiritsPage() {
     })
   }
 
+  // Full-body PATCH with only the flag flipped — same "thread every loaded
+  // field through unchanged" rule as handleSave (see the mapper header
+  // comment); reload the row via the already-loaded list entry, no extra GET.
+  async function performArchiveToggle(row: SpiritEntryAdminOut) {
+    try {
+      await adminApi.update("spirits", row.slug, { ...toWriteIn(fromAdminOut(row)), is_archived: !row.is_archived })
+      toast.success(row.is_archived ? `Возвращён из архива · ${row.name || row.slug}` : `В архив · ${row.name || row.slug}`)
+      await loadSpirits()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Не удалось изменить статус архива")
+    }
+  }
+
   async function handleSave() {
     if (!editing) return
     setSaving(true)
@@ -305,6 +325,7 @@ export function SpiritsPage() {
 
   const q = search.trim().toLowerCase()
   const filteredRows = rows.filter((s) => {
+    if (!matchesArchiveView(s.is_archived, archiveView)) return false
     if (categoryFilter !== "all" && s.category !== categoryFilter) return false
     if (!q) return true
     return (
@@ -332,10 +353,26 @@ export function SpiritsPage() {
       mobile: "hidden",
       render: (s) => <EntityMeta>{s.abv_raw || "—"}</EntityMeta>,
     },
+    {
+      key: "status",
+      label: "СТАТУС",
+      width: 88,
+      render: (s) => (s.is_archived ? <RoleBadge tone="muted">архив</RoleBadge> : null),
+    },
   ]
 
   const actions: EntityAction<SpiritEntryAdminOut>[] = [
     { label: "Изменить", onSelect: (s) => openEdit(s) },
+    {
+      label: "В архив",
+      show: (s) => !s.is_archived,
+      onSelect: (s) => void performArchiveToggle(s),
+    },
+    {
+      label: "Вернуть",
+      show: (s) => s.is_archived,
+      onSelect: (s) => void performArchiveToggle(s),
+    },
     {
       label: "Удалить",
       fire: true,
@@ -347,6 +384,7 @@ export function SpiritsPage() {
   function resetFilters() {
     setSearch("")
     setCategoryFilter("all")
+    setArchiveView("active")
   }
 
   return (
@@ -380,12 +418,15 @@ export function SpiritsPage() {
           placeholder: `Поиск ${rows.length} спиритов…`,
         }}
         filters={
-          <ChipMenu
-            value={categoryFilter}
-            options={categoryFilterOptions}
-            onChange={setCategoryFilter}
-            label="Категория"
-          />
+          <>
+            <ChipMenu
+              value={categoryFilter}
+              options={categoryFilterOptions}
+              onChange={setCategoryFilter}
+              label="Категория"
+            />
+            <ArchiveFilter value={archiveView} onChange={setArchiveView} />
+          </>
         }
         cta={<Button onClick={openNew}>+ Спирит</Button>}
         emptyState={
@@ -398,7 +439,7 @@ export function SpiritsPage() {
               <span className="font-mono text-[11px] tracking-[0.06em] text-muted-foreground">
                 НИЧЕГО НЕ НАШЛОСЬ
               </span>
-              {(search || categoryFilter !== "all") && (
+              {(search || categoryFilter !== "all" || archiveView !== "active") && (
                 <Button variant="secondary" size="sm" onClick={resetFilters}>
                   Сбросить фильтры
                 </Button>
@@ -518,6 +559,13 @@ export function SpiritsPage() {
               label="Порядок сортировки"
               value={form.sort_order}
               onChange={(v) => set("sort_order", v ?? 0)}
+            />
+
+            <CheckboxField
+              label="В архиве"
+              checked={form.is_archived}
+              onChange={(v) => set("is_archived", v)}
+              hint="Архивные спириты скрыты из справочника по умолчанию"
             />
 
             <TextArea label="Вкус" value={form.flavour} onChange={(v) => set("flavour", v)} rows={2} />

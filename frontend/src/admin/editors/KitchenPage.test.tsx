@@ -35,6 +35,7 @@ function makeRow(overrides: Partial<KitchenDishAdminOut> = {}): KitchenDishAdmin
     serving: null,
     interesting_facts: null,
     sort_order: 0,
+    is_archived: false,
     ...overrides,
   }
 }
@@ -118,7 +119,26 @@ describe("KitchenPage full-body round-trip", () => {
       serving: "со сметаной",
       interesting_facts: "Украинское блюдо",
       sort_order: 0,
+      is_archived: false,
     })
+  })
+})
+
+// A3 (archive): is_archived must thread through the same full-record PATCH,
+// in both directions (default false and an explicitly archived row).
+describe("KitchenPage is_archived threading", () => {
+  it("defaults a non-archived row's flag to false", () => {
+    const row = makeRow({ is_archived: false })
+    const form = fromAdminOut(row)
+    expect(form.is_archived).toBe(false)
+    expect(toWriteIn(form).is_archived).toBe(false)
+  })
+
+  it("threads an archived row's flag through unchanged", () => {
+    const row = makeRow({ is_archived: true })
+    const form = fromAdminOut(row)
+    expect(form.is_archived).toBe(true)
+    expect(toWriteIn(form).is_archived).toBe(true)
   })
 })
 

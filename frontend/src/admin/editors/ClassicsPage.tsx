@@ -9,14 +9,16 @@ import { ResponsiveDialog } from "@/components/adapters/responsive-dialog"
 import {
   EntityTable,
   EntityMeta,
+  RoleBadge,
   type EntityAction,
   type EntityColumn,
 } from "@/components/kollektiv/entity-table"
 
 import { adminApi } from "../api"
-import { NumberField, SelectField, TextArea, TextField } from "../components/kit/form"
+import { CheckboxField, NumberField, SelectField, TextArea, TextField } from "../components/kit/form"
 import { RelationTags } from "../components/kit/relation-tags"
 import { ChipMenu } from "../components/kit/chip-menu"
+import { ArchiveFilter, matchesArchiveView, type ArchiveView } from "../components/kit/archive-filter"
 
 // "Классика" tab — rebuilt onto the kit's §54 EntityTable, same rhythm as
 // FamiliesPage (the content-page template this copies structure from):
@@ -44,6 +46,7 @@ export interface ClassicWriteIn {
   spirits: string[]
   descriptors: string[]
   related_drinks: string[]
+  is_archived: boolean
 }
 
 export interface ClassicAdminOut extends ClassicWriteIn {
@@ -73,6 +76,7 @@ interface ClassicForm {
   spirits: string[]
   descriptors: string[]
   related_drinks: string[]
+  is_archived: boolean
 }
 
 const BLANK_FORM: ClassicForm = {
@@ -90,6 +94,7 @@ const BLANK_FORM: ClassicForm = {
   spirits: [],
   descriptors: [],
   related_drinks: [],
+  is_archived: false,
 }
 
 const SPIRIT_KEY_OPTIONS = [
@@ -123,6 +128,7 @@ export function fromAdminOut(row: ClassicAdminOut): ClassicForm {
     spirits: row.spirits,
     descriptors: row.descriptors,
     related_drinks: row.related_drinks,
+    is_archived: row.is_archived ?? false,
   }
 }
 
@@ -143,6 +149,7 @@ export function toWriteIn(form: ClassicForm): ClassicWriteIn {
     spirits: form.spirits,
     descriptors: form.descriptors,
     related_drinks: form.related_drinks,
+    is_archived: form.is_archived,
   }
 }
 
@@ -179,6 +186,7 @@ export function ClassicsPage() {
   const [saving, setSaving] = React.useState(false)
   const [search, setSearch] = React.useState("")
   const [familyFilter, setFamilyFilter] = React.useState("all")
+  const [archiveView, setArchiveView] = React.useState<ArchiveView>("active")
   const [confirm, setConfirm] = React.useState<ConfirmState | null>(null)
 
   const load = React.useCallback(async () => {
@@ -237,6 +245,18 @@ export function ClassicsPage() {
     })
   }
 
+  // Full-body PATCH with only the flag flipped — same "thread every loaded
+  // field through unchanged" rule as handleSave.
+  async function performArchiveToggle(row: ClassicAdminOut) {
+    try {
+      await adminApi.update("classics", row.slug, { ...toWriteIn(fromAdminOut(row)), is_archived: !row.is_archived })
+      toast.success(row.is_archived ? `Возвращена из архива · ${row.name || row.slug}` : `В архив · ${row.name || row.slug}`)
+      await load()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Не удалось изменить статус архива")
+    }
+  }
+
   async function handleSave() {
     if (!editing) return
     setSaving(true)
@@ -265,6 +285,7 @@ export function ClassicsPage() {
 
   const q = search.trim().toLowerCase()
   const filteredRows = rows.filter((c) => {
+    if (!matchesArchiveView(c.is_archived, archiveView)) return false
     if (familyFilter !== "all" && c.family !== familyFilter) return false
     if (!q) return true
     return (
@@ -298,10 +319,26 @@ export function ClassicsPage() {
       mobile: "hidden",
       render: (c) => <EntityMeta>{c.year ?? "—"}</EntityMeta>,
     },
+    {
+      key: "status",
+      label: "СТАТУС",
+      width: 88,
+      render: (c) => (c.is_archived ? <RoleBadge tone="muted">архив</RoleBadge> : null),
+    },
   ]
 
   const actions: EntityAction<ClassicAdminOut>[] = [
     { label: "Изменить", onSelect: (c) => openEdit(c) },
+    {
+      label: "В архив",
+      show: (c) => !c.is_archived,
+      onSelect: (c) => void performArchiveToggle(c),
+    },
+    {
+      label: "Вернуть",
+      show: (c) => c.is_archived,
+      onSelect: (c) => void performArchiveToggle(c),
+    },
     {
       label: "Удалить",
       fire: true,
@@ -313,6 +350,7 @@ export function ClassicsPage() {
   function resetFilters() {
     setSearch("")
     setFamilyFilter("all")
+    setArchiveView("active")
   }
 
   return (
@@ -335,12 +373,15 @@ export function ClassicsPage() {
           placeholder: `Поиск ${rows.length} классики…`,
         }}
         filters={
-          <ChipMenu
-            value={familyFilter}
-            options={familyFilterOptions}
-            onChange={setFamilyFilter}
-            label="Семейство"
-          />
+          <>
+            <ChipMenu
+              value={familyFilter}
+              options={familyFilterOptions}
+              onChange={setFamilyFilter}
+              label="Семейство"
+            />
+            <ArchiveFilter value={archiveView} onChange={setArchiveView} />
+          </>
         }
         cta={<Button onClick={openNew}>+ Классика</Button>}
         emptyState={
@@ -454,6 +495,13 @@ export function ClassicsPage() {
               label="Порядок сортировки"
               value={form.sort_order}
               onChange={(v) => set("sort_order", v ?? 0)}
+            />
+
+            <CheckboxField
+              label="В архиве"
+              checked={form.is_archived}
+              onChange={(v) => set("is_archived", v)}
+              hint="Архивная классика скрыта из справочника по умолчанию"
             />
 
             <TextArea label="Состав" value={form.composition} onChange={(v) => set("composition", v)} />

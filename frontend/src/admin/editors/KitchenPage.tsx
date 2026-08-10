@@ -10,14 +10,16 @@ import { ResponsiveDialog } from "@/components/adapters/responsive-dialog"
 import {
   EntityTable,
   EntityMeta,
+  RoleBadge,
   type EntityAction,
   type EntityColumn,
 } from "@/components/kollektiv/entity-table"
 
 import { adminApi } from "../api"
-import { TextField, TextArea, NumberField, SelectField } from "../components/kit/form"
+import { TextField, TextArea, NumberField, SelectField, CheckboxField } from "../components/kit/form"
 import { ImageField } from "../components/kit/image-field"
 import { ChipMenu } from "../components/kit/chip-menu"
+import { ArchiveFilter, matchesArchiveView, type ArchiveView } from "../components/kit/archive-filter"
 
 // "Кухня" tab — reskin of the retired KitchenEditor.tsx (+ its inline
 // KitchenCategoriesPanel) onto the kit's §54 EntityTable, same rhythm as
@@ -53,6 +55,7 @@ export interface KitchenDishWriteIn {
   serving: string | null
   interesting_facts: string | null
   sort_order: number
+  is_archived: boolean
 }
 
 export interface KitchenDishAdminOut extends KitchenDishWriteIn {
@@ -98,6 +101,7 @@ interface KitchenForm {
   serving: string
   interesting_facts: string
   sort_order: number
+  is_archived: boolean
 }
 
 const BLANK_FORM: KitchenForm = {
@@ -119,6 +123,7 @@ const BLANK_FORM: KitchenForm = {
   serving: "",
   interesting_facts: "",
   sort_order: 0,
+  is_archived: false,
 }
 
 // Exported for tests (pure mappers — the page itself can't be
@@ -145,6 +150,7 @@ export function fromAdminOut(row: KitchenDishAdminOut): KitchenForm {
     serving: row.serving ?? "",
     interesting_facts: row.interesting_facts ?? "",
     sort_order: row.sort_order,
+    is_archived: row.is_archived ?? false,
   }
 }
 
@@ -168,6 +174,7 @@ export function toWriteIn(form: KitchenForm): KitchenDishWriteIn {
     serving: form.serving.trim() || null,
     interesting_facts: form.interesting_facts.trim() || null,
     sort_order: form.sort_order,
+    is_archived: form.is_archived,
   }
 }
 
@@ -433,6 +440,7 @@ export function KitchenPage() {
   const [saving, setSaving] = React.useState(false)
   const [search, setSearch] = React.useState("")
   const [categoryFilter, setCategoryFilter] = React.useState("all")
+  const [archiveView, setArchiveView] = React.useState<ArchiveView>("active")
   const [confirm, setConfirm] = React.useState<ConfirmState | null>(null)
 
   const load = React.useCallback(async () => {
@@ -503,6 +511,21 @@ export function KitchenPage() {
     })
   }
 
+  // Full-body PATCH with only the flag flipped — same "thread every loaded
+  // field through unchanged" rule as handleSave.
+  async function performArchiveToggle(row: KitchenDishAdminOut) {
+    try {
+      await adminApi.update("kitchen-dishes", row.slug, {
+        ...toWriteIn(fromAdminOut(row)),
+        is_archived: !row.is_archived,
+      })
+      toast.success(row.is_archived ? `Возвращено из архива · ${row.name || row.slug}` : `В архив · ${row.name || row.slug}`)
+      await load()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Не удалось изменить статус архива")
+    }
+  }
+
   async function handleSave() {
     if (!editing) return
     setSaving(true)
@@ -538,6 +561,7 @@ export function KitchenPage() {
 
   const q = search.trim().toLowerCase()
   const filteredRows = rows.filter((d) => {
+    if (!matchesArchiveView(d.is_archived, archiveView)) return false
     if (categoryFilter !== "all" && d.category !== categoryFilter) return false
     if (!q) return true
     return (
@@ -562,10 +586,26 @@ export function KitchenPage() {
       width: 96,
       render: (d) => <EntityMeta>{d.price_raw ?? "—"}</EntityMeta>,
     },
+    {
+      key: "status",
+      label: "СТАТУС",
+      width: 88,
+      render: (d) => (d.is_archived ? <RoleBadge tone="muted">архив</RoleBadge> : null),
+    },
   ]
 
   const actions: EntityAction<KitchenDishAdminOut>[] = [
     { label: "Изменить", onSelect: (d) => openEdit(d) },
+    {
+      label: "В архив",
+      show: (d) => !d.is_archived,
+      onSelect: (d) => void performArchiveToggle(d),
+    },
+    {
+      label: "Вернуть",
+      show: (d) => d.is_archived,
+      onSelect: (d) => void performArchiveToggle(d),
+    },
     {
       label: "Удалить",
       fire: true,
@@ -577,6 +617,7 @@ export function KitchenPage() {
   function resetFilters() {
     setSearch("")
     setCategoryFilter("all")
+    setArchiveView("active")
   }
 
   // Parsed hints (price_amount/timing_min_low/high/weight_g) come straight
@@ -618,12 +659,15 @@ export function KitchenPage() {
           placeholder: `Поиск ${rows.length} блюд…`,
         }}
         filters={
-          <ChipMenu
-            value={categoryFilter}
-            options={categoryFilterOptions}
-            onChange={setCategoryFilter}
-            label="Категория"
-          />
+          <>
+            <ChipMenu
+              value={categoryFilter}
+              options={categoryFilterOptions}
+              onChange={setCategoryFilter}
+              label="Категория"
+            />
+            <ArchiveFilter value={archiveView} onChange={setArchiveView} />
+          </>
         }
         cta={<Button onClick={openNew}>+ Блюдо</Button>}
         emptyState={
@@ -636,7 +680,7 @@ export function KitchenPage() {
               <span className="font-mono text-[11px] tracking-[0.06em] text-muted-foreground">
                 НИЧЕГО НЕ НАШЛОСЬ
               </span>
-              {(search || categoryFilter !== "all") && (
+              {(search || categoryFilter !== "all" || archiveView !== "active") && (
                 <Button variant="secondary" size="sm" onClick={resetFilters}>
                   Сбросить фильтры
                 </Button>
@@ -780,6 +824,13 @@ export function KitchenPage() {
               label="Порядок сортировки"
               value={form.sort_order}
               onChange={(v) => set("sort_order", v ?? 0)}
+            />
+
+            <CheckboxField
+              label="В архиве"
+              checked={form.is_archived}
+              onChange={(v) => set("is_archived", v)}
+              hint="Архивные блюда скрыты из меню по умолчанию"
             />
           </div>
         )}
