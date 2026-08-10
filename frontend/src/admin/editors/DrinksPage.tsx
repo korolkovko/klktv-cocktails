@@ -76,6 +76,7 @@ export interface DrinkWriteIn {
   tags: string[]
   details: DrinkDetailIn[]
   is_archived: boolean
+  is_hot: boolean
 }
 
 export interface DrinkAdminOut extends DrinkWriteIn {
@@ -165,6 +166,7 @@ interface DrinkForm {
   tags: string[]
   details: DrinkDetailIn[]
   is_archived: boolean
+  is_hot: boolean
 }
 
 const BLANK_FORM: DrinkForm = {
@@ -196,6 +198,7 @@ const BLANK_FORM: DrinkForm = {
   tags: [],
   details: [],
   is_archived: false,
+  is_hot: false,
 }
 
 // Exported (alongside the tri-state helpers above) so DrinksPage.test.tsx
@@ -232,6 +235,7 @@ export function fromAdminOut(row: DrinkAdminOut): DrinkForm {
     tags: row.tags,
     details: row.details,
     is_archived: row.is_archived ?? false,
+    is_hot: row.is_hot ?? false,
   }
 }
 
@@ -265,6 +269,7 @@ export function toWriteIn(form: DrinkForm): DrinkWriteIn {
     tags: form.tags,
     details: form.details,
     is_archived: form.is_archived,
+    is_hot: form.is_hot,
   }
 }
 
@@ -814,6 +819,11 @@ export function DrinksPage() {
                 label="Zero Culture (безалк. версия)"
                 checked={form.is_zero_culture}
                 onChange={(v) => set("is_zero_culture", v)}
+              />
+              <CheckboxField
+                label="Горячий"
+                checked={form.is_hot}
+                onChange={(v) => set("is_hot", v)}
               />
               <NumberField
                 label="Уровень кофеина"

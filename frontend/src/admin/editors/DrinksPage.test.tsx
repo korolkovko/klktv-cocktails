@@ -48,6 +48,7 @@ function makeRow(overrides: Partial<DrinkAdminOut> = {}): DrinkAdminOut {
     tags: [],
     details: [],
     is_archived: false,
+    is_hot: false,
     ...overrides,
   }
 }
@@ -146,7 +147,27 @@ describe("DrinksPage full-body threading", () => {
       tags: row.tags,
       details: row.details,
       is_archived: row.is_archived,
+      is_hot: row.is_hot,
     })
+  })
+})
+
+// A8 (plan gap): is_hot must thread through the same full-record PATCH as
+// is_archived — the ADMIN form has to be able to SET it (the backend and the
+// guest chip already shipped in A6/A7).
+describe("DrinksPage is_hot threading", () => {
+  it("defaults a non-hot row's flag to false", () => {
+    const row = makeRow({ is_hot: false })
+    const form = fromAdminOut(row)
+    expect(form.is_hot).toBe(false)
+    expect(toWriteIn(form).is_hot).toBe(false)
+  })
+
+  it("threads an explicitly hot row's flag through unchanged", () => {
+    const row = makeRow({ is_hot: true })
+    const form = fromAdminOut(row)
+    expect(form.is_hot).toBe(true)
+    expect(toWriteIn(form).is_hot).toBe(true)
   })
 })
 
