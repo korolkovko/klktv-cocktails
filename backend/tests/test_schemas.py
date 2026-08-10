@@ -1,5 +1,6 @@
 from app.schemas import (
     DrinkOut,
+    DrinkCategoryOut,
     OurAnswer,
     ClassicOut,
     FamilyOut,
@@ -16,8 +17,9 @@ from app.schemas import (
 
 def test_drink_out_keys():
     """Test that DrinkOut has all expected keys with correct field names (camelCase)."""
-    d = DrinkOut(id="x", name="X").model_dump()
+    d = DrinkOut(id="x", categorySlug="osnovnye", name="X").model_dump()
     for k in (
+        "categorySlug",
         "logo",
         "subtitle",
         "price",
@@ -45,6 +47,7 @@ def test_bundle_shape():
     """Test that ContentBundleOut has exact structure and field names (camelCase)."""
     b = ContentBundleOut(
         sections=[],
+        drinkCategories=[],
         drinks=[],
         classics=[],
         families=[],
@@ -57,6 +60,7 @@ def test_bundle_shape():
     dumped = b.model_dump()
     expected_keys = {
         "sections",
+        "drinkCategories",
         "drinks",
         "classics",
         "families",
@@ -138,7 +142,8 @@ def test_content_bundle_with_data():
     """Test ContentBundleOut with some sample data."""
     b = ContentBundleOut(
         sections=[SectionOut(id="classics", label="Classics", total=5)],
-        drinks=[DrinkOut(id="d1", name="Drink 1")],
+        drinkCategories=[DrinkCategoryOut(slug="osnovnye", label="Основные")],
+        drinks=[DrinkOut(id="d1", categorySlug="osnovnye", name="Drink 1")],
         classics=[],
         families=[FamilyOut(tint="red", code="sour", title="Sour")],
         spiritCategories=[SpiritCategoryOut(slug="gin", label="Gin")],

@@ -19,6 +19,7 @@ from app.auth import require_editor
 from app.database import get_db
 from app import models as m
 from app.schemas_admin import (
+    DrinkCategoryAdminOut, DrinkCategoryWriteIn,
     DrinkAdminOut, DrinkWriteIn, ClassicAdminOut, ClassicWriteIn,
     SpiritCategoryAdminOut, SpiritCategoryWriteIn, SpiritEntryAdminOut, SpiritEntryWriteIn,
     KitchenCategoryAdminOut, KitchenCategoryWriteIn, KitchenDishAdminOut, KitchenDishWriteIn,
@@ -230,6 +231,94 @@ for _model, _path, _name, _fk in _LOOKUP_DICTIONARIES:
     _register_lookup_routes(_model, _path, _name, _fk)
 
 
+# ── Drink categories ──────────────────────────────────────
+
+def _get_drink_category_or_400(db: Session, slug: str) -> m.DrinkCategory:
+    # Drink categories are managed by their own editor screen — not
+    # get-or-created here, mirroring `_get_kitchen_category_or_400`.
+    slug = slug.strip()
+    if not slug:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Drink category slug must not be blank")
+    obj = db.scalar(select(m.DrinkCategory).where(m.DrinkCategory.slug == slug))
+    if not obj:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=f"unknown drink category: {slug}")
+    return obj
+
+
+def _to_drink_category_admin_out(obj: m.DrinkCategory) -> DrinkCategoryAdminOut:
+    return DrinkCategoryAdminOut(
+        id=obj.id, slug=obj.slug, label=obj.label, sort_order=obj.sort_order,
+    )
+
+
+def _apply_drink_category(db: Session, obj: m.DrinkCategory, data: DrinkCategoryWriteIn) -> None:
+    obj.label = data.label
+    obj.sort_order = data.sort_order
+
+
+def _get_drink_category_or_404(db: Session, slug: str) -> m.DrinkCategory:
+    obj = db.scalar(select(m.DrinkCategory).where(m.DrinkCategory.slug == slug))
+    if not obj:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Drink category not found")
+    return obj
+
+
+@router.get("/drink-categories", response_model=list[DrinkCategoryAdminOut])
+def list_drink_categories(db: Session = Depends(get_db)):
+    rows = db.scalars(
+        select(m.DrinkCategory).order_by(m.DrinkCategory.sort_order, m.DrinkCategory.label)
+    ).all()
+    return [_to_drink_category_admin_out(c) for c in rows]
+
+
+@router.get("/drink-categories/{slug}", response_model=DrinkCategoryAdminOut)
+def get_drink_category(slug: str, db: Session = Depends(get_db)):
+    obj = _get_drink_category_or_404(db, slug)
+    return _to_drink_category_admin_out(obj)
+
+
+@router.post("/drink-categories", status_code=status.HTTP_201_CREATED, response_model=DrinkCategoryAdminOut)
+def create_drink_category(data: DrinkCategoryWriteIn, db: Session = Depends(get_db)):
+    if db.scalar(select(m.DrinkCategory).where(m.DrinkCategory.slug == data.slug)):
+        raise HTTPException(status.HTTP_409_CONFLICT, detail="Drink category with this slug already exists")
+    obj = m.DrinkCategory(slug=data.slug)
+    db.add(obj)
+    _apply_drink_category(db, obj, data)
+    db.commit()
+    return _to_drink_category_admin_out(_get_drink_category_or_404(db, obj.slug))
+
+
+@router.patch("/drink-categories/{slug}", response_model=DrinkCategoryAdminOut)
+def update_drink_category(slug: str, data: DrinkCategoryWriteIn, db: Session = Depends(get_db)):
+    obj = db.scalar(select(m.DrinkCategory).where(m.DrinkCategory.slug == slug))
+    if not obj:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Drink category not found")
+    if data.slug != slug and db.scalar(select(m.DrinkCategory).where(m.DrinkCategory.slug == data.slug)):
+        raise HTTPException(status.HTTP_409_CONFLICT, detail="New slug already in use")
+    obj.slug = data.slug
+    _apply_drink_category(db, obj, data)
+    db.commit()
+    return _to_drink_category_admin_out(_get_drink_category_or_404(db, obj.slug))
+
+
+@router.delete("/drink-categories/{slug}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_drink_category(slug: str, db: Session = Depends(get_db)):
+    obj = db.scalar(select(m.DrinkCategory).where(m.DrinkCategory.slug == slug))
+    if not obj:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Drink category not found")
+    drink_count = db.scalar(
+        select(func.count()).select_from(m.Drink).where(m.Drink.category_id == obj.id)
+    )
+    if drink_count:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail=f"Drink category '{slug}' still has {drink_count} drink"
+                   f"{'' if drink_count == 1 else 's'} — move or delete them first",
+        )
+    db.delete(obj)
+    db.commit()
+
+
 # ── Drinks ────────────────────────────────────────────────
 
 _DRINK_OPTIONS = (
@@ -240,6 +329,7 @@ _DRINK_OPTIONS = (
     selectinload(m.Drink.glass),
     selectinload(m.Drink.badge),
     selectinload(m.Drink.ice),
+    selectinload(m.Drink.category),
 )
 
 
@@ -249,7 +339,7 @@ def _num(x):
 
 def _to_admin_out(obj: m.Drink) -> DrinkAdminOut:
     return DrinkAdminOut(
-        id=obj.id, slug=obj.slug, name=obj.name, img=obj.img, photo=obj.photo,
+        id=obj.id, slug=obj.slug, category=obj.category.slug, name=obj.name, img=obj.img, photo=obj.photo,
         subtitle=obj.subtitle,
         abv_raw=obj.abv_raw, abv=_num(obj.abv),
         price_raw=obj.price_raw, price_amount=_num(obj.price_amount),
@@ -272,8 +362,10 @@ def _to_admin_out(obj: m.Drink) -> DrinkAdminOut:
 
 
 def _apply_drink(db: Session, obj: m.Drink, data: DrinkWriteIn) -> None:
+    cat = _get_drink_category_or_400(db, data.category)
     abv, _ = parse_abv(data.abv_raw)
     price, _ = parse_price(data.price_raw)
+    obj.category_id = cat.id
     obj.name = data.name; obj.img = data.img; obj.photo = data.photo
     obj.subtitle = data.subtitle
     obj.abv = abv; obj.abv_raw = data.abv_raw

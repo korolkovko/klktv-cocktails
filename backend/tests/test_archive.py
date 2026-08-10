@@ -5,7 +5,7 @@ listed (and gettable) in the admin CRUD surface.
 
 
 def test_archived_drink_hidden_from_content_but_visible_in_admin(editor_client):
-    p = {"slug": "arch-x", "name": "Арх", "is_alcoholic": True, "is_zero_culture": False, "is_archived": True}
+    p = {"slug": "arch-x", "name": "Арх", "category": "osnovnye", "is_alcoholic": True, "is_zero_culture": False, "is_archived": True}
     try:
         assert editor_client.post("/api/admin/drinks", json=p).status_code == 201
         assert editor_client.get("/api/admin/drinks/arch-x").json()["is_archived"] is True

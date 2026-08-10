@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.database import get_db
 from app.auth import get_current_user
 from app import models as m
-from app.schemas import (DrinkOut, DrinkDetailOut, ClassicOut, FamilyOut, SpiritEntryOut, SpiritCategoryOut,
+from app.schemas import (DrinkOut, DrinkCategoryOut, DrinkDetailOut, ClassicOut, FamilyOut, SpiritEntryOut, SpiritCategoryOut,
     KitchenDishOut, KitchenCategoryOut, SectionOut, FiltersOut, ContentBundleOut, DishNutritionOut, OurAnswer)
 
 router = APIRouter(prefix="/api", tags=["content"], dependencies=[Depends(get_current_user)])
@@ -29,7 +29,7 @@ def _serialize_drink(d: m.Drink) -> DrinkOut:
             seen.add(fu)
             descriptors.append(fu)
     return DrinkOut(
-        id=d.slug, name=d.name, logo=d.img, subtitle=d.subtitle,
+        id=d.slug, categorySlug=d.category.slug, name=d.name, logo=d.img, subtitle=d.subtitle,
         price=_num(d.price_amount),
         volume=d.volume_ml, abv=None if d.abv is None else float(d.abv),
         spirit=spirits[0] if spirits else "", spirits=spirits,
@@ -91,8 +91,10 @@ def get_content(db: Session = Depends(get_db)):
         selectinload(m.Drink.spirits).selectinload(m.DrinkSpirit.spirit),
         selectinload(m.Drink.flavors).selectinload(m.DrinkFlavor.flavor),
         selectinload(m.Drink.glass), selectinload(m.Drink.badge), selectinload(m.Drink.ice),
-        selectinload(m.Drink.details),
+        selectinload(m.Drink.details), selectinload(m.Drink.category),
     ).where(m.Drink.is_archived == false()).order_by(m.Drink.sort_order, m.Drink.name)).all()
+
+    drink_cats = db.scalars(select(m.DrinkCategory).order_by(m.DrinkCategory.sort_order)).all()
 
     classics = db.scalars(select(m.Classic).options(
         selectinload(m.Classic.family), selectinload(m.Classic.glass),
@@ -137,6 +139,7 @@ def get_content(db: Session = Depends(get_db)):
 
     return ContentBundleOut(
         sections=sections,
+        drinkCategories=[DrinkCategoryOut(slug=dc.slug, label=dc.label) for dc in drink_cats],
         drinks=[_serialize_drink(d) for d in drinks],
         classics=[_serialize_classic(c) for c in classics],
         families=[FamilyOut(tint=f.key, code=f.key.upper(), title=f.label, logic=f.logic,

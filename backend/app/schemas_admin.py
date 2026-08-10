@@ -24,6 +24,18 @@ class LookupAdminOut(LookupWriteIn):
     key: str = Field(max_length=32)
 
 
+# ── Drink categories ─────────────────────────────────────────
+
+class DrinkCategoryWriteIn(BaseModel):
+    slug: str = Field(min_length=1, max_length=64)
+    label: str = Field(max_length=128)
+    sort_order: int = 0
+
+
+class DrinkCategoryAdminOut(DrinkCategoryWriteIn):
+    id: int
+
+
 # ── Drinks ───────────────────────────────────────────────────
 
 class DrinkDetailIn(BaseModel):
@@ -34,6 +46,7 @@ class DrinkDetailIn(BaseModel):
 
 class DrinkWriteIn(BaseModel):
     slug: str = Field(min_length=1, max_length=64)
+    category: str                   # drink-category slug (must exist; not get-or-created)
     name: str = Field(max_length=128)
     img: str | None = Field(default=None, max_length=256)
     photo: str | None = Field(default=None, max_length=256)

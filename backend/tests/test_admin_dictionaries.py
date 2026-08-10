@@ -19,7 +19,7 @@ def test_ice_dictionary_crud_and_drink_uses_it(editor_client):
     ice = next(i for i in editor_client.get("/api/admin/ice-types").json() if i["label"] == "Большой куб")
     assert ice["key"]  # server-derived, non-empty
     try:
-        p = {"slug": "ice-drink", "name": "Айс", "is_alcoholic": True, "is_zero_culture": False, "ice": ice["key"]}
+        p = {"slug": "ice-drink", "name": "Айс", "category": "osnovnye", "is_alcoholic": True, "is_zero_culture": False, "ice": ice["key"]}
         assert editor_client.post("/api/admin/drinks", json=p).status_code == 201
         assert editor_client.get("/api/admin/drinks/ice-drink").json()["ice"] == ice["key"]
         d = next(x for x in editor_client.get("/api/content").json()["drinks"] if x["id"] == "ice-drink")
@@ -35,7 +35,7 @@ def test_delete_ice_type_in_use_conflicts(editor_client):
     ).status_code == 201
     try:
         p = {
-            "slug": "ice-inuse-drink", "name": "Тест", "is_alcoholic": True,
+            "slug": "ice-inuse-drink", "name": "Тест", "category": "osnovnye", "is_alcoholic": True,
             "is_zero_culture": False, "ice": "test-ice-inuse",
         }
         assert editor_client.post("/api/admin/drinks", json=p).status_code == 201
@@ -57,7 +57,7 @@ def test_dictionaries_require_editor(reader_client):
 
 def test_drink_write_rejects_unknown_ice_key(editor_client):
     p = {
-        "slug": "bad-ice-drink", "name": "X", "is_alcoholic": True,
+        "slug": "bad-ice-drink", "name": "X", "category": "osnovnye", "is_alcoholic": True,
         "is_zero_culture": False, "ice": "no-such-ice-key",
     }
     try:
@@ -71,7 +71,7 @@ def test_drink_write_rejects_unknown_ice_key(editor_client):
 def test_drink_ice_is_optional(editor_client):
     # Omitting `ice` entirely must not break drink writes (most drinks won't
     # set it) — ice_id stays NULL and the admin/guest views both show None.
-    p = {"slug": "no-ice-drink", "name": "Без льда", "is_alcoholic": True, "is_zero_culture": False}
+    p = {"slug": "no-ice-drink", "name": "Без льда", "category": "osnovnye", "is_alcoholic": True, "is_zero_culture": False}
     try:
         r = editor_client.post("/api/admin/drinks", json=p)
         assert r.status_code == 201, r.text

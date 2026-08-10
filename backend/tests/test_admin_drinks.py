@@ -1,6 +1,7 @@
 def test_create_update_delete_drink(editor_client):
     payload = {
         "slug": "test-negroni", "name": "Тест Негрони", "subtitle": "проверка",
+        "category": "osnovnye",
         "is_alcoholic": True, "is_zero_culture": False,
         "abv_raw": "24%", "price_raw": "650", "volume_ml": 90,
         "glass": "rocks", "badge": None,
@@ -28,7 +29,7 @@ def test_create_update_delete_drink(editor_client):
 
 
 def test_create_drink_duplicate_slug_conflicts(editor_client):
-    p = {"slug": "dieter", "name": "dup", "is_alcoholic": True, "is_zero_culture": False}
+    p = {"slug": "dieter", "name": "dup", "category": "osnovnye", "is_alcoholic": True, "is_zero_culture": False}
     assert editor_client.post("/api/admin/drinks", json=p).status_code == 409
 
 
@@ -42,6 +43,7 @@ def test_blank_tag_key_rejected_and_not_persisted(editor_client):
 
     payload = {
         "slug": "test-blank-tag", "name": "Blank Tag Test",
+        "category": "osnovnye",
         "is_alcoholic": True, "is_zero_culture": False,
         "tags": ["   "],
     }
@@ -71,6 +73,7 @@ def test_slug_rename_reconciles_learning_progress(editor_client):
     new_slug = "test-rename-progress-v2"
     payload = {
         "slug": slug, "name": "Rename Progress Test",
+        "category": "osnovnye",
         "is_alcoholic": True, "is_zero_culture": False,
     }
     try:
@@ -93,7 +96,7 @@ def test_slug_rename_reconciles_learning_progress(editor_client):
 
 
 def test_is_hot_roundtrips_and_reaches_guest(editor_client):
-    p = {"slug":"hot-x","name":"Горячий","is_alcoholic":True,"is_zero_culture":False,"is_hot":True}
+    p = {"slug":"hot-x","name":"Горячий","category":"osnovnye","is_alcoholic":True,"is_zero_culture":False,"is_hot":True}
     try:
         assert editor_client.post("/api/admin/drinks", json=p).status_code == 201
         assert editor_client.get("/api/admin/drinks/hot-x").json()["is_hot"] is True

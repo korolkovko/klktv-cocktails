@@ -51,6 +51,7 @@ class DrinkDetailOut(BaseModel):
 
 class DrinkOut(BaseModel):
     id: str
+    categorySlug: str
     name: str
     logo: str | None = None
     subtitle: str | None = None
@@ -80,6 +81,13 @@ class DrinkOut(BaseModel):
     # details. Prod stored ALL author-drink prose here, not in the structured
     # columns above — so this is where the "О коктейле"/"Отсылки"/etc. text lives.
     details: list[DrinkDetailOut] = []
+
+    model_config = ConfigDict(from_attributes=False)
+
+
+class DrinkCategoryOut(BaseModel):
+    slug: str
+    label: str
 
     model_config = ConfigDict(from_attributes=False)
 
@@ -201,6 +209,7 @@ class FiltersOut(BaseModel):
 
 class ContentBundleOut(BaseModel):
     sections: list[SectionOut]
+    drinkCategories: list[DrinkCategoryOut]
     drinks: list[DrinkOut]
     classics: list[ClassicOut]
     families: list[FamilyOut]
