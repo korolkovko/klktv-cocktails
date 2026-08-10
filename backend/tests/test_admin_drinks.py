@@ -104,3 +104,15 @@ def test_is_hot_roundtrips_and_reaches_guest(editor_client):
         assert d["isHot"] is True and d.get("badge") in (None,)  # hot is its own flag, not a badge
     finally:
         editor_client.delete("/api/admin/drinks/hot-x")
+
+
+def test_drink_photos_roundtrip_and_primary(editor_client):
+    p = {"slug":"pic-x","name":"Пик","category":"osnovnye","is_alcoholic":True,"is_zero_culture":False,
+         "photos":["/static/img/a.webp","/static/img/b.webp"]}
+    try:
+        assert editor_client.post("/api/admin/drinks", json=p).status_code == 201
+        assert editor_client.get("/api/admin/drinks/pic-x").json()["photos"] == p["photos"]
+        d = next(x for x in editor_client.get("/api/content").json()["drinks"] if x["id"]=="pic-x")
+        assert d["photos"] == p["photos"] and d["photo"] == "/static/img/a.webp"
+    finally:
+        editor_client.delete("/api/admin/drinks/pic-x")

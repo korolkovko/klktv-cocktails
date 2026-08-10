@@ -326,6 +326,7 @@ _DRINK_OPTIONS = (
     selectinload(m.Drink.flavors).selectinload(m.DrinkFlavor.flavor),
     selectinload(m.Drink.tags).selectinload(m.DrinkTag.tag),
     selectinload(m.Drink.details),
+    selectinload(m.Drink.photos),
     selectinload(m.Drink.glass),
     selectinload(m.Drink.badge),
     selectinload(m.Drink.ice),
@@ -339,7 +340,8 @@ def _num(x):
 
 def _to_admin_out(obj: m.Drink) -> DrinkAdminOut:
     return DrinkAdminOut(
-        id=obj.id, slug=obj.slug, category=obj.category.slug, name=obj.name, img=obj.img, photo=obj.photo,
+        id=obj.id, slug=obj.slug, category=obj.category.slug, name=obj.name, img=obj.img,
+        photos=[p.url for p in obj.photos], photo=obj.photos[0].url if obj.photos else None,
         subtitle=obj.subtitle,
         abv_raw=obj.abv_raw, abv=_num(obj.abv),
         price_raw=obj.price_raw, price_amount=_num(obj.price_amount),
@@ -366,7 +368,7 @@ def _apply_drink(db: Session, obj: m.Drink, data: DrinkWriteIn) -> None:
     abv, _ = parse_abv(data.abv_raw)
     price, _ = parse_price(data.price_raw)
     obj.category_id = cat.id
-    obj.name = data.name; obj.img = data.img; obj.photo = data.photo
+    obj.name = data.name; obj.img = data.img
     obj.subtitle = data.subtitle
     obj.abv = abv; obj.abv_raw = data.abv_raw
     obj.price_amount = price; obj.price_raw = data.price_raw; obj.price_currency = data.price_currency
@@ -385,7 +387,7 @@ def _apply_drink(db: Session, obj: m.Drink, data: DrinkWriteIn) -> None:
     obj.ice_id = ice.id if ice else None
     db.flush()
     # rebuild relations (delete-then-insert), mirroring the ETL
-    for tbl in (m.DrinkSpirit, m.DrinkFlavor, m.DrinkTag, m.DrinkDetail):
+    for tbl in (m.DrinkSpirit, m.DrinkFlavor, m.DrinkTag, m.DrinkDetail, m.DrinkPhoto):
         db.query(tbl).filter(tbl.drink_id == obj.id).delete(synchronize_session=False)
     for i, key in enumerate(data.spirits):
         sp = _get_or_create_spirit(db, key)
@@ -398,6 +400,8 @@ def _apply_drink(db: Session, obj: m.Drink, data: DrinkWriteIn) -> None:
         db.add(m.DrinkTag(drink_id=obj.id, tag_id=tg.id, sort_order=i))
     for det in data.details:
         db.add(m.DrinkDetail(drink_id=obj.id, label=det.label, text=det.text, sort_order=det.sort_order))
+    for i, url in enumerate(data.photos):
+        db.add(m.DrinkPhoto(drink_id=obj.id, url=url, sort_order=i))
 
 
 def _get_drink_or_404(db: Session, slug: str) -> m.Drink:

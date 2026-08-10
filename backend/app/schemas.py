@@ -67,7 +67,8 @@ class DrinkOut(BaseModel):
     recipe: str | None = None
     garnish: str | None = None
     pitch: str | None = None
-    photo: str | None = None
+    photo: str | None = None        # primary = photos[0] if any, for card back-compat
+    photos: list[str] = []          # ordered photo urls
     about: str | None = None
     naming: str | None = None
     faq: str | None = None

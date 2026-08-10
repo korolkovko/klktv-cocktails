@@ -49,7 +49,7 @@ class DrinkWriteIn(BaseModel):
     category: str                   # drink-category slug (must exist; not get-or-created)
     name: str = Field(max_length=128)
     img: str | None = Field(default=None, max_length=256)
-    photo: str | None = Field(default=None, max_length=256)
+    photos: list[str] = []          # ordered photo urls (see DrinkPhoto); [0] is primary
     subtitle: str | None = None     # drinks.subtitle is Text — unbounded, no cap
     abv_raw: str | None = Field(default=None, max_length=32)
     price_raw: str | None = Field(default=None, max_length=64)
@@ -81,6 +81,7 @@ class DrinkAdminOut(DrinkWriteIn):
     id: int
     abv: float | None = None        # parsed
     price_amount: float | None = None
+    photo: str | None = None        # primary = photos[0] if any; kept for list/card thumbnail
 
 
 # ── Classics ─────────────────────────────────────────────────
