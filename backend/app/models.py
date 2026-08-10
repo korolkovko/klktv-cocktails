@@ -151,6 +151,7 @@ class Drink(Base):
     flavors: Mapped[list["DrinkFlavor"]] = relationship(back_populates="drink", cascade="all, delete-orphan", order_by="DrinkFlavor.sort_order")
     spirits: Mapped[list["DrinkSpirit"]] = relationship(back_populates="drink", cascade="all, delete-orphan", order_by="DrinkSpirit.sort_order")
     details: Mapped[list["DrinkDetail"]] = relationship(back_populates="drink", cascade="all, delete-orphan", order_by="DrinkDetail.sort_order")
+    photos: Mapped[list["DrinkPhoto"]] = relationship(back_populates="drink", cascade="all, delete-orphan", order_by="DrinkPhoto.sort_order")
 
 
 class DrinkTag(Base):
@@ -188,6 +189,15 @@ class DrinkDetail(Base):
     text: Mapped[str] = mapped_column(Text, nullable=False)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     drink: Mapped["Drink"] = relationship(back_populates="details")
+
+
+class DrinkPhoto(Base):
+    __tablename__ = "drink_photos"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    drink_id: Mapped[int] = mapped_column(ForeignKey("drinks.id", ondelete="CASCADE"), index=True)
+    url: Mapped[str] = mapped_column(String(256), nullable=False)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    drink: Mapped["Drink"] = relationship(back_populates="photos")
 
 
 # ── Classics ──
