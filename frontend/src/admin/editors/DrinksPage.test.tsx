@@ -19,6 +19,7 @@ function makeRow(overrides: Partial<DrinkAdminOut> = {}): DrinkAdminOut {
   return {
     id: 1,
     slug: "old-fashioned",
+    category: "osnovnye",
     name: "Олд Фешн",
     img: null,
     photo: null,
@@ -99,6 +100,7 @@ describe("DrinksPage price_currency round-trip", () => {
 describe("DrinksPage full-body threading", () => {
   it("threads every field (including details[] and relations) unchanged on load->save", () => {
     const row = makeRow({
+      category: "osnovnye",
       subtitle: "Классика",
       volume_ml: 300,
       glass: "rocks",
@@ -117,9 +119,12 @@ describe("DrinksPage full-body threading", () => {
       details: [{ label: "История", text: "текст", sort_order: 0 }],
     })
     const form = fromAdminOut(row)
+    expect(form.category).toBe("osnovnye")
     const body = toWriteIn(form)
+    expect(body.category).toBe("osnovnye")
     expect(body).toEqual({
       slug: row.slug,
+      category: row.category,
       name: row.name,
       img: row.img,
       photo: row.photo,

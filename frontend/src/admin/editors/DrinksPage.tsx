@@ -49,6 +49,7 @@ export interface DrinkDetailIn {
 
 export interface DrinkWriteIn {
   slug: string
+  category: string // drink-category slug (must exist; not get-or-created)
   name: string
   img: string | null
   photo: string | null
@@ -83,6 +84,23 @@ export interface DrinkAdminOut extends DrinkWriteIn {
   id: number
   abv: number | null
   price_amount: number | null
+}
+
+// Drink categories (task B) — a strict dictionary like glasses/badges/ice
+// -types (must exist, never get-or-created — see DrinkWriteIn.category
+// above), but modeled as its own CRUD resource (own slug identity, delete
+// 409s while a drink still references it) rather than a Lookup{Write,Admin}
+// -Out row, mirroring backend/app/schemas_admin.py's
+// DrinkCategoryWriteIn/DrinkCategoryAdminOut one-for-one — same shape as
+// KitchenPage's KitchenCategoryWriteIn/KitchenCategoryAdminOut.
+export interface DrinkCategoryWriteIn {
+  slug: string
+  label: string
+  sort_order: number
+}
+
+export interface DrinkCategoryAdminOut extends DrinkCategoryWriteIn {
+  id: number
 }
 
 // Стакан/Бейдж/Лёд are managed dictionaries (task A4's backend CRUD at
@@ -136,6 +154,7 @@ const SPIRIT_KEY_OPTIONS = [
 // TextArea don't accept null); everything else maps 1:1 onto DrinkWriteIn.
 interface DrinkForm {
   slug: string
+  category: string
   name: string
   img: string | null
   photo: string | null
@@ -171,6 +190,7 @@ interface DrinkForm {
 
 const BLANK_FORM: DrinkForm = {
   slug: "",
+  category: "",
   name: "",
   img: null,
   photo: null,
@@ -207,6 +227,7 @@ const BLANK_FORM: DrinkForm = {
 export function fromAdminOut(row: DrinkAdminOut): DrinkForm {
   return {
     slug: row.slug,
+    category: row.category,
     name: row.name,
     img: row.img,
     photo: row.photo,
@@ -242,6 +263,7 @@ export function fromAdminOut(row: DrinkAdminOut): DrinkForm {
 export function toWriteIn(form: DrinkForm): DrinkWriteIn {
   return {
     slug: form.slug.trim(),
+    category: form.category,
     name: form.name.trim(),
     img: form.img,
     photo: form.photo,
@@ -364,8 +386,17 @@ export function DrinksPage() {
   const [saving, setSaving] = React.useState(false)
   const [search, setSearch] = React.useState("")
   const [alcFilter, setAlcFilter] = React.useState<AlcFilter>("all")
+  const [categoryFilter, setCategoryFilter] = React.useState("all")
   const [archiveView, setArchiveView] = React.useState<ArchiveView>("active")
   const [confirm, setConfirm] = React.useState<ConfirmState | null>(null)
+
+  // Drink categories — a required, strict-select field on every drink (must
+  // exist; see DrinkWriteIn.category), loaded/reloaded by this page and fed
+  // into the form's SelectField, the toolbar's filter chip, and the inline
+  // DrinkCategoriesPanel manager below — same split as KitchenPage's
+  // categories/loadCategories/KitchenCategoriesPanel.
+  const [categories, setCategories] = React.useState<DrinkCategoryAdminOut[]>([])
+  const [categoriesLoading, setCategoriesLoading] = React.useState(true)
 
   // Стакан/Бейдж/Лёд dictionaries — loaded alongside the drinks list, fed
   // into the three DictionaryField selects below and into the collapsible
@@ -388,6 +419,25 @@ export function DrinksPage() {
     }
   }, [])
 
+  const loadCategories = React.useCallback(async () => {
+    setCategoriesLoading(true)
+    try {
+      setCategories(await adminApi.list<DrinkCategoryAdminOut>("drink-categories"))
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Не удалось загрузить категории")
+    } finally {
+      setCategoriesLoading(false)
+    }
+  }, [])
+
+  // Categories changing (create/rename/delete) can affect how drinks
+  // display/validate — reload both lists (mirrors KitchenPage's
+  // handleCategoriesChanged).
+  function handleCategoriesChanged() {
+    void loadCategories()
+    void load()
+  }
+
   const loadDictionaries = React.useCallback(async () => {
     setDictionariesLoading(true)
     try {
@@ -408,8 +458,9 @@ export function DrinksPage() {
 
   React.useEffect(() => {
     void load()
+    void loadCategories()
     void loadDictionaries()
-  }, [load, loadDictionaries])
+  }, [load, loadCategories, loadDictionaries])
 
   // onQuickAdd for the three DictionaryFields below: POST a new dictionary
   // row (server derives its `key` from the label), reload the dictionaries
@@ -459,7 +510,7 @@ export function DrinksPage() {
   )
 
   function openNew() {
-    setForm(BLANK_FORM)
+    setForm({ ...BLANK_FORM, category: categories[0]?.slug ?? "" })
     setEditing({ mode: "new" })
   }
 
@@ -526,17 +577,28 @@ export function DrinksPage() {
   }
 
   const saveDisabled =
-    editing?.mode === "new" ? !form.slug.trim() || !form.name.trim() : !form.name.trim()
+    editing?.mode === "new"
+      ? !form.slug.trim() || !form.name.trim() || !form.category
+      : !form.name.trim() || !form.category
+
+  const categoryOptions = categories.map((c) => ({ value: c.slug, label: c.label }))
+  const categoryFilterOptions = [{ value: "all", label: "Все категории" }, ...categoryOptions]
+
+  function categoryLabel(slug: string): string {
+    return categories.find((c) => c.slug === slug)?.label ?? slug
+  }
 
   const q = search.trim().toLowerCase()
   const filteredRows = rows.filter((d) => {
     if (!matchesArchiveView(d.is_archived, archiveView)) return false
+    if (categoryFilter !== "all" && d.category !== categoryFilter) return false
     if (
       q &&
       !(
         d.name.toLowerCase().includes(q) ||
         d.slug.toLowerCase().includes(q) ||
-        (d.subtitle ?? "").toLowerCase().includes(q)
+        (d.subtitle ?? "").toLowerCase().includes(q) ||
+        categoryLabel(d.category).toLowerCase().includes(q)
       )
     )
       return false
@@ -593,6 +655,7 @@ export function DrinksPage() {
   function resetFilters() {
     setSearch("")
     setAlcFilter("all")
+    setCategoryFilter("all")
     setArchiveView("active")
   }
 
@@ -601,6 +664,12 @@ export function DrinksPage() {
 
   return (
     <div>
+      <DrinkCategoriesPanel
+        categories={categories}
+        loading={categoriesLoading}
+        onChanged={handleCategoriesChanged}
+      />
+
       <DictionariesPanel
         glasses={glasses}
         badges={badges}
@@ -643,6 +712,12 @@ export function DrinksPage() {
               onChange={(v) => setAlcFilter(v as AlcFilter)}
               label="Алк"
             />
+            <ChipMenu
+              value={categoryFilter}
+              options={categoryFilterOptions}
+              onChange={setCategoryFilter}
+              label="Категория"
+            />
             <ArchiveFilter value={archiveView} onChange={setArchiveView} />
           </>
         }
@@ -657,7 +732,7 @@ export function DrinksPage() {
               <span className="font-mono text-[11px] tracking-[0.06em] text-muted-foreground">
                 НИЧЕГО НЕ НАШЛОСЬ
               </span>
-              {(search || alcFilter !== "all" || archiveView !== "active") && (
+              {(search || alcFilter !== "all" || categoryFilter !== "all" || archiveView !== "active") && (
                 <Button variant="secondary" size="sm" onClick={resetFilters}>
                   Сбросить фильтры
                 </Button>
@@ -728,6 +803,15 @@ export function DrinksPage() {
                 maxLength={128}
               />
             </div>
+
+            <SelectField
+              label="Категория"
+              value={form.category}
+              onChange={(v) => set("category", v)}
+              options={categoryOptions}
+              placeholder="Выберите категорию"
+              hint="Должна существовать — см. категории выше"
+            />
 
             <TextField label="Подзаголовок" value={form.subtitle} onChange={(v) => set("subtitle", v)} />
 
@@ -872,6 +956,237 @@ export function DrinksPage() {
             />
 
             <DetailsEditor value={form.details} onChange={(v) => set("details", v)} />
+          </div>
+        )}
+      </ResponsiveDialog>
+
+      <ConfirmDialog
+        open={confirm !== null}
+        onOpenChange={(o) => !o && setConfirm(null)}
+        title={confirm?.title ?? ""}
+        description={confirm?.description}
+        confirmLabel="Удалить"
+        destructive
+        onConfirm={() => confirm?.onConfirm()}
+      />
+    </div>
+  )
+}
+
+// ── Inline drink-category management ──────────────────────────
+// Small CRUD panel mounted above the drinks EntityTable (categories get no
+// separate top-level tab) — copied from KitchenPage's KitchenCategoriesPanel:
+// drinks reference a drink-category by slug (must already exist — NOT
+// get-or-created, unlike the free-text relation fields elsewhere), so the
+// category CRUD panel lives inline, same tab. Categories are owned (loaded/
+// reloaded) by the parent DrinksPage — the drink form's category SelectField,
+// the toolbar's filter chip, and the search matcher all need the same list,
+// so there is exactly one source of truth instead of several independent
+// fetches drifting apart. `onChanged` is called after every create/update/
+// delete so the parent reloads both the categories AND the drinks (a
+// renamed/removed category can change how drinks display/validate).
+interface DrinkCategoryForm {
+  slug: string
+  label: string
+  sort_order: number
+}
+
+const BLANK_DRINK_CATEGORY_FORM: DrinkCategoryForm = { slug: "", label: "", sort_order: 0 }
+
+function drinkCategoryFromAdminOut(row: DrinkCategoryAdminOut): DrinkCategoryForm {
+  return { slug: row.slug, label: row.label, sort_order: row.sort_order }
+}
+
+// Full-record PATCH (mirrors DrinkCategoryWriteIn) — slug/label/sort_order
+// all sent every time, same lesson as the drink mapper above.
+function drinkCategoryToWriteIn(form: DrinkCategoryForm): DrinkCategoryWriteIn {
+  return { slug: form.slug.trim(), label: form.label.trim(), sort_order: form.sort_order }
+}
+
+type DrinkCategoryEditing = { mode: "new" } | { mode: "edit"; row: DrinkCategoryAdminOut } | null
+
+function DrinkCategoriesPanel({
+  categories,
+  loading,
+  onChanged,
+}: {
+  categories: DrinkCategoryAdminOut[]
+  loading: boolean
+  onChanged: () => void
+}) {
+  const [editing, setEditing] = React.useState<DrinkCategoryEditing>(null)
+  const [form, setForm] = React.useState<DrinkCategoryForm>(BLANK_DRINK_CATEGORY_FORM)
+  const [saving, setSaving] = React.useState(false)
+  const [confirm, setConfirm] = React.useState<ConfirmState | null>(null)
+
+  function openNew() {
+    setForm(BLANK_DRINK_CATEGORY_FORM)
+    setEditing({ mode: "new" })
+  }
+
+  function openEdit(row: DrinkCategoryAdminOut) {
+    setForm(drinkCategoryFromAdminOut(row))
+    setEditing({ mode: "edit", row })
+  }
+
+  function set<K extends keyof DrinkCategoryForm>(key: K, value: DrinkCategoryForm[K]) {
+    setForm((f) => ({ ...f, [key]: value }))
+  }
+
+  async function performDelete(row: DrinkCategoryAdminOut) {
+    try {
+      await adminApi.remove("drink-categories", row.slug)
+      toast.success(`Категория удалена · ${row.label}`)
+      if (editing?.mode === "edit" && editing.row.slug === row.slug) setEditing(null)
+      onChanged()
+    } catch (e) {
+      // 409 (non-empty category — has drinks) surfaces here via lib/api.ts's
+      // Error(detail).
+      toast.error(e instanceof Error ? e.message : "Не удалось удалить категорию")
+    }
+  }
+
+  function deleteFromForm(row: DrinkCategoryAdminOut) {
+    setEditing(null)
+    setConfirm({
+      title: `Удалить категорию · ${row.label}?`,
+      description: "Категорию с коктейлями удалить нельзя — сначала перенесите их в другую.",
+      onConfirm: () => void performDelete(row),
+    })
+  }
+
+  async function handleSave() {
+    if (!editing) return
+    setSaving(true)
+    try {
+      const body = drinkCategoryToWriteIn(form)
+      if (editing.mode === "new") {
+        await adminApi.create("drink-categories", body)
+        toast.success(`Категория создана · ${body.label}`)
+      } else {
+        await adminApi.update("drink-categories", editing.row.slug, body)
+        toast.success(`Сохранено · ${body.label}`)
+      }
+      setEditing(null)
+      onChanged()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Не удалось сохранить категорию")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const saveDisabled =
+    editing?.mode === "new" ? !form.slug.trim() || !form.label.trim() : !form.label.trim()
+
+  const columns: EntityColumn<DrinkCategoryAdminOut>[] = [
+    {
+      key: "sort",
+      label: "ПОРЯДОК",
+      width: 96,
+      align: "right",
+      mobile: "hidden",
+      render: (c) => <EntityMeta>{c.sort_order}</EntityMeta>,
+    },
+  ]
+
+  const actions: EntityAction<DrinkCategoryAdminOut>[] = [
+    { label: "Изменить", onSelect: (c) => openEdit(c) },
+    {
+      label: "Удалить",
+      fire: true,
+      fireSublabel: "HOLD 3 SEC · NO UNDO",
+      onSelect: (c) => void performDelete(c),
+    },
+  ]
+
+  return (
+    <div className="mb-5">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span className="font-mono text-[11px] tracking-[0.06em] text-muted-foreground">
+          КАТЕГОРИИ КОКТЕЙЛЕЙ
+        </span>
+        <Button variant="secondary" size="sm" onClick={openNew}>
+          + Категория
+        </Button>
+      </div>
+
+      <EntityTable
+        rows={categories}
+        rowKey={(c) => c.slug}
+        identity={(c) => ({ name: c.label, sub: `#${c.slug}`, initials: initialsOf(c.label) })}
+        identityLabel="КАТЕГОРИЯ"
+        columns={columns}
+        actions={actions}
+        onRowClick={(c) => openEdit(c)}
+        toolbar={false}
+        emptyState={
+          <div className="px-4 py-6 text-center font-mono text-[11px] tracking-[0.06em] text-muted-foreground">
+            {loading ? "Загрузка…" : "Нет категорий — добавьте первую"}
+          </div>
+        }
+      />
+
+      <ResponsiveDialog
+        open={editing !== null}
+        onOpenChange={(o) => !o && setEditing(null)}
+        title={
+          editing
+            ? editing.mode === "new"
+              ? "Новая категория"
+              : `Изменить · ${editing.row.label}`
+            : ""
+        }
+        contentClassName="sm:max-w-[480px]"
+        footer={
+          <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:items-center">
+            {editing?.mode === "edit" && (
+              <Button
+                variant="destructive"
+                onClick={() => deleteFromForm(editing.row)}
+                className="sm:mr-auto max-md:w-full"
+              >
+                Удалить
+              </Button>
+            )}
+            <Button variant="quiet" onClick={() => setEditing(null)} className="max-md:w-full">
+              Отмена
+            </Button>
+            <Button
+              onClick={() => void handleSave()}
+              disabled={saveDisabled || saving}
+              className="max-md:w-full"
+            >
+              Сохранить
+            </Button>
+          </div>
+        }
+      >
+        {editing && (
+          <div className="flex flex-col gap-4 py-1">
+            <div className="grid grid-cols-2 gap-3">
+              <TextField
+                label="Слаг"
+                value={form.slug}
+                onChange={(v) => set("slug", v)}
+                disabled={editing.mode === "edit"}
+                required
+                maxLength={64}
+                hint={editing.mode === "edit" ? "идентификатор записи — не меняется" : undefined}
+              />
+              <TextField
+                label="Название"
+                value={form.label}
+                onChange={(v) => set("label", v)}
+                required
+                maxLength={128}
+              />
+            </div>
+            <NumberField
+              label="Порядок сортировки"
+              value={form.sort_order}
+              onChange={(v) => set("sort_order", v ?? 0)}
+            />
           </div>
         )}
       </ResponsiveDialog>

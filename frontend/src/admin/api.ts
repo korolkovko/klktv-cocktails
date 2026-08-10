@@ -1,11 +1,11 @@
 // Admin CRUD client — thin, typed wrappers over the shared `api` client
 // (frontend/src/lib/api.ts), mapping (entity, key?) pairs onto the backend's
 // admin routes `/api/admin/<entity>[/<key>]`. Every admin entity is a
-// natural-key REST resource — `slug` for drinks/classics/spirit-categories/
-// spirits/kitchen-categories/kitchen-dishes, `key` for families, categories/
-// sections, and the glasses/badges/ice-types dictionaries, and either
-// numeric id or username for users — see backend/app/routers/admin.py +
-// admin_users.py. Since every entity name
+// natural-key REST resource — `slug` for drinks/drink-categories/classics/
+// spirit-categories/spirits/kitchen-categories/kitchen-dishes, `key` for
+// families, categories/sections, and the glasses/badges/ice-types
+// dictionaries, and either numeric id or username for users — see
+// backend/app/routers/admin.py + admin_users.py. Since every entity name
 // here already matches its backend path segment 1:1, `pathFor` is a single
 // template, no per-entity mapping table needed.
 //
@@ -17,6 +17,7 @@ import { api, BASE, notifyUnauthorized, getToken } from "@/lib/api"
 
 export type AdminEntity =
   | "drinks"
+  | "drink-categories"
   | "classics"
   | "spirit-categories"
   | "spirits"
