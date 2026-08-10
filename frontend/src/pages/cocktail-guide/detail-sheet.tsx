@@ -80,17 +80,26 @@ function FlavorChips({ spirits, descriptors }: { spirits: string[]; descriptors:
   )
 }
 
-const GlassGarnish = ({ glass, garnish }: { glass?: string; garnish?: string }) =>
-  garnish ? (
+const GlassGarnish = ({ glass, garnish, ice }: { glass?: string; garnish?: string; ice?: string }) =>
+  garnish || ice ? (
     <div className="grid grid-cols-2 gap-3">
       <div className="flex flex-col gap-1">
         <Label>БОКАЛ</Label>
         <span className="text-[13px]">{glass}</span>
       </div>
-      <div className="flex flex-col gap-1">
-        <Label>ГАРНИШ</Label>
-        <span className="text-[13px]">{garnish}</span>
-      </div>
+      {garnish && (
+        <div className="flex flex-col gap-1">
+          <Label>ГАРНИШ</Label>
+          <span className="text-[13px]">{garnish}</span>
+        </div>
+      )}
+      {/* Task A7: тип льда — только когда задан (словарь ice-types) */}
+      {ice && (
+        <div className="flex flex-col gap-1">
+          <Label>ЛЁД</Label>
+          <span className="text-[13px]">{ice}</span>
+        </div>
+      )}
     </div>
   ) : null
 
@@ -356,7 +365,9 @@ export function CocktailDetail({ cocktail, open, onOpenChange, learned, onLearne
   if (!cocktail) return null
   const c = cocktail
   const spirits = c.spirits ?? [c.spirit]
-  const hotBadge = c.badge === "HOT"
+  // Task A7: бэкенд смигрировал старый badge==="HOT" в isHot — badge теперь
+  // null для этих напитков, красный HOT-чип гейтится isHot.
+  const hotBadge = c.isHot
 
   // mobile sticky-шапка: лого + имя + ✕
   const mobileHeader = (
@@ -383,7 +394,7 @@ export function CocktailDetail({ cocktail, open, onOpenChange, learned, onLearne
       <NonAlcIndicators caffeineLevel={c.caffeineLevel} isCarbonated={c.isCarbonated} />
       <div className="border-t border-divider" />
       <Section title="СОСТАВ">{c.recipe}</Section>
-      <GlassGarnish glass={c.glass} garnish={c.garnish} />
+      <GlassGarnish glass={c.glass} garnish={c.garnish} ice={c.ice} />
       <Section title="КАК ПРОДАВАТЬ">{c.pitch}</Section>
       <Section title="О КОКТЕЙЛЕ">{c.about}</Section>
       <Section title="ПРО НАЗВАНИЕ">{c.naming}</Section>
@@ -416,7 +427,7 @@ export function CocktailDetail({ cocktail, open, onOpenChange, learned, onLearne
         <Label>ВКУС</Label>
         <FlavorChips spirits={spirits} descriptors={c.descriptors} />
       </div>
-      <GlassGarnish glass={c.glass} garnish={c.garnish} />
+      <GlassGarnish glass={c.glass} garnish={c.garnish} ice={c.ice} />
       <NonAlcIndicators caffeineLevel={c.caffeineLevel} isCarbonated={c.isCarbonated} />
       {c.photo && <Photo src={c.photo} alt={c.name} />}
       <div className="mt-auto">

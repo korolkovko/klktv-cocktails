@@ -80,9 +80,12 @@ function mapCocktail(d: ContentBundle["drinks"][number]): Cocktail {
     spirit: d.spirit,
     spirits: d.spirits,
     glass: d.glass,
+    ice: d.ice ?? undefined,
     descriptors: d.descriptors,
     // Backend already emits "HOT"/"BOTTLED"/"PREMIUM"/"ONESIP" — direct
-    // cast, no transform (blueprint §B).
+    // cast, no transform (blueprint §B). Note: backend now nulls `badge`
+    // for former-HOT drinks (migrated into `isHot` below) — the HOT chip
+    // is driven off `isHot`, not this field.
     badge: (d.badge ?? undefined) as MenuBadge | undefined,
     learned: false,
     recipe: d.recipe ?? undefined,
@@ -94,6 +97,7 @@ function mapCocktail(d: ContentBundle["drinks"][number]): Cocktail {
     faq: d.faq ?? undefined,
     isAlcoholic: d.isAlcoholic,
     isZeroCulture: d.isZeroCulture,
+    isHot: d.isHot,
     caffeineLevel: d.caffeineLevel,
     isCarbonated: d.isCarbonated,
     details: d.details,

@@ -19,6 +19,7 @@ export interface DrinkOut {
   spirit: string
   spirits: string[]
   glass: string
+  ice: string | null
   descriptors: string[]
   badge: string | null
   recipe: string | null
@@ -30,6 +31,7 @@ export interface DrinkOut {
   faq: string | null
   isAlcoholic: boolean
   isZeroCulture: boolean
+  isHot: boolean
   caffeineLevel: number | null
   isCarbonated: boolean | null
   details: { label: string; text: string }[]

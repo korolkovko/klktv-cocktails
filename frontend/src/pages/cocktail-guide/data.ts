@@ -48,6 +48,8 @@ export interface Cocktail {
   /** крепкие компоненты для strong-чипов детали; дефолт [spirit] */
   spirits?: string[]
   glass: string
+  /** тип льда (лейбл словаря, напр. «Большой куб»); нет данных — деталь без строки «Лёд» */
+  ice?: string
   descriptors: string[]
   badge?: MenuBadge
   learned: boolean
@@ -56,6 +58,9 @@ export interface Cocktail {
    *  зарезервированы под §E.5 follow-up (кофеин-метр/газация в детали) */
   isAlcoholic: boolean
   isZeroCulture: boolean
+  /** Task A7: бэкенд смигрировал старый badge==="HOT" в это поле — красный
+   *  HOT-чип у карточки/детали теперь гейтится isHot, не строкой badge */
+  isHot: boolean
   caffeineLevel: number | null
   isCarbonated: boolean | null
   /** деталь (3p) — все секции опциональны, рендерятся если заполнены */

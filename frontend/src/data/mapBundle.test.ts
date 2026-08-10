@@ -25,6 +25,7 @@ const bundle: ContentBundle = {
       spirit: "Джин",
       spirits: ["Джин"],
       glass: "Хайбол",
+      ice: "Лёд кубиками",
       descriptors: ["ДЖИН", "ЦИТРУС"],
       badge: "HOT",
       recipe: "Джин, кордиал юдзу-имбирь.",
@@ -36,6 +37,7 @@ const bundle: ContentBundle = {
       faq: null,
       isAlcoholic: true,
       isZeroCulture: false,
+      isHot: true,
       caffeineLevel: null,
       isCarbonated: true,
       details: [],
@@ -51,6 +53,7 @@ const bundle: ContentBundle = {
       spirit: "",
       spirits: [],
       glass: "Хайбол",
+      ice: null,
       descriptors: ["БЕЗАЛКО", "ИМБИРЬ"],
       badge: null,
       recipe: null,
@@ -62,6 +65,7 @@ const bundle: ContentBundle = {
       faq: null,
       isAlcoholic: false,
       isZeroCulture: true,
+      isHot: false,
       caffeineLevel: 0,
       isCarbonated: true,
       details: [],
@@ -232,6 +236,15 @@ describe("mapBundle", () => {
     // virgin-mule has abv:null in the fixture
     const nonAlc = kit.MENU.find((c) => c.id === "virgin-mule")
     expect(nonAlc?.abv).toBeUndefined()
+  })
+
+  it("maps isHot and ice through onto the guide drink type", () => {
+    const hot = kit.MENU.find((c) => c.id === "pussy-power")
+    const nonHot = kit.MENU.find((c) => c.id === "virgin-mule")
+    expect(hot?.isHot).toBe(true)
+    expect(hot?.ice).toBe("Лёд кубиками")
+    expect(nonHot?.isHot).toBe(false)
+    expect(nonHot?.ice).toBeUndefined()
   })
 
   it("maps dish nutrition to undefined when all macros are null, and to an object otherwise", () => {

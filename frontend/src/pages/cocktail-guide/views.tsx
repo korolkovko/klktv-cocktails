@@ -195,11 +195,15 @@ export function MenuView({
             image={c.logo}
             name={c.name}
             badge={
-              c.badge
-                ? { label: c.badge, tone: c.badge === "HOT" ? "hot" : c.badge === "ONESIP" ? "butter" : "ink" }
-                : !c.isAlcoholic
-                  ? { label: "0%", tone: "ink" }
-                  : undefined
+              // Красный HOT-чип теперь гейтится isHot (бэкенд смигрировал старый
+              // badge==="HOT" в это поле) — badge остаётся для прочих бейджей.
+              c.isHot
+                ? { label: "HOT", tone: "hot" }
+                : c.badge
+                  ? { label: c.badge, tone: c.badge === "ONESIP" ? "butter" : "ink" }
+                  : !c.isAlcoholic
+                    ? { label: "0%", tone: "ink" }
+                    : undefined
             }
             subtitle={c.subtitle}
             meta={[
