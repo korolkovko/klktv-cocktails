@@ -2,9 +2,10 @@
 // (frontend/src/lib/api.ts), mapping (entity, key?) pairs onto the backend's
 // admin routes `/api/admin/<entity>[/<key>]`. Every admin entity is a
 // natural-key REST resource — `slug` for drinks/classics/spirit-categories/
-// spirits/kitchen-categories/kitchen-dishes, `key` for families and
-// categories/sections, and either numeric id or username for users — see
-// backend/app/routers/admin.py + admin_users.py. Since every entity name
+// spirits/kitchen-categories/kitchen-dishes, `key` for families, categories/
+// sections, and the glasses/badges/ice-types dictionaries, and either
+// numeric id or username for users — see backend/app/routers/admin.py +
+// admin_users.py. Since every entity name
 // here already matches its backend path segment 1:1, `pathFor` is a single
 // template, no per-entity mapping table needed.
 //
@@ -24,6 +25,9 @@ export type AdminEntity =
   | "families"
   | "categories"
   | "users"
+  | "glasses"
+  | "badges"
+  | "ice-types"
 
 function pathFor(entity: AdminEntity, key?: string): string {
   const base = `/api/admin/${entity}`

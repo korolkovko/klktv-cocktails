@@ -1,7 +1,8 @@
 import * as React from "react"
-import { Plus } from "lucide-react"
+import { ChevronRight, Plus } from "lucide-react"
 import { toast } from "sonner"
 
+import { cn } from "@/lib/utils"
 import { resolveImageUrl } from "@/lib/img"
 import { Button } from "@/components/ui/button"
 import { Fab } from "@/components/kollektiv/fab"
@@ -25,6 +26,7 @@ import {
 } from "../components/kit/form"
 import { ImageField } from "../components/kit/image-field"
 import { RelationTags } from "../components/kit/relation-tags"
+import { DictionaryField } from "../components/kit/dictionary-field"
 import { ChipMenu } from "../components/kit/chip-menu"
 import { ArchiveFilter, matchesArchiveView, type ArchiveView } from "../components/kit/archive-filter"
 
@@ -57,6 +59,7 @@ export interface DrinkWriteIn {
   volume_ml: number | null
   glass: string | null
   badge: string | null
+  ice: string | null
   sort_order: number
   is_alcoholic: boolean
   is_zero_culture: boolean
@@ -79,6 +82,21 @@ export interface DrinkAdminOut extends DrinkWriteIn {
   id: number
   abv: number | null
   price_amount: number | null
+}
+
+// Стакан/Бейдж/Лёд are managed dictionaries (task A4's backend CRUD at
+// /api/admin/glasses|badges|ice-types), mirroring backend/app/schemas_admin
+// .py's LookupWriteIn/LookupAdminOut one-for-one. `key` is never sent on
+// write — the server derives it from `label` (see admin.py's `_slugify`) —
+// so LookupWriteIn only ever carries {label, sort_order}.
+export interface LookupWriteIn {
+  label: string
+  sort_order: number
+}
+
+export interface LookupAdminOut extends LookupWriteIn {
+  id: number
+  key: string
 }
 
 // is_carbonated is tri-state in the DB: NULL for every alcoholic-origin
@@ -127,6 +145,7 @@ interface DrinkForm {
   volume_ml: number | null
   glass: string
   badge: string
+  ice: string
   sort_order: number
   is_alcoholic: boolean
   is_zero_culture: boolean
@@ -160,6 +179,7 @@ const BLANK_FORM: DrinkForm = {
   volume_ml: null,
   glass: "",
   badge: "",
+  ice: "",
   sort_order: 0,
   is_alcoholic: true,
   is_zero_culture: false,
@@ -194,6 +214,7 @@ export function fromAdminOut(row: DrinkAdminOut): DrinkForm {
     volume_ml: row.volume_ml,
     glass: row.glass ?? "",
     badge: row.badge ?? "",
+    ice: row.ice ?? "",
     sort_order: row.sort_order,
     is_alcoholic: row.is_alcoholic,
     is_zero_culture: row.is_zero_culture,
@@ -227,6 +248,7 @@ export function toWriteIn(form: DrinkForm): DrinkWriteIn {
     volume_ml: form.volume_ml,
     glass: form.glass.trim() || null,
     badge: form.badge.trim() || null,
+    ice: form.ice.trim() || null,
     sort_order: form.sort_order,
     is_alcoholic: form.is_alcoholic,
     is_zero_culture: form.is_zero_culture,
@@ -340,6 +362,16 @@ export function DrinksPage() {
   const [archiveView, setArchiveView] = React.useState<ArchiveView>("active")
   const [confirm, setConfirm] = React.useState<ConfirmState | null>(null)
 
+  // Стакан/Бейдж/Лёд dictionaries — loaded alongside the drinks list, fed
+  // into the three DictionaryField selects below and into the collapsible
+  // DictionariesPanel manager (mirrors SpiritsPage's categories/loadCategories
+  // split, just three dictionaries at once instead of one).
+  const [glasses, setGlasses] = React.useState<LookupAdminOut[]>([])
+  const [badges, setBadges] = React.useState<LookupAdminOut[]>([])
+  const [iceTypes, setIceTypes] = React.useState<LookupAdminOut[]>([])
+  const [dictionariesLoading, setDictionariesLoading] = React.useState(true)
+  const [dictionariesOpen, setDictionariesOpen] = React.useState(false)
+
   const load = React.useCallback(async () => {
     setLoading(true)
     try {
@@ -351,9 +383,75 @@ export function DrinksPage() {
     }
   }, [])
 
+  const loadDictionaries = React.useCallback(async () => {
+    setDictionariesLoading(true)
+    try {
+      const [g, b, i] = await Promise.all([
+        adminApi.list<LookupAdminOut>("glasses"),
+        adminApi.list<LookupAdminOut>("badges"),
+        adminApi.list<LookupAdminOut>("ice-types"),
+      ])
+      setGlasses(g)
+      setBadges(b)
+      setIceTypes(i)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Не удалось загрузить справочники")
+    } finally {
+      setDictionariesLoading(false)
+    }
+  }, [])
+
   React.useEffect(() => {
     void load()
-  }, [load])
+    void loadDictionaries()
+  }, [load, loadDictionaries])
+
+  // onQuickAdd for the three DictionaryFields below: POST a new dictionary
+  // row (server derives its `key` from the label), reload the dictionaries
+  // (also picked up by the collapsible DictionariesPanel manager), and
+  // return the new key so the field can select it immediately. Errors are
+  // toasted here (DictionaryField itself just keeps the draft on failure).
+  const quickAddGlass = React.useCallback(
+    async (label: string): Promise<string> => {
+      try {
+        const created = await adminApi.create<LookupAdminOut>("glasses", { label })
+        await loadDictionaries()
+        return created.key
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Не удалось создать стакан")
+        throw e
+      }
+    },
+    [loadDictionaries]
+  )
+
+  const quickAddBadge = React.useCallback(
+    async (label: string): Promise<string> => {
+      try {
+        const created = await adminApi.create<LookupAdminOut>("badges", { label })
+        await loadDictionaries()
+        return created.key
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Не удалось создать бейдж")
+        throw e
+      }
+    },
+    [loadDictionaries]
+  )
+
+  const quickAddIce = React.useCallback(
+    async (label: string): Promise<string> => {
+      try {
+        const created = await adminApi.create<LookupAdminOut>("ice-types", { label })
+        await loadDictionaries()
+        return created.key
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Не удалось создать тип льда")
+        throw e
+      }
+    },
+    [loadDictionaries]
+  )
 
   function openNew() {
     setForm(BLANK_FORM)
@@ -498,6 +596,16 @@ export function DrinksPage() {
 
   return (
     <div>
+      <DictionariesPanel
+        glasses={glasses}
+        badges={badges}
+        iceTypes={iceTypes}
+        loading={dictionariesLoading}
+        open={dictionariesOpen}
+        onOpenChange={setDictionariesOpen}
+        onChanged={() => void loadDictionaries()}
+      />
+
       <EntityTable
         rows={filteredRows}
         rowKey={(d) => d.slug}
@@ -672,19 +780,29 @@ export function DrinksPage() {
             />
 
             <div className="grid grid-cols-2 gap-3">
-              <TextField
-                label="Стакан (ключ)"
+              <DictionaryField
+                label="Стакан"
                 value={form.glass}
+                options={glasses}
                 onChange={(v) => set("glass", v)}
-                hint="Будет создан автоматически, если такого ключа ещё нет"
+                onQuickAdd={quickAddGlass}
               />
-              <TextField
-                label="Бейдж (ключ)"
+              <DictionaryField
+                label="Бейдж"
                 value={form.badge}
+                options={badges}
                 onChange={(v) => set("badge", v)}
-                hint="Будет создан автоматически, если такого ключа ещё нет"
+                onQuickAdd={quickAddBadge}
               />
             </div>
+
+            <DictionaryField
+              label="Лёд"
+              value={form.ice}
+              options={iceTypes}
+              onChange={(v) => set("ice", v)}
+              onQuickAdd={quickAddIce}
+            />
 
             <div className="grid grid-cols-2 gap-3">
               <CheckboxField
@@ -757,6 +875,273 @@ export function DrinksPage() {
         destructive
         onConfirm={() => confirm?.onConfirm()}
       />
+    </div>
+  )
+}
+
+// ── Inline dictionaries management (Стаканы / Бейджи / Лёд) ───
+// Collapsible «Справочники» panel mounted above the drinks EntityTable —
+// mirrors SpiritsPage's inline `SpiritCategoriesPanel` shape (one collapsible
+// header + a mini EntityTable/§50-form manager underneath), just fanned out
+// to the three dictionaries the admin API exposes at
+// /api/admin/glasses|badges|ice-types (task A4). Each of the three is its own
+// `LookupManager` instance (own edit/confirm state), all collapsed/expanded
+// together by one outer toggle so the drinks list stays the primary focus of
+// the page by default.
+interface LookupForm {
+  key: string
+  label: string
+  sort_order: number
+}
+
+const BLANK_LOOKUP_FORM: LookupForm = { key: "", label: "", sort_order: 0 }
+
+function lookupFromAdminOut(row: LookupAdminOut): LookupForm {
+  return { key: row.key, label: row.label, sort_order: row.sort_order }
+}
+
+// `key` is intentionally dropped here — the server always derives it from
+// `label` (see task A4's `_slugify`), a dictionary write never sends one.
+function lookupToWriteIn(form: LookupForm): LookupWriteIn {
+  return { label: form.label.trim(), sort_order: form.sort_order }
+}
+
+type LookupEditing = { mode: "new" } | { mode: "edit"; row: LookupAdminOut } | null
+
+function LookupManager({
+  entity,
+  title,
+  rows,
+  loading,
+  onChanged,
+}: {
+  entity: "glasses" | "badges" | "ice-types"
+  title: string
+  rows: LookupAdminOut[]
+  loading: boolean
+  onChanged: () => void
+}) {
+  const [editing, setEditing] = React.useState<LookupEditing>(null)
+  const [form, setForm] = React.useState<LookupForm>(BLANK_LOOKUP_FORM)
+  const [saving, setSaving] = React.useState(false)
+  const [confirm, setConfirm] = React.useState<ConfirmState | null>(null)
+
+  function openNew() {
+    setForm(BLANK_LOOKUP_FORM)
+    setEditing({ mode: "new" })
+  }
+
+  function openEdit(row: LookupAdminOut) {
+    setForm(lookupFromAdminOut(row))
+    setEditing({ mode: "edit", row })
+  }
+
+  function set<K extends keyof LookupForm>(key: K, value: LookupForm[K]) {
+    setForm((f) => ({ ...f, [key]: value }))
+  }
+
+  async function performDelete(row: LookupAdminOut) {
+    try {
+      await adminApi.remove(entity, row.key)
+      toast.success(`Удалено · ${row.label || row.key}`)
+      if (editing?.mode === "edit" && editing.row.key === row.key) setEditing(null)
+      onChanged()
+    } catch (e) {
+      // 409 (a drink still references this dictionary row) surfaces here via
+      // lib/api.ts's Error(detail).
+      toast.error(e instanceof Error ? e.message : "Не удалось удалить значение")
+    }
+  }
+
+  function deleteFromForm(row: LookupAdminOut) {
+    setEditing(null)
+    setConfirm({
+      title: `Удалить · ${row.label || row.key}?`,
+      description: "Нельзя удалить значение, пока его использует хотя бы один коктейль.",
+      onConfirm: () => void performDelete(row),
+    })
+  }
+
+  async function handleSave() {
+    if (!editing) return
+    setSaving(true)
+    try {
+      const body = lookupToWriteIn(form)
+      if (editing.mode === "new") {
+        await adminApi.create(entity, body)
+        toast.success(`Создано · ${body.label}`)
+      } else {
+        await adminApi.update(entity, editing.row.key, body)
+        toast.success(`Сохранено · ${body.label || editing.row.key}`)
+      }
+      setEditing(null)
+      onChanged()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Не удалось сохранить")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const saveDisabled = !form.label.trim()
+
+  const columns: EntityColumn<LookupAdminOut>[] = [
+    {
+      key: "sort",
+      label: "ПОРЯДОК",
+      width: 88,
+      align: "right",
+      mobile: "hidden",
+      render: (r) => <EntityMeta>{r.sort_order}</EntityMeta>,
+    },
+  ]
+
+  const actions: EntityAction<LookupAdminOut>[] = [
+    { label: "Изменить", onSelect: (r) => openEdit(r) },
+    {
+      label: "Удалить",
+      fire: true,
+      fireSublabel: "HOLD 3 SEC · NO UNDO",
+      onSelect: (r) => void performDelete(r),
+    },
+  ]
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-mono text-[10px] tracking-[0.06em] text-[#52525B]">
+          {title.toUpperCase()} · {rows.length}
+        </span>
+        <Button size="sm" variant="secondary" onClick={openNew}>
+          + Добавить
+        </Button>
+      </div>
+
+      <EntityTable
+        rows={rows}
+        rowKey={(r) => r.key}
+        identity={(r) => ({ name: r.label, sub: `#${r.key}`, initials: initialsOf(r.label) })}
+        identityLabel={title.toUpperCase()}
+        columns={columns}
+        actions={actions}
+        onRowClick={(r) => openEdit(r)}
+        toolbar={false}
+        emptyState={
+          <div className="px-4 py-8 text-center font-mono text-[11px] tracking-[0.06em] text-muted-foreground">
+            {loading ? "Загрузка…" : "НЕТ ЗНАЧЕНИЙ"}
+          </div>
+        }
+      />
+
+      <ResponsiveDialog
+        open={editing !== null}
+        onOpenChange={(o) => !o && setEditing(null)}
+        title={
+          editing
+            ? editing.mode === "new"
+              ? `Новое значение · ${title}`
+              : `Изменить · ${editing.row.label || editing.row.key}`
+            : ""
+        }
+        contentClassName="sm:max-w-[480px]"
+        footer={
+          <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:items-center">
+            {editing?.mode === "edit" && (
+              <Button
+                variant="destructive"
+                onClick={() => deleteFromForm(editing.row)}
+                className="sm:mr-auto max-md:w-full"
+              >
+                Удалить
+              </Button>
+            )}
+            <Button variant="quiet" onClick={() => setEditing(null)} className="max-md:w-full">
+              Отмена
+            </Button>
+            <Button
+              onClick={() => void handleSave()}
+              disabled={saveDisabled || saving}
+              className="max-md:w-full"
+            >
+              Сохранить
+            </Button>
+          </div>
+        }
+      >
+        {editing && (
+          <div className="flex flex-col gap-4 py-1">
+            <TextField
+              label="Название"
+              value={form.label}
+              onChange={(v) => set("label", v)}
+              required
+              maxLength={64}
+            />
+            <TextField
+              label="Ключ"
+              value={editing.mode === "edit" ? form.key : "будет создан автоматически"}
+              onChange={() => {}}
+              disabled
+              hint="Выводится из названия автоматически — не редактируется"
+            />
+            <NumberField
+              label="Порядок сортировки"
+              value={form.sort_order}
+              onChange={(v) => set("sort_order", v ?? 0)}
+            />
+          </div>
+        )}
+      </ResponsiveDialog>
+
+      <ConfirmDialog
+        open={confirm !== null}
+        onOpenChange={(o) => !o && setConfirm(null)}
+        title={confirm?.title ?? ""}
+        description={confirm?.description}
+        confirmLabel="Удалить"
+        destructive
+        onConfirm={() => confirm?.onConfirm()}
+      />
+    </div>
+  )
+}
+
+function DictionariesPanel({
+  glasses,
+  badges,
+  iceTypes,
+  loading,
+  open,
+  onOpenChange,
+  onChanged,
+}: {
+  glasses: LookupAdminOut[]
+  badges: LookupAdminOut[]
+  iceTypes: LookupAdminOut[]
+  loading: boolean
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onChanged: () => void
+}) {
+  return (
+    <div className="mb-4">
+      <button
+        type="button"
+        onClick={() => onOpenChange(!open)}
+        className="flex min-h-8 items-center gap-1.5 font-mono text-[11px] tracking-[0.06em] text-muted-foreground"
+        aria-expanded={open}
+      >
+        <ChevronRight className={cn("size-3.5 transition-transform", open && "rotate-90")} strokeWidth={2} />
+        СПРАВОЧНИКИ · СТАКАНЫ {glasses.length} · БЕЙДЖИ {badges.length} · ЛЁД {iceTypes.length}
+      </button>
+
+      {open && (
+        <div className="mt-3 flex flex-col gap-5 rounded-lg border border-input p-3">
+          <LookupManager entity="glasses" title="Стаканы" rows={glasses} loading={loading} onChanged={onChanged} />
+          <LookupManager entity="badges" title="Бейджи" rows={badges} loading={loading} onChanged={onChanged} />
+          <LookupManager entity="ice-types" title="Лёд" rows={iceTypes} loading={loading} onChanged={onChanged} />
+        </div>
+      )}
     </div>
   )
 }
