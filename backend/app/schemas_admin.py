@@ -48,6 +48,7 @@ class DrinkWriteIn(BaseModel):
     sort_order: int = 0
     is_alcoholic: bool = True
     is_zero_culture: bool = False
+    is_hot: bool = False
     caffeine_level: int | None = None
     is_carbonated: bool | None = None
     recipe: str | None = None

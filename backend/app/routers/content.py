@@ -39,7 +39,7 @@ def _serialize_drink(d: m.Drink) -> DrinkOut:
         badge=d.badge.key.upper() if d.badge else None,
         recipe=d.recipe, garnish=d.garnish, pitch=d.pitch, photo=d.photo,
         about=d.about, naming=d.naming, faq=d.faq,
-        isAlcoholic=d.is_alcoholic, isZeroCulture=d.is_zero_culture,
+        isAlcoholic=d.is_alcoholic, isZeroCulture=d.is_zero_culture, isHot=d.is_hot,
         caffeineLevel=d.caffeine_level, isCarbonated=d.is_carbonated,
         details=[DrinkDetailOut(label=dd.label, text=dd.text) for dd in d.details],
     )

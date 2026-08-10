@@ -90,3 +90,14 @@ def test_slug_rename_reconciles_learning_progress(editor_client):
         editor_client.delete(f"/api/admin/drinks/{new_slug}")
         editor_client.delete(f"/api/me/progress/menu/{slug}")
         editor_client.delete(f"/api/me/progress/menu/{new_slug}")
+
+
+def test_is_hot_roundtrips_and_reaches_guest(editor_client):
+    p = {"slug":"hot-x","name":"Горячий","is_alcoholic":True,"is_zero_culture":False,"is_hot":True}
+    try:
+        assert editor_client.post("/api/admin/drinks", json=p).status_code == 201
+        assert editor_client.get("/api/admin/drinks/hot-x").json()["is_hot"] is True
+        d = next(x for x in editor_client.get("/api/content").json()["drinks"] if x["id"]=="hot-x")
+        assert d["isHot"] is True and d.get("badge") in (None,)  # hot is its own flag, not a badge
+    finally:
+        editor_client.delete("/api/admin/drinks/hot-x")

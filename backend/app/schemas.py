@@ -73,6 +73,7 @@ class DrinkOut(BaseModel):
     # forward-compat (kit type doesn't read these yet; Phase 1b kit extension will)
     isAlcoholic: bool = True
     isZeroCulture: bool = False
+    isHot: bool = False
     caffeineLevel: int | None = None
     isCarbonated: bool | None = None
     # Free-form story blocks (label+text) migrated from prod cocktail/zero/zc

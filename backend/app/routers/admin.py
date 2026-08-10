@@ -259,6 +259,7 @@ def _to_admin_out(obj: m.Drink) -> DrinkAdminOut:
         ice=obj.ice.key if obj.ice else None,
         sort_order=obj.sort_order,
         is_alcoholic=obj.is_alcoholic, is_zero_culture=obj.is_zero_culture,
+        is_hot=obj.is_hot,
         caffeine_level=obj.caffeine_level, is_carbonated=obj.is_carbonated,
         recipe=obj.recipe, garnish=obj.garnish, pitch=obj.pitch,
         about=obj.about, naming=obj.naming, faq=obj.faq,
@@ -280,6 +281,7 @@ def _apply_drink(db: Session, obj: m.Drink, data: DrinkWriteIn) -> None:
     obj.volume_ml = data.volume_ml; obj.sort_order = data.sort_order
     obj.is_archived = data.is_archived
     obj.is_alcoholic = data.is_alcoholic; obj.is_zero_culture = data.is_zero_culture
+    obj.is_hot = data.is_hot
     obj.caffeine_level = data.caffeine_level; obj.is_carbonated = data.is_carbonated
     obj.recipe = data.recipe; obj.garnish = data.garnish; obj.pitch = data.pitch
     obj.about = data.about; obj.naming = data.naming; obj.faq = data.faq
