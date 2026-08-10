@@ -101,11 +101,21 @@ class Category(Base):
 
 
 # ── Drinks (author menu; absorbs cocktails + zero + zc) ──
+class DrinkCategory(Base):
+    __tablename__ = "drink_categories"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    slug: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    label: Mapped[str] = mapped_column(String(128), nullable=False)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    drinks: Mapped[list["Drink"]] = relationship(back_populates="category", order_by="Drink.sort_order, Drink.name")
+
+
 class Drink(Base):
     __tablename__ = "drinks"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     slug: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(128), nullable=False)
+    category_id: Mapped[int] = mapped_column(ForeignKey("drink_categories.id", ondelete="RESTRICT"), index=True)
     img: Mapped[str | None] = mapped_column(String(256))
     subtitle: Mapped[str | None] = mapped_column(Text)
     is_alcoholic: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
@@ -133,6 +143,7 @@ class Drink(Base):
     is_archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    category: Mapped["DrinkCategory"] = relationship(back_populates="drinks")
     glass: Mapped["Glass | None"] = relationship()
     badge: Mapped["Badge | None"] = relationship()
     ice: Mapped["IceType | None"] = relationship()
