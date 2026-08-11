@@ -1,16 +1,19 @@
 import * as React from "react"
 
 import { Button } from "@/components/ui/button"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Combobox } from "@/components/kollektiv/combobox"
 import { Field } from "./form"
 
 // Form field: searchable MULTI-select over existing entities, built on the
-// kit's §19 Combobox (SearchInput popup + checkbox list) wrapped in a Popover
-// (the same "trigger → combobox popup" composition block-sales uses for its
-// multi-selects). Stores the entity's stable `value` (e.g. a drink slug) but
-// shows its human `label` (name) everywhere — selected chips and the list both
-// render the name, never a raw slug. Replaces a free-text slug input.
+// kit's §19 Combobox (SearchInput + checkbox list). Stores the entity's stable
+// `value` (e.g. a drink slug) but shows its human `label` (name) everywhere —
+// selected chips and the list both render the name, never a raw slug.
+//
+// The Combobox is rendered INLINE (expand/collapse), NOT inside a Radix
+// Popover: this field lives inside the §50 ResponsiveDialog (a Radix Dialog
+// with RemoveScroll), and a portaled Popover's inner list can't be scrolled
+// through that scroll-lock. Inline keeps the list inside the dialog's own
+// scroll region, so its max-h scroll works normally.
 export function ComboboxMultiField({
   label,
   value,
@@ -64,18 +67,8 @@ export function ComboboxMultiField({
         </div>
       )}
 
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button type="button" variant="secondary" size="sm" className="self-start">
-            {triggerLabel ?? "Добавить…"}
-          </Button>
-        </PopoverTrigger>
-        {/* strip PopoverContent chrome — the Combobox carries its own frame */}
-        <PopoverContent
-          align="start"
-          sideOffset={4}
-          className="w-80 border-0 bg-transparent p-0 shadow-none"
-        >
+      {open ? (
+        <div className="flex flex-col gap-1.5">
           <Combobox
             multi
             autoFocus
@@ -86,8 +79,27 @@ export function ComboboxMultiField({
             emptyText={emptyText}
             footer={null}
           />
-        </PopoverContent>
-      </Popover>
+          <Button
+            type="button"
+            variant="quiet"
+            size="sm"
+            className="self-start"
+            onClick={() => setOpen(false)}
+          >
+            Готово
+          </Button>
+        </div>
+      ) : (
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          className="self-start"
+          onClick={() => setOpen(true)}
+        >
+          {triggerLabel ?? "Добавить…"}
+        </Button>
+      )}
     </Field>
   )
 }
