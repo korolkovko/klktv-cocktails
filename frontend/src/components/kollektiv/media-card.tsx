@@ -4,9 +4,10 @@ import { cn } from "@/lib/utils"
 import { LearnedToggle } from "@/components/kollektiv/learned-toggle"
 
 // §45 MEDIA CARD — первая карточка с изображением в системе (справочник
-// коктейлей, Pages 3n). Тамб — плашка-вордмарк позиции в НАТИВНОЙ пропорции
-// (~2.3:1, 120×52 mobile / 132×56 desktop), object-fit cover, INK-рамка R6 —
-// буквы не режем (пропорция совпадает). Имя 14/700 + бейдж чипом (HOT=SIGNAL,
+// коктейлей, Pages 3n). Тамб — логотип позиции: ширина фиксирована (120 mobile
+// / 132 desktop), высота АВТО по натуральной пропорции — логотип не кропаем
+// (object-contain + h-auto + self-start, чтобы флекс-строка не тянула картинку).
+// INK-рамка R6. Имя 14/700 + бейдж чипом (HOT=SIGNAL,
 // BOTTLED/PREMIUM=INK, ONESIP=BUTTER); цена — ТИХОЙ mono-строкой, не чипом
 // (в справочнике главное — состав). Тогл §44 в углу. Фото продукта, когда
 // появятся, живут в детали, не hero карточки.
@@ -27,7 +28,7 @@ const BADGE_TONE: Record<MediaBadgeTone, string> = {
 }
 
 export interface MediaCardProps {
-  /** URL тамба-вордмарка (нативная пропорция ~2.3:1) */
+  /** URL логотипа позиции (ширина фиксирована, высота — по натуральной пропорции) */
   image: string
   imageAlt?: string
   name: string
@@ -83,7 +84,7 @@ export function MediaCard({
         src={image}
         alt={imageAlt ?? name}
         loading="lazy"
-        className="h-[52px] w-[120px] shrink-0 rounded-md border border-border object-cover md:h-[56px] md:w-[132px]"
+        className="h-auto w-[120px] shrink-0 self-start rounded-md border border-border object-contain md:w-[132px]"
       />
       <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
         <div className="flex items-start justify-between gap-2">
