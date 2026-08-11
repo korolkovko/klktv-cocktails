@@ -1,4 +1,5 @@
 import * as React from "react"
+import { ChevronLeft, ChevronRight } from "lucide-react"
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer"
@@ -82,22 +83,26 @@ function FlavorChips({ spirits, descriptors }: { spirits: string[]; descriptors:
 
 const GlassGarnish = ({ glass, garnish, ice }: { glass?: string; garnish?: string; ice?: string }) =>
   garnish || ice ? (
-    <div className="grid grid-cols-2 gap-3">
-      <div className="flex flex-col gap-1">
-        <Label>БОКАЛ</Label>
-        <span className="text-[13px]">{glass}</span>
+    <div className="flex flex-col gap-3">
+      {/* короткие значения-словари слева в одну строку: Бокал + Лёд */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="flex flex-col gap-1">
+          <Label>БОКАЛ</Label>
+          <span className="text-[13px]">{glass}</span>
+        </div>
+        {/* Task A7: тип льда — только когда задан (словарь ice-types) */}
+        {ice && (
+          <div className="flex flex-col gap-1">
+            <Label>ЛЁД</Label>
+            <span className="text-[13px]">{ice}</span>
+          </div>
+        )}
       </div>
+      {/* гарниш может быть длинным — на всю ширину под строкой бокал/лёд */}
       {garnish && (
         <div className="flex flex-col gap-1">
           <Label>ГАРНИШ</Label>
           <span className="text-[13px]">{garnish}</span>
-        </div>
-      )}
-      {/* Task A7: тип льда — только когда задан (словарь ice-types) */}
-      {ice && (
-        <div className="flex flex-col gap-1">
-          <Label>ЛЁД</Label>
-          <span className="text-[13px]">{ice}</span>
         </div>
       )}
     </div>
@@ -170,25 +175,53 @@ function PhotoGallery({ photos, alt }: { photos?: string[]; alt: string }) {
 
   if (list.length === 0) return null
 
+  const scrollByOne = (dir: -1 | 1) => {
+    const el = trackRef.current
+    if (el) el.scrollBy({ left: dir * el.clientWidth, behavior: "smooth" })
+  }
+
   return (
     <div className="flex flex-col gap-2">
-      <div
-        ref={trackRef}
-        onScroll={list.length > 1 ? onScroll : undefined}
-        className={cn(
-          "flex w-full snap-x snap-mandatory overflow-y-hidden rounded-2xl border border-border [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
-          list.length > 1 ? "overflow-x-auto" : "overflow-x-hidden"
+      <div className="relative">
+        <div
+          ref={trackRef}
+          onScroll={list.length > 1 ? onScroll : undefined}
+          className={cn(
+            "flex w-full snap-x snap-mandatory overflow-y-hidden rounded-2xl border border-border [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+            list.length > 1 ? "overflow-x-auto" : "overflow-x-hidden"
+          )}
+        >
+          {list.map((src, i) => (
+            <div key={`${src}-${i}`} className="aspect-[3/4] w-full shrink-0 snap-center bg-[#EDEDE8]">
+              <img
+                src={src}
+                alt={list.length > 1 ? `${alt} — фото ${i + 1} из ${list.length}` : alt}
+                className="h-full w-full object-contain"
+              />
+            </div>
+          ))}
+        </div>
+        {/* стрелки для десктопа (на мобилке — свайп) */}
+        {list.length > 1 && (
+          <>
+            <button
+              type="button"
+              aria-label="Предыдущее фото"
+              onClick={() => scrollByOne(-1)}
+              className="absolute top-1/2 left-2 hidden size-8 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-background/85 text-foreground shadow-sm backdrop-blur transition hover:bg-background sm:flex"
+            >
+              <ChevronLeft className="size-4" />
+            </button>
+            <button
+              type="button"
+              aria-label="Следующее фото"
+              onClick={() => scrollByOne(1)}
+              className="absolute top-1/2 right-2 hidden size-8 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-background/85 text-foreground shadow-sm backdrop-blur transition hover:bg-background sm:flex"
+            >
+              <ChevronRight className="size-4" />
+            </button>
+          </>
         )}
-      >
-        {list.map((src, i) => (
-          <div key={`${src}-${i}`} className="aspect-[3/4] w-full shrink-0 snap-center bg-[#EDEDE8]">
-            <img
-              src={src}
-              alt={list.length > 1 ? `${alt} — фото ${i + 1} из ${list.length}` : alt}
-              className="h-full w-full object-contain"
-            />
-          </div>
-        ))}
       </div>
       {list.length > 1 && (
         <div className="flex justify-center gap-1.5" role="tablist" aria-label="Фото коктейля">

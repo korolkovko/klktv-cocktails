@@ -1098,12 +1098,8 @@ function DrinkCategoriesPanel({
 
   const actions: EntityAction<DrinkCategoryAdminOut>[] = [
     { label: "Изменить", onSelect: (c) => openEdit(c) },
-    {
-      label: "Удалить",
-      fire: true,
-      fireSublabel: "HOLD 3 SEC · NO UNDO",
-      onSelect: (c) => void performDelete(c),
-    },
+    // подпанель управления — обычное удаление с подтверждением (не аркада-hold)
+    { label: "Удалить", onSelect: (c) => deleteFromForm(c) },
   ]
 
   return (
@@ -1329,12 +1325,9 @@ function LookupManager({
 
   const actions: EntityAction<LookupAdminOut>[] = [
     { label: "Изменить", onSelect: (r) => openEdit(r) },
-    {
-      label: "Удалить",
-      fire: true,
-      fireSublabel: "HOLD 3 SEC · NO UNDO",
-      onSelect: (r) => void performDelete(r),
-    },
+    // словарное значение — низкая ставка: обычное удаление с подтверждением
+    // (не аркада-hold, которую легко «кликнуть без удержания»)
+    { label: "Удалить", onSelect: (r) => deleteFromForm(r) },
   ]
 
   return (
