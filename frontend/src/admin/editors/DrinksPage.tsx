@@ -476,7 +476,7 @@ export function DrinksPage() {
         await loadDictionaries()
         return created.key
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Не удалось создать стакан")
+        toast.error(e instanceof Error ? e.message : "Не удалось создать бокал")
         throw e
       }
     },
@@ -876,7 +876,7 @@ export function DrinksPage() {
 
             <div className="grid grid-cols-2 gap-3">
               <DictionaryField
-                label="Стакан"
+                label="Бокал"
                 value={form.glass}
                 options={glasses}
                 onChange={(v) => set("glass", v)}
@@ -1456,12 +1456,12 @@ function DictionariesPanel({
         aria-expanded={open}
       >
         <ChevronRight className={cn("size-3.5 transition-transform", open && "rotate-90")} strokeWidth={2} />
-        СПРАВОЧНИКИ · СТАКАНЫ {glasses.length} · БЕЙДЖИ {badges.length} · ЛЁД {iceTypes.length}
+        СПРАВОЧНИКИ · БОКАЛЫ {glasses.length} · БЕЙДЖИ {badges.length} · ЛЁД {iceTypes.length}
       </button>
 
       {open && (
         <div className="mt-3 flex flex-col gap-5 rounded-lg border border-input p-3">
-          <LookupManager entity="glasses" title="Стаканы" rows={glasses} loading={loading} onChanged={onChanged} />
+          <LookupManager entity="glasses" title="Бокалы" rows={glasses} loading={loading} onChanged={onChanged} />
           <LookupManager entity="badges" title="Бейджи" rows={badges} loading={loading} onChanged={onChanged} />
           <LookupManager entity="ice-types" title="Лёд" rows={iceTypes} loading={loading} onChanged={onChanged} />
         </div>

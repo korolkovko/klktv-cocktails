@@ -495,7 +495,7 @@ export function ClassicsPage() {
                 maxLength={128}
               />
               <TextField
-                label="Стакан (ключ)"
+                label="Бокал (ключ)"
                 value={form.glass}
                 onChange={(v) => set("glass", v)}
                 hint="Будет создан автоматически, если такого ключа ещё нет"
