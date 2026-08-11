@@ -17,6 +17,7 @@ import {
 import { adminApi } from "../api"
 import { CheckboxField, NumberField, SelectField, TextArea, TextField } from "../components/kit/form"
 import { RelationTags } from "../components/kit/relation-tags"
+import { ComboboxMultiField } from "../components/kit/combobox-field"
 import { ChipMenu } from "../components/kit/chip-menu"
 import { ArchiveFilter, matchesArchiveView, type ArchiveView } from "../components/kit/archive-filter"
 
@@ -180,6 +181,7 @@ interface ConfirmState {
 export function ClassicsPage() {
   const [rows, setRows] = React.useState<ClassicAdminOut[]>([])
   const [families, setFamilies] = React.useState<FamilyOption[]>([])
+  const [drinkOptions, setDrinkOptions] = React.useState<{ value: string; label: string }[]>([])
   const [loading, setLoading] = React.useState(true)
   const [editing, setEditing] = React.useState<Editing>(null)
   const [form, setForm] = React.useState<ClassicForm>(BLANK_FORM)
@@ -209,6 +211,15 @@ export function ClassicsPage() {
       .list<FamilyOption>("families")
       .then(setFamilies)
       .catch(() => setFamilies([]))
+  }, [])
+
+  // Existing drinks for the «Связанные напитки» picker (stores slugs, shows
+  // names). Includes archived — you may still relate to a retired drink.
+  React.useEffect(() => {
+    adminApi
+      .list<{ slug: string; name: string }>("drinks")
+      .then((ds) => setDrinkOptions(ds.map((d) => ({ value: d.slug, label: d.name }))))
+      .catch(() => setDrinkOptions([]))
   }, [])
 
   function openNew() {
@@ -522,11 +533,14 @@ export function ClassicsPage() {
               onChange={(v) => set("descriptors", v)}
               placeholder="крепкий, освежающий, …"
             />
-            <RelationTags
-              label="Связанные напитки (слаги)"
+            <ComboboxMultiField
+              label="Связанные напитки"
               value={form.related_drinks}
               onChange={(v) => set("related_drinks", v)}
-              hint="Неизвестные слаги молча игнорируются при сохранении"
+              options={drinkOptions}
+              triggerLabel="+ Добавить напиток"
+              searchPlaceholder="Поиск по названию…"
+              hint="Выбор из существующих коктейлей"
             />
           </div>
         )}
